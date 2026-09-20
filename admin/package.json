@@ -1,0 +1,17 @@
+{
+  "name": "@carmediahub/core-admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CarMediaHub Core administration application.",
+  "license": "AGPL-3.0-only",
+  "scripts": { "dev": "max dev", "build": "max build", "check": "tsc --noEmit" },
+  "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@ant-design/pro-components": "^2.8.10",
+    "@umijs/max": "^4.7.19",
+    "antd": "^5.25.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": { "@types/react": "^18.3.18", "@types/react-dom": "^18.3.5", "typescript": "^5.8.3" }
+}

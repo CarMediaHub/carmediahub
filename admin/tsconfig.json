@@ -1,0 +1,1 @@
+{ "extends": "@umijs/max/tsconfig", "compilerOptions": { "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true } }

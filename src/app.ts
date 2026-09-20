@@ -166,5 +166,21 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.type("text/html; charset=utf-8").send(fs.readFileSync(page, "utf8"));
   });
 
+  app.get("/admin", async (_request, reply) => reply.redirect("/admin/", 302));
+  app.get("/admin/", async (_request, reply) => {
+    const page = path.join(import.meta.dirname, "..", "public", "admin", "index.html");
+    if (!fs.existsSync(page)) return reply.code(503).send({ code: "CMH.ADMIN.BUILD_REQUIRED", messageKey: "errors.admin.buildRequired" });
+    return reply.type("text/html; charset=utf-8").send(fs.readFileSync(page, "utf8"));
+  });
+  app.get("/admin/*", async (request, reply) => {
+    const relative = (request.params as { "*": string })["*"];
+    const root = path.resolve(import.meta.dirname, "..", "public", "admin");
+    const asset = path.resolve(root, relative);
+    if (!asset.startsWith(root + path.sep) || !fs.existsSync(asset) || !fs.statSync(asset).isFile()) return reply.code(404).send({ code: "CMH.ADMIN.ASSET_NOT_FOUND", messageKey: "errors.admin.assetNotFound" });
+    const extension = path.extname(asset).toLowerCase();
+    const contentType = extension === ".js" ? "application/javascript" : extension === ".css" ? "text/css" : extension === ".json" ? "application/json" : "application/octet-stream";
+    return reply.type(contentType).send(fs.readFileSync(asset));
+  });
+
   return app;
 }
