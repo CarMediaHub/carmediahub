@@ -17,4 +17,10 @@ pnpm build
 pnpm start -- --data-dir .\data
 ```
 
+Docker development deployment (from the parent `CarMediaHub` directory):
+
+```powershell
+docker compose -f carmediahub/compose.yaml up --build
+```
+
 The Core does not require runtime environment variables or executables discovered through `PATH`. Components such as AList, rclone and FFmpeg are registered through versioned managed-component metadata and explicit service bindings. Their full packaged adapters are delivered in later milestones.

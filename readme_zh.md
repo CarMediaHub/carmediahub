@@ -16,3 +16,9 @@ pnpm start -- --data-dir .\data
 ```
 
 Core 使用显式数据目录，不要求运行时环境变量或通过系统 PATH 隐式发现组件。
+
+从 `CarMediaHub` 父目录使用 Docker：
+
+```powershell
+docker compose -f carmediahub/compose.yaml up --build
+```

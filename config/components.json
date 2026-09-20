@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "alist",
+      "displayName": "AList",
+      "kind": "service",
+      "version": "not-installed",
+      "executable": "alist/alist",
+      "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
+      "sha256": null,
+      "status": "catalog-only"
+    },
+    {
+      "id": "rclone",
+      "displayName": "rclone",
+      "kind": "service",
+      "version": "not-installed",
+      "executable": "rclone/rclone",
+      "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
+      "sha256": null,
+      "status": "catalog-only"
+    },
+    {
+      "id": "ffmpeg",
+      "displayName": "FFmpeg",
+      "kind": "media-tool",
+      "version": "not-installed",
+      "executable": "ffmpeg/ffmpeg",
+      "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
+      "sha256": null,
+      "status": "catalog-only"
+    },
+    {
+      "id": "sevenzip",
+      "displayName": "7-Zip",
+      "kind": "utility",
+      "version": "not-installed",
+      "executable": "7zip/7zz",
+      "platforms": ["windows-x64", "linux-x64"],
+      "sha256": null,
+      "status": "catalog-only"
+    },
+    {
+      "id": "mihomo",
+      "displayName": "Mihomo",
+      "kind": "network-service",
+      "version": "not-installed",
+      "executable": "mihomo/mihomo",
+      "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
+      "sha256": null,
+      "status": "catalog-only"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
 import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
+import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
 
 export interface AppOptions { dataDir: string; }
 
@@ -17,6 +18,7 @@ function validCredential(value: string, field: string): void {
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
   const repository = new Repository(database.db, ensureServerKey(options.dataDir));
+  const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const app = Fastify({ logger: false });
   await app.register(cookie);
 
@@ -79,6 +81,16 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/apps", async (request, reply) => {
     const user = await requireUser(request, reply);
     return user === undefined ? undefined : { applications: repository.applications() };
+  });
+
+  app.get("/api/components/catalog", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { components: catalog.map((component) => ({ ...component, executablePath: resolveManagedExecutable(options.dataDir, component) })) };
+  });
+
+  app.get("/api/components", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings() };
   });
 
   app.post("/api/apps", async (request, reply) => {

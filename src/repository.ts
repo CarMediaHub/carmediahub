@@ -102,6 +102,14 @@ export class Repository {
       .run(id("binding"), input.componentId, input.name, input.endpoint, now());
   }
 
+  components(): Array<Record<string, string>> {
+    return this.db.prepare("SELECT id, version, executable, checksum, installed_at, health FROM managed_components ORDER BY id").all() as Array<Record<string, string>>;
+  }
+
+  serviceBindings(): Array<Record<string, string>> {
+    return this.db.prepare("SELECT id, component_id, name, endpoint, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
+  }
+
   audit(actorId: string | undefined, type: string, subject: string): void {
     this.db.prepare("INSERT INTO audit_events (id, actor_id, type, subject, created_at) VALUES (?, ?, ?, ?, ?)").run(id("audit"), actorId ?? null, type, subject, now());
   }
