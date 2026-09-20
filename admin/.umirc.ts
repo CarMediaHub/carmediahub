@@ -14,6 +14,8 @@ export default defineConfig({
   routes: [
     { path: "/login", component: "./Login" },
     { path: "/", redirect: "/overview" },
-    { path: "/overview", component: "./Overview" }
+    { path: "/overview", component: "./Overview" },
+    { path: "/components", component: "./Components" },
+    { path: "/keys", component: "./Keys" }
   ]
 });

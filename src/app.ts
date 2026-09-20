@@ -119,6 +119,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  app.get("/api/keys", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { keys: repository.entryKeys(user.id) };
+  });
+
   app.post("/api/keys/:id/revoke", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;

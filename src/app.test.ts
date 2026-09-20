@@ -27,6 +27,12 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const key = await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId: management.id } });
     assert.equal(key.statusCode, 201);
     const issued = key.json() as { id: string; key: string };
+    const keyList = await app.inject({ method: "GET", url: "/api/keys", headers: { cookie } });
+    assert.equal(keyList.statusCode, 200);
+    assert.deepEqual((keyList.json() as { keys: Array<{ id: string; applicationName: string; revokedAt: string | null }> }).keys[0], {
+      id: issued.id, applicationName: "Management", route: "/system", applicationId: management.id, expiresAt: null, revokedAt: null,
+      createdAt: (keyList.json() as { keys: Array<{ createdAt: string }> }).keys[0].createdAt
+    });
     const resolved = await app.inject({ method: "GET", url: `/k/${issued.key}` });
     assert.equal(resolved.statusCode, 302);
     assert.equal(resolved.headers.location, "/system");

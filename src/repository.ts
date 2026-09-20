@@ -8,6 +8,7 @@ const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
 export interface UserRecord { id: string; username: string; role: string; locale: string; organizationId: string; }
 export interface ApplicationRecord { id: string; name: string; category: string; route: string; installationId: string; vehicleSupported: boolean; }
 export interface EntryResolution { application: ApplicationRecord; userId: string; }
+export interface EntryKeyRecord { id: string; applicationId: string; applicationName: string; route: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -90,6 +91,17 @@ export class Repository {
   }
 
   revokeEntryKey(keyId: string): void { this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE id = ?").run(now(), keyId); }
+
+  entryKeys(userId: string): EntryKeyRecord[] {
+    return (this.db.prepare(`SELECT k.id, k.application_id, a.name AS application_name, a.route,
+      k.expires_at, k.revoked_at, k.created_at
+      FROM entry_keys k JOIN applications a ON a.id = k.application_id
+      WHERE k.user_id = ? ORDER BY k.created_at DESC`).all(userId) as Array<Record<string, string | null>>)
+      .map((row) => ({
+        id: String(row.id), applicationId: String(row.application_id), applicationName: String(row.application_name),
+        route: String(row.route), expiresAt: row.expires_at ?? null, revokedAt: row.revoked_at ?? null, createdAt: String(row.created_at)
+      }));
+  }
 
   registerComponent(input: { id: string; version: string; executable: string; checksum: string }): void {
     if (input.executable.includes("..") || input.executable.startsWith("/") || /^[A-Za-z]:/.test(input.executable)) throw new Error("Managed component executable must be a relative path");
