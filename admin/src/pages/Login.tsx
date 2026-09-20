@@ -1,4 +1,4 @@
-import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from "@ant-design/icons";
 import { LoginForm, ProFormText } from "@ant-design/pro-components";
 import { Card, message, Typography } from "antd";
 
@@ -9,11 +9,12 @@ export default function Login() {
       <Typography.Paragraph type="secondary">Sign in to your local deployment.</Typography.Paragraph>
       <LoginForm onFinish={async (values) => {
         const response = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) });
-        if (!response.ok) { message.error("Sign-in failed"); return false; }
+        if (!response.ok) { message.error((await response.json()).code === "CMH.AUTH.TOTP_REQUIRED" ? "Enter your authenticator or recovery code" : "Sign-in failed"); return false; }
         window.location.href = "/admin/overview"; return true;
       }}>
         <ProFormText name="username" fieldProps={{ size: "large", prefix: <UserOutlined /> }} placeholder="Username" rules={[{ required: true }]} />
         <ProFormText.Password name="password" fieldProps={{ size: "large", prefix: <LockOutlined /> }} placeholder="Password" rules={[{ required: true }]} />
+        <ProFormText name="otp" fieldProps={{ size: "large", prefix: <SafetyCertificateOutlined /> }} placeholder="Authenticator or recovery code" />
       </LoginForm>
     </Card>
   </main>;

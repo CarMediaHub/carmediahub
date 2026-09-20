@@ -59,8 +59,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.post("/api/auth/login", async (request, reply) => {
-    const input = body<{ username: string; password: string; deviceLabel?: string }>(request);
-    const result = repository.login(input.username ?? "", input.password ?? "", input.deviceLabel ?? "Browser");
+    const input = body<{ username: string; password: string; deviceLabel?: string; otp?: string }>(request);
+    const result = repository.login(input.username ?? "", input.password ?? "", input.deviceLabel ?? "Browser", input.otp);
+    if (result === "totp_required") return reply.code(401).send({ code: "CMH.AUTH.TOTP_REQUIRED", messageKey: "errors.auth.totpRequired" });
+    if (result === "totp_invalid") return reply.code(401).send({ code: "CMH.AUTH.TOTP_INVALID", messageKey: "errors.auth.totpInvalid" });
     if (result === undefined) return reply.code(401).send({ code: "CMH.AUTH.INVALID_CREDENTIALS", messageKey: "errors.auth.invalidCredentials" });
     repository.audit(result.user.id, "auth.login", "session");
     reply.setCookie("cmh_session", result.token, { httpOnly: true, sameSite: "strict", path: "/", secure: false, maxAge: 60 * 60 * 24 * 30 });
@@ -76,6 +78,26 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/me", async (request, reply) => {
     const user = await requireUser(request, reply);
     return user === undefined ? undefined : { user };
+  });
+
+  app.get("/api/auth/totp", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : repository.totpStatus(user.id);
+  });
+
+  app.post("/api/auth/totp/setup", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : repository.beginTotpSetup(user.id);
+  });
+
+  app.post("/api/auth/totp/enable", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const input = body<{ code: string }>(request);
+    const recoveryCodes = repository.enableTotp(user.id, input.code ?? "");
+    if (recoveryCodes === undefined) return reply.code(400).send({ code: "CMH.AUTH.TOTP_INVALID", messageKey: "errors.auth.totpInvalid" });
+    repository.audit(user.id, "auth.totp.enabled", user.id);
+    return { recoveryCodes };
   });
 
   app.get("/api/apps", async (request, reply) => {

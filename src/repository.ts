@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { hashPassword, keyedHash, randomToken, verifyPassword } from "./security.js";
+import { decryptSecret, encryptSecret, generateTotpSecret, hashPassword, keyedHash, randomToken, verifyPassword, verifyTotp } from "./security.js";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
@@ -9,6 +9,7 @@ export interface UserRecord { id: string; username: string; role: string; locale
 export interface ApplicationRecord { id: string; name: string; category: string; route: string; installationId: string; vehicleSupported: boolean; }
 export interface EntryResolution { application: ApplicationRecord; userId: string; }
 export interface EntryKeyRecord { id: string; applicationId: string; applicationName: string; route: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
+export interface TotpSetup { secret: string; otpauthUrl: string; }
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -36,15 +37,51 @@ export class Repository {
     return { id: userId, username, role: "admin", locale, organizationId };
   }
 
-  login(username: string, password: string, deviceLabel: string): { token: string; user: UserRecord } | undefined {
-    const row = this.db.prepare("SELECT id, organization_id, username, password_hash, role, locale, revoked_at FROM users WHERE username = ?").get(username) as Record<string, string | null> | undefined;
-    if (row === undefined || row.revoked_at !== null || !verifyPassword(password, row.password_hash ?? "")) return undefined;
+  login(username: string, password: string, deviceLabel: string, otp?: string): { token: string; user: UserRecord } | "totp_required" | "totp_invalid" | undefined {
+    const row = this.db.prepare("SELECT id, organization_id, username, password_hash, role, locale, revoked_at, totp_secret, totp_enabled FROM users WHERE username = ?").get(username) as Record<string, string | number | null> | undefined;
+    if (row === undefined || row.revoked_at !== null || !verifyPassword(password, String(row.password_hash ?? ""))) return undefined;
+    if (Number(row.totp_enabled) === 1) {
+      if (otp === undefined || otp.length === 0) return "totp_required";
+      const secret = decryptSecret(String(row.totp_secret), this.serverKey);
+      if (!verifyTotp(secret, otp) && !this.consumeRecoveryCode(String(row.id), otp)) return "totp_invalid";
+    }
     const token = randomToken();
     const createdAt = now();
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
     this.db.prepare("INSERT INTO sessions (id, user_id, token_hash, device_label, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id("session"), row.id ?? "", keyedHash(token, this.serverKey), deviceLabel.slice(0, 80), expiresAt, createdAt);
-    return { token, user: this.userFromRow(row) };
+    return { token, user: this.userFromRow({ id: String(row.id), organization_id: String(row.organization_id), username: String(row.username), role: String(row.role), locale: String(row.locale) }) };
+  }
+
+  totpStatus(userId: string): { enabled: boolean } {
+    const row = this.db.prepare("SELECT totp_enabled FROM users WHERE id = ?").get(userId) as { totp_enabled: number } | undefined;
+    return { enabled: row !== undefined && Number(row.totp_enabled) === 1 };
+  }
+
+  beginTotpSetup(userId: string): TotpSetup {
+    const secret = generateTotpSecret();
+    this.db.prepare("UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?").run(encryptSecret(secret, this.serverKey), userId);
+    const label = encodeURIComponent(`CarMediaHub:${userId}`);
+    return { secret, otpauthUrl: `otpauth://totp/${label}?secret=${secret}&issuer=CarMediaHub` };
+  }
+
+  enableTotp(userId: string, code: string): string[] | undefined {
+    const row = this.db.prepare("SELECT totp_secret FROM users WHERE id = ?").get(userId) as { totp_secret: string | null } | undefined;
+    if (row?.totp_secret === null || row?.totp_secret === undefined || !verifyTotp(decryptSecret(row.totp_secret, this.serverKey), code)) return undefined;
+    this.db.prepare("UPDATE users SET totp_enabled = 1 WHERE id = ?").run(userId);
+    this.db.prepare("DELETE FROM recovery_codes WHERE user_id = ?").run(userId);
+    const codes = Array.from({ length: 8 }, () => `${randomToken().slice(0, 4)}-${randomToken().slice(0, 4)}`.toUpperCase());
+    const statement = this.db.prepare("INSERT INTO recovery_codes (id, user_id, code_hash, created_at) VALUES (?, ?, ?, ?)");
+    for (const recoveryCode of codes) statement.run(id("recovery"), userId, keyedHash(recoveryCode, this.serverKey), now());
+    return codes;
+  }
+
+  private consumeRecoveryCode(userId: string, code: string): boolean {
+    const hash = keyedHash(code.toUpperCase(), this.serverKey);
+    const row = this.db.prepare("SELECT id FROM recovery_codes WHERE user_id = ? AND code_hash = ? AND used_at IS NULL").get(userId, hash) as { id: string } | undefined;
+    if (row === undefined) return false;
+    this.db.prepare("UPDATE recovery_codes SET used_at = ? WHERE id = ?").run(now(), row.id);
+    return true;
   }
 
   session(token: string): UserRecord | undefined {

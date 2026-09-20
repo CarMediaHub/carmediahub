@@ -30,7 +30,9 @@ export function openDatabase(dataDir: string): CoreDatabase {
       role TEXT NOT NULL,
       locale TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      revoked_at TEXT
+      revoked_at TEXT,
+      totp_secret TEXT,
+      totp_enabled INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -81,6 +83,16 @@ export function openDatabase(dataDir: string): CoreDatabase {
       subject TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS recovery_codes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      code_hash TEXT NOT NULL UNIQUE,
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
+  const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  if (!userColumns.some((column) => column.name === "totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
+  if (!userColumns.some((column) => column.name === "totp_enabled")) db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0");
   return { db, close: () => db.close() };
 }

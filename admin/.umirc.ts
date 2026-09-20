@@ -16,6 +16,7 @@ export default defineConfig({
     { path: "/", redirect: "/overview" },
     { path: "/overview", component: "./Overview" },
     { path: "/components", component: "./Components" },
-    { path: "/keys", component: "./Keys" }
+    { path: "/keys", component: "./Keys" },
+    { path: "/security", component: "./Security" }
   ]
 });
