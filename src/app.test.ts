@@ -86,3 +86,30 @@ test("supports TOTP enrollment, second-factor login, and one-time recovery codes
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("administrators manage organization users and revocation invalidates member sessions", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const adminLogin = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = adminLogin.headers["set-cookie"];
+    const create = await app.inject({ method: "POST", url: "/api/users", headers: { cookie }, payload: { username: "member", password: "another correct horse battery staple" } });
+    assert.equal(create.statusCode, 201);
+    const member = create.json().user as { id: string; role: string };
+    assert.equal(member.role, "member");
+    const memberLogin = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "member", password: "another correct horse battery staple" } });
+    assert.equal(memberLogin.statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: "/api/users", headers: { cookie: memberLogin.headers["set-cookie"] } })).statusCode, 403);
+    assert.equal((await app.inject({ method: "POST", url: `/api/users/${member.id}/revoke`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: "/api/me", headers: { cookie: memberLogin.headers["set-cookie"] } })).statusCode, 401);
+    const users = await app.inject({ method: "GET", url: "/api/users", headers: { cookie } });
+    assert.equal((users.json().users as Array<{ id: string; revokedAt: string | null }>).find((item) => item.id === member.id)?.revokedAt !== null, true);
+    const admin = (users.json().users as Array<{ id: string }>).find((item) => item.id !== member.id);
+    assert.ok(admin);
+    assert.equal((await app.inject({ method: "POST", url: `/api/users/${admin.id}/revoke`, headers: { cookie } })).statusCode, 409);
+  } finally {
+    await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

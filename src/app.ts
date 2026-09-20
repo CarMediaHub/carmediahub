@@ -105,6 +105,35 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user === undefined ? undefined : { applications: repository.applications() };
   });
 
+  app.get("/api/users", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { users: repository.users(user.organizationId) };
+  });
+
+  app.post("/api/users", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ username: string; password: string; role?: string; locale?: string }>(request);
+      validCredential(input.username, "username");
+      const created = repository.createUser({ organizationId: user.organizationId, username: input.username, password: input.password, role: input.role ?? "member", locale: input.locale ?? user.locale });
+      repository.audit(user.id, "user.created", created.id);
+      return reply.code(201).send({ user: created });
+    } catch {
+      return reply.code(400).send({ code: "CMH.USER.INVALID", messageKey: "errors.user.invalid" });
+    }
+  });
+
+  app.post("/api/users/:id/revoke", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const result = repository.revokeUser((request.params as { id: string }).id, user.organizationId);
+    if (result === "last_admin") return reply.code(409).send({ code: "CMH.USER.LAST_ADMIN", messageKey: "errors.user.lastAdmin" });
+    if (result === "not_found") return reply.code(404).send({ code: "CMH.USER.NOT_FOUND", messageKey: "errors.user.notFound" });
+    repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
+    return reply.code(204).send();
+  });
+
   app.get("/api/components/catalog", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { components: catalog.map((component) => ({ ...component, executablePath: resolveManagedExecutable(options.dataDir, component) })) };

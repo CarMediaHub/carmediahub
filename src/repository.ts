@@ -10,6 +10,7 @@ export interface ApplicationRecord { id: string; name: string; category: string;
 export interface EntryResolution { application: ApplicationRecord; userId: string; }
 export interface EntryKeyRecord { id: string; applicationId: string; applicationName: string; route: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
 export interface TotpSetup { secret: string; otpauthUrl: string; }
+export interface ManagedUserRecord extends UserRecord { createdAt: string; revokedAt: string | null; }
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -92,6 +93,38 @@ export class Repository {
   }
 
   revokeSession(token: string): void { this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?").run(now(), keyedHash(token, this.serverKey)); }
+
+  users(organizationId: string): ManagedUserRecord[] {
+    return (this.db.prepare("SELECT id, organization_id, username, role, locale, created_at, revoked_at FROM users WHERE organization_id = ? ORDER BY created_at").all(organizationId) as Array<Record<string, string | null>>)
+      .map((row) => ({ ...this.userFromRow(row), createdAt: String(row.created_at), revokedAt: row.revoked_at ?? null }));
+  }
+
+  createUser(input: { organizationId: string; username: string; password: string; role: string; locale: string }): UserRecord {
+    if (input.role !== "admin" && input.role !== "member") throw new Error("Invalid role");
+    const record = { id: id("user"), organizationId: input.organizationId, username: input.username, role: input.role, locale: input.locale };
+    this.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(record.id, record.organizationId, record.username, hashPassword(input.password), record.role, record.locale, now());
+    return record;
+  }
+
+  revokeUser(userId: string, organizationId: string): "revoked" | "not_found" | "last_admin" {
+    const target = this.db.prepare("SELECT id, role, revoked_at FROM users WHERE id = ? AND organization_id = ?").get(userId, organizationId) as { id: string; role: string; revoked_at: string | null } | undefined;
+    if (target === undefined || target.revoked_at !== null) return "not_found";
+    if (target.role === "admin") {
+      const admins = this.db.prepare("SELECT COUNT(*) AS count FROM users WHERE organization_id = ? AND role = 'admin' AND revoked_at IS NULL").get(organizationId) as { count: number };
+      if (Number(admins.count) <= 1) return "last_admin";
+    }
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      this.db.prepare("UPDATE users SET revoked_at = ? WHERE id = ?").run(now(), userId);
+      this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return "revoked";
+  }
 
   applications(): ApplicationRecord[] {
     return (this.db.prepare("SELECT id, name, category, route, installation_id, vehicle_supported FROM applications WHERE enabled = 1 ORDER BY category, name").all() as Array<Record<string, string | number>>)
