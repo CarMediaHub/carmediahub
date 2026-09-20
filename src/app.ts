@@ -7,6 +7,7 @@ import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
 import { installStagedComponent } from "./component-installer.js";
+import { validateManifest } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
 
@@ -151,6 +152,33 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/components", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings() };
+  });
+
+  app.get("/api/plugins", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { installations: repository.pluginInstallations() };
+  });
+
+  app.post("/api/plugins", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      validateManifest(request.body);
+      const installation = repository.installPlugin(request.body);
+      repository.audit(user.id, "plugin.installed", installation.id);
+      return reply.code(201).send({ installation });
+    } catch {
+      return reply.code(400).send({ code: "CMH.PLUGIN.INVALID_MANIFEST", messageKey: "errors.plugin.invalidManifest" });
+    }
+  });
+
+  app.post("/api/plugins/:id/disable", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id: string }).id;
+    if (!repository.disablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    repository.audit(user.id, "plugin.disabled", installationId);
+    return reply.code(204).send();
   });
 
   app.post("/api/apps", async (request, reply) => {

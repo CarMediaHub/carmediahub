@@ -52,6 +52,17 @@ export function openDatabase(dataDir: string): CoreDatabase {
       enabled INTEGER NOT NULL DEFAULT 1,
       vehicle_supported INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS plugin_installations (
+      id TEXT PRIMARY KEY,
+      package_id TEXT NOT NULL,
+      package_version TEXT NOT NULL,
+      runtime TEXT NOT NULL,
+      manifest_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(package_id, id)
+    );
     CREATE TABLE IF NOT EXISTS entry_keys (
       id TEXT PRIMARY KEY,
       key_hash TEXT NOT NULL UNIQUE,

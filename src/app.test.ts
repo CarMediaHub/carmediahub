@@ -133,3 +133,25 @@ test("rate limits repeated credential failures and emits secure cookies when con
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("registers SDK-validated plugin installations and disables their application route", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "history", "events"], routes: [{ path: "/", methods: ["GET"] }], ui: { entry: "./ui/index.html", vehicleSupported: true } };
+    const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: manifest });
+    assert.equal(install.statusCode, 201);
+    const installation = install.json().installation as { id: string; status: string };
+    assert.equal(installation.status, "installed");
+    const listed = await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } });
+    assert.equal(listed.json().installations.length, 1);
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), false);
+  } finally {
+    await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
