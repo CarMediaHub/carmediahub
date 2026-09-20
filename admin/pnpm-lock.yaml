@@ -1727,9 +1727,6 @@ packages:
   '@umijs/bundler-mako@0.11.10':
     resolution: {integrity: sha512-RNop0kmMXJUOLQYp61ZW3NVdD8ikOPW0zoCmgkN+nIUVw+QKcA+9tSPEcT6Rr8id9+Ed3lMjLqktev20guRp1g==}
 
-  '@umijs/bundler-utils@4.7.18':
-    resolution: {integrity: sha512-JupVa3djXSFfbvxDNketC+8Il8BYckvsfTrThBIOwYAknfRunCOV0Jk3j2edV48mew+ncm0KRHK975xOBfmhZQ==}
-
   '@umijs/bundler-utils@4.7.19':
     resolution: {integrity: sha512-N6CB2qTYCFYAw8BLy/AENjKAiHdNKxorXGS32dVY88r2hzO7Kek2uClCfUASklFyeEZadV5UJ3zSvIin3OtA5Q==}
 
@@ -1880,9 +1877,6 @@ packages:
     resolution: {integrity: sha512-QlN0RJSBVQBwLRNxbxjQ5qzqYIGn+K7USppMoIOVlf7fxXHsnQZ2bEsa6Pm74bt6DVQxpUE8HqvdStn6Y9FV1w==}
     peerDependencies:
       react: '*'
-
-  '@umijs/utils@4.7.18':
-    resolution: {integrity: sha512-9/tLgfG9GdEwoAkL1ev9N5QRYn3SzTWr1LIT8kVjSiAGG+/qpv47KzlPYnu3oUudWPhxgKwOsCPCr2rdc+TjBw==}
 
   '@umijs/utils@4.7.19':
     resolution: {integrity: sha512-cAfWB7U6JaKNaILkUdkruB5iF4aU6Aq4gDdLeoOO67Xiv9lFcZYCpzZACpn3VEBnHkNU9S50RZP4fXRcUUHY6g==}
@@ -7918,7 +7912,7 @@ snapshots:
 
   '@loadable/component@5.15.2(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.23.6
+      '@babel/runtime': 7.29.7
       hoist-non-react-statics: 3.3.2
       react: 18.3.1
       react-is: 16.13.1
@@ -8421,7 +8415,7 @@ snapshots:
 
   '@types/history@5.0.0':
     dependencies:
-      history: 4.10.1
+      history: 5.3.0
 
   '@types/hoist-non-react-statics@3.3.7(@types/react@18.3.31)':
     dependencies:
@@ -8473,7 +8467,7 @@ snapshots:
       '@types/history': 4.7.11
       '@types/react': 18.3.31
       '@types/react-router': 5.1.20
-      redux: 3.7.2
+      redux: 4.2.1
 
   '@types/react-router@5.1.20':
     dependencies:
@@ -8616,7 +8610,7 @@ snapshots:
 
   '@umijs/bundler-mako@0.11.10(postcss@8.5.28)(sass@1.54.0)(supports-color@8.1.1)(typescript@5.9.3)(webpack@5.111.1(clean-css@5.3.3)(csso@4.2.0)(esbuild@0.28.2)(html-minifier-terser@6.1.0)(lightningcss@1.32.0)(postcss@8.5.28)(svgo@2.8.4))':
     dependencies:
-      '@umijs/bundler-utils': 4.7.18(supports-color@8.1.1)
+      '@umijs/bundler-utils': 4.7.19(supports-color@8.1.1)
       '@umijs/mako': 0.11.10(postcss@8.5.28)(sass@1.54.0)(supports-color@8.1.1)(typescript@5.9.3)(webpack@5.111.1(clean-css@5.3.3)(csso@4.2.0)(esbuild@0.28.2)(html-minifier-terser@6.1.0)(lightningcss@1.32.0)(postcss@8.5.28)(svgo@2.8.4))
       chalk: 4.1.2
       compression: 1.8.2(supports-color@8.1.1)
@@ -8637,16 +8631,6 @@ snapshots:
       - supports-color
       - typescript
       - webpack
-
-  '@umijs/bundler-utils@4.7.18(supports-color@8.1.1)':
-    dependencies:
-      '@umijs/utils': 4.7.18
-      esbuild: 0.28.2
-      regenerate: 1.4.2
-      regenerate-unicode-properties: 10.1.1
-      spdy: 4.0.2(supports-color@8.1.1)
-    transitivePeerDependencies:
-      - supports-color
 
   '@umijs/bundler-utils@4.7.19(supports-color@8.1.1)':
     dependencies:
@@ -8775,7 +8759,7 @@ snapshots:
 
   '@umijs/history@5.3.1':
     dependencies:
-      '@babel/runtime': 7.23.6
+      '@babel/runtime': 7.29.7
       query-string: 6.14.1
 
   '@umijs/lint@4.7.19(eslint@8.35.0(supports-color@8.1.1))(stylelint@14.8.2(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
@@ -9113,11 +9097,6 @@ snapshots:
   '@umijs/use-params@1.0.9(react@18.3.1)':
     dependencies:
       react: 18.3.1
-
-  '@umijs/utils@4.7.18':
-    dependencies:
-      chokidar: 3.5.3
-      pino: 7.11.0
 
   '@umijs/utils@4.7.19':
     dependencies:
@@ -11233,7 +11212,7 @@ snapshots:
 
   history@5.3.0:
     dependencies:
-      '@babel/runtime': 7.23.6
+      '@babel/runtime': 7.29.7
 
   hmac-drbg@1.0.1:
     dependencies:
@@ -11966,7 +11945,7 @@ snapshots:
 
   md5.js@1.3.5:
     dependencies:
-      hash-base: 3.0.5
+      hash-base: 3.1.2
       inherits: 2.0.4
       safe-buffer: 5.2.1
 
@@ -13472,7 +13451,7 @@ snapshots:
 
   react-helmet-async@1.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.23.6
+      '@babel/runtime': 7.29.7
       invariant: 2.2.4
       prop-types: 15.8.1
       react: 18.3.1

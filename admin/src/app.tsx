@@ -1,4 +1,3 @@
-import { history } from "@umijs/max";
 import { message } from "antd";
 
 export async function getInitialState() {
@@ -13,7 +12,7 @@ export async function getInitialState() {
 
 export function onRouteChange({ location }: { location: Location }) {
   if (location.pathname !== "/login" && location.pathname !== "/admin/login") {
-    void fetch("/api/me").then((response) => { if (response.status === 401) history.push("/admin/login"); });
+    void fetch("/api/me").then((response) => { if (response.status === 401) window.location.href = "/admin/login"; });
   }
 }
 
