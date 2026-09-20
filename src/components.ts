@@ -26,8 +26,20 @@ export function loadComponentCatalog(projectRoot: string): readonly ComponentCat
 }
 
 export function resolveManagedExecutable(dataDir: string, component: ComponentCatalogItem): string {
-  const resolved = path.resolve(dataDir, "components", component.executable);
+  const resolved = path.resolve(dataDir, "components", ...path.posix.dirname(component.executable).split("/"), componentExecutableName(component));
   const root = path.resolve(dataDir, "components") + path.sep;
   if (!resolved.startsWith(root)) throw new Error("Component path escaped managed directory");
   return resolved;
+}
+
+export function currentPlatformKey(): string {
+  const system = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "darwin" : process.platform;
+  const architecture = process.arch === "x64" ? "x64" : process.arch === "arm64" ? "arm64" : process.arch;
+  return `${system}-${architecture}`;
+}
+
+export function componentExecutableName(component: ComponentCatalogItem): string {
+  if (!component.platforms.includes(currentPlatformKey())) throw new Error(`Component ${component.id} is not available on ${currentPlatformKey()}`);
+  const name = path.posix.basename(component.executable);
+  return process.platform === "win32" && path.extname(name) === "" ? `${name}.exe` : name;
 }

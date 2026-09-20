@@ -6,6 +6,7 @@ import { openDatabase } from "./database.js";
 import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
+import { installStagedComponent } from "./component-installer.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
 
@@ -216,6 +217,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       return reply.code(201).send({ component: { id: input.id, version: input.version, health: "unknown" } });
     } catch {
       return reply.code(400).send({ code: "CMH.COMPONENT.INVALID", messageKey: "errors.component.invalid" });
+    }
+  });
+
+  app.post("/api/components/install", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ componentId: string; version: string; artifactId: string; sha256: string }>(request);
+      const installed = installStagedComponent(options.dataDir, catalog, input);
+      repository.registerComponent({ id: installed.id, version: installed.version, executable: installed.executable, checksum: installed.checksum });
+      repository.audit(user.id, "component.installed", `${installed.id}@${installed.version}`);
+      return reply.code(201).send({ component: installed });
+    } catch {
+      return reply.code(400).send({ code: "CMH.COMPONENT.INSTALL_INVALID", messageKey: "errors.component.installInvalid" });
     }
   });
 
