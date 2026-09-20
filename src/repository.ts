@@ -185,6 +185,12 @@ export class Repository {
       .map((row) => ({ id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" }));
   }
 
+  pluginInstallation(installationId: string): PluginInstallationRecord | undefined {
+    const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE id = ?").get(installationId) as Record<string, string> | undefined;
+    if (row === undefined) return undefined;
+    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+  }
+
   disablePlugin(installationId: string): boolean {
     const current = this.db.prepare("SELECT id FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId);
     if (current === undefined) return false;

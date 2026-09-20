@@ -7,6 +7,7 @@ import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
 import { installStagedComponent } from "./component-installer.js";
+import { RuntimeBroker } from "./runtime-broker.js";
 import { validateManifest } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
@@ -20,13 +21,21 @@ function validCredential(value: string, field: string): void {
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
   const repository = new Repository(database.db, ensureServerKey(options.dataDir));
+  const runtimeBroker = new RuntimeBroker({
+    dataDir: options.dataDir,
+    installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed"
+  });
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const app = Fastify({ logger: false });
   await app.register(cookie);
   const loginSubject = (request: FastifyRequest, username: string) => `login:${request.ip}:${username.trim().toLowerCase()}`;
   const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
 
-  app.addHook("onClose", async () => database.close());
+  await runtimeBroker.start();
+  app.addHook("onClose", async () => {
+    await runtimeBroker.stop();
+    database.close();
+  });
 
   const requireUser = async (request: FastifyRequest, reply: { code(status: number): { send(body: unknown): void } }): Promise<UserRecord | undefined> => {
     const token = request.cookies.cmh_session;
