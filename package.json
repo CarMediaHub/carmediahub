@@ -1,0 +1,29 @@
+{
+  "name": "@carmediahub/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted Core and single gateway for CarMediaHub.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/cli.ts -- --data-dir ./data",
+    "start": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "tsx --test src/**/*.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@carmediahub/sdk": "file:../carmediahub-sdk",
+    "@fastify/cookie": "^11.0.2",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
