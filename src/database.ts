@@ -90,6 +90,18 @@ export function openDatabase(dataDir: string): CoreDatabase {
       used_at TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS plugin_data (
+      organization_id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      collection TEXT NOT NULL,
+      record_key TEXT NOT NULL,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (organization_id, user_id, installation_id, collection, record_key)
+    );
+    CREATE INDEX IF NOT EXISTS plugin_data_scope_index
+      ON plugin_data (organization_id, user_id, installation_id, collection, record_key);
   `);
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
