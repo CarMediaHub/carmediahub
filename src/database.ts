@@ -102,6 +102,12 @@ export function openDatabase(dataDir: string): CoreDatabase {
     );
     CREATE INDEX IF NOT EXISTS plugin_data_scope_index
       ON plugin_data (organization_id, user_id, installation_id, collection, record_key);
+    CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+      subject_hash TEXT PRIMARY KEY,
+      window_started_at TEXT NOT NULL,
+      failures INTEGER NOT NULL,
+      locked_until TEXT
+    );
   `);
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");

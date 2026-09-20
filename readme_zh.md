@@ -17,8 +17,16 @@ pnpm start -- --data-dir .\data
 
 Core 使用显式数据目录，不要求运行时环境变量或通过系统 PATH 隐式发现组件。
 
+HTTPS 反向代理部署时，请显式传入公网地址，使会话和入口 Cookie 带有 `Secure` 属性：
+
+```powershell
+pnpm start -- --data-dir .\data --public-url https://hub.example.com
+```
+
 从 `CarMediaHub` 父目录使用 Docker：
 
 ```powershell
 docker compose -f carmediahub/compose.yaml up --build
 ```
+
+Compose 端口刻意只绑定到 `127.0.0.1`，其 Core 命令要求使用 Secure Cookie。请通过运营者管理的反向代理终止 TLS 并公开服务。其他生产启动方式可传入 `--public-url https://hub.example.com` 或 `--cookie-secure`。

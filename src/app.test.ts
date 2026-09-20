@@ -113,3 +113,23 @@ test("administrators manage organization users and revocation invalidates member
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("rate limits repeated credential failures and emits secure cookies when configured", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const app = await createApp({ dataDir, cookieSecure: true });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      assert.equal((await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "wrong password" } })).statusCode, 401);
+    }
+    assert.equal((await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "wrong password" } })).statusCode, 429);
+    const otherUser = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "unknown", password: "wrong password" } });
+    assert.equal(otherUser.statusCode, 401);
+    const successful = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" }, remoteAddress: "127.0.0.2" });
+    assert.equal(successful.statusCode, 200);
+    assert.match(String(successful.headers["set-cookie"]), /Secure/);
+  } finally {
+    await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

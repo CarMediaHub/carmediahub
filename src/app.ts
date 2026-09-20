@@ -7,7 +7,7 @@ import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
 
-export interface AppOptions { dataDir: string; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -21,6 +21,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const app = Fastify({ logger: false });
   await app.register(cookie);
+  const loginSubject = (request: FastifyRequest, username: string) => `login:${request.ip}:${username.trim().toLowerCase()}`;
+  const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
 
   app.addHook("onClose", async () => database.close());
 
@@ -60,12 +62,18 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.post("/api/auth/login", async (request, reply) => {
     const input = body<{ username: string; password: string; deviceLabel?: string; otp?: string }>(request);
+    const subject = loginSubject(request, input.username ?? "");
+    if (repository.rateLimited(subject)) return reply.code(429).send({ code: "CMH.AUTH.RATE_LIMITED", messageKey: "errors.auth.rateLimited" });
     const result = repository.login(input.username ?? "", input.password ?? "", input.deviceLabel ?? "Browser", input.otp);
     if (result === "totp_required") return reply.code(401).send({ code: "CMH.AUTH.TOTP_REQUIRED", messageKey: "errors.auth.totpRequired" });
-    if (result === "totp_invalid") return reply.code(401).send({ code: "CMH.AUTH.TOTP_INVALID", messageKey: "errors.auth.totpInvalid" });
-    if (result === undefined) return reply.code(401).send({ code: "CMH.AUTH.INVALID_CREDENTIALS", messageKey: "errors.auth.invalidCredentials" });
+    if (result === "totp_invalid" || result === undefined) {
+      repository.recordFailedAttempt(subject);
+      repository.audit(undefined, "auth.login.failed", "redacted");
+      return reply.code(401).send({ code: result === "totp_invalid" ? "CMH.AUTH.TOTP_INVALID" : "CMH.AUTH.INVALID_CREDENTIALS", messageKey: result === "totp_invalid" ? "errors.auth.totpInvalid" : "errors.auth.invalidCredentials" });
+    }
+    repository.clearFailedAttempts(subject);
     repository.audit(result.user.id, "auth.login", "session");
-    reply.setCookie("cmh_session", result.token, { httpOnly: true, sameSite: "strict", path: "/", secure: false, maxAge: 60 * 60 * 24 * 30 });
+    reply.setCookie("cmh_session", result.token, { httpOnly: true, sameSite: "strict", path: "/", secure: options.cookieSecure ?? false, maxAge: 60 * 60 * 24 * 30 });
     return { user: result.user };
   });
 
@@ -184,10 +192,17 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.get("/k/:key", async (request, reply) => {
+    const subject = entrySubject(request);
+    if (repository.rateLimited(subject)) return reply.code(429).send({ code: "CMH.ENTRY_KEY.RATE_LIMITED", messageKey: "errors.entryKey.rateLimited" });
     const resolution = repository.resolveEntryKey((request.params as { key: string }).key);
-    if (resolution === undefined) return reply.code(404).send({ code: "CMH.ENTRY_KEY.NOT_FOUND", messageKey: "errors.entryKey.notFound" });
+    if (resolution === undefined) {
+      repository.recordFailedAttempt(subject, 20, 600_000, 600_000);
+      repository.audit(undefined, "entryKey.failed", "redacted");
+      return reply.code(404).send({ code: "CMH.ENTRY_KEY.NOT_FOUND", messageKey: "errors.entryKey.notFound" });
+    }
+    repository.clearFailedAttempts(subject);
     repository.audit(resolution.userId, "entryKey.used", resolution.application.id);
-    reply.setCookie("cmh_entry", resolution.application.id, { httpOnly: true, sameSite: "strict", path: resolution.application.route, secure: false, maxAge: 60 * 60 });
+    reply.setCookie("cmh_entry", resolution.application.id, { httpOnly: true, sameSite: "strict", path: resolution.application.route, secure: options.cookieSecure ?? false, maxAge: 60 * 60 });
     return reply.redirect(resolution.application.route, 302);
   });
 

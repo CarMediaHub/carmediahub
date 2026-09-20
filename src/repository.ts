@@ -94,6 +94,28 @@ export class Repository {
 
   revokeSession(token: string): void { this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?").run(now(), keyedHash(token, this.serverKey)); }
 
+  rateLimited(subject: string): boolean {
+    const row = this.db.prepare("SELECT locked_until FROM rate_limit_buckets WHERE subject_hash = ?").get(keyedHash(subject, this.serverKey)) as { locked_until: string | null } | undefined;
+    return row?.locked_until !== null && row?.locked_until !== undefined && row.locked_until > now();
+  }
+
+  recordFailedAttempt(subject: string, maxFailures = 5, windowMilliseconds = 600_000, lockMilliseconds = 900_000): boolean {
+    const subjectHash = keyedHash(subject, this.serverKey);
+    const current = new Date();
+    const currentTime = current.toISOString();
+    const row = this.db.prepare("SELECT window_started_at, failures, locked_until FROM rate_limit_buckets WHERE subject_hash = ?").get(subjectHash) as { window_started_at: string; failures: number; locked_until: string | null } | undefined;
+    if (row?.locked_until !== null && row?.locked_until !== undefined && row.locked_until > currentTime) return true;
+    const windowStart = row === undefined || current.getTime() - Date.parse(row.window_started_at) >= windowMilliseconds ? currentTime : row.window_started_at;
+    const failures = windowStart === currentTime ? 1 : Number(row?.failures ?? 0) + 1;
+    const lockedUntil = failures >= maxFailures ? new Date(current.getTime() + lockMilliseconds).toISOString() : null;
+    this.db.prepare(`INSERT INTO rate_limit_buckets (subject_hash, window_started_at, failures, locked_until) VALUES (?, ?, ?, ?)
+      ON CONFLICT(subject_hash) DO UPDATE SET window_started_at = excluded.window_started_at, failures = excluded.failures, locked_until = excluded.locked_until`)
+      .run(subjectHash, windowStart, failures, lockedUntil);
+    return lockedUntil !== null;
+  }
+
+  clearFailedAttempts(subject: string): void { this.db.prepare("DELETE FROM rate_limit_buckets WHERE subject_hash = ?").run(keyedHash(subject, this.serverKey)); }
+
   users(organizationId: string): ManagedUserRecord[] {
     return (this.db.prepare("SELECT id, organization_id, username, role, locale, created_at, revoked_at FROM users WHERE organization_id = ? ORDER BY created_at").all(organizationId) as Array<Record<string, string | null>>)
       .map((row) => ({ ...this.userFromRow(row), createdAt: String(row.created_at), revokedAt: row.revoked_at ?? null }));
