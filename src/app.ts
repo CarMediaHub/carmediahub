@@ -216,7 +216,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
+  app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, payload, done) => {
+    done(null, payload);
+  });
   await app.register(cookie);
   const loginSubject = (request: FastifyRequest, username: string) => `login:${request.ip}:${username.trim().toLowerCase()}`;
   const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
@@ -395,6 +398,19 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
     repository.audit(user.id, "diagnostics.speed.download", String(bytes));
     return reply.header("cache-control", "no-store, max-age=0").header("content-type", "application/octet-stream").header("content-length", String(bytes)).send(Buffer.alloc(bytes, 0));
+  });
+
+  app.post("/api/diagnostics/speed/upload", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const contentLength = request.headers["content-length"];
+    const bodyValue = request.body;
+    const bytes = Buffer.isBuffer(bodyValue) ? bodyValue.length : 0;
+    if (contentLength !== undefined && (!/^\d+$/u.test(contentLength) || Number(contentLength) !== bytes) || bytes < 64 * 1024 || bytes > 2 * 1024 * 1024) {
+      return reply.code(400).send({ code: "CMH.DIAGNOSTICS.INVALID_SIZE", messageKey: "errors.diagnostics.invalidSize" });
+    }
+    repository.audit(user.id, "diagnostics.speed.upload", String(bytes));
+    return reply.header("cache-control", "no-store, max-age=0").send({ bytes });
   });
 
   app.get("/api/users", async (request, reply) => {

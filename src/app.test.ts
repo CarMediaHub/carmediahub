@@ -62,6 +62,11 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(speed.headers["cache-control"], "no-store, max-age=0");
     assert.equal(speed.headers["content-length"], "65536");
     assert.equal(Buffer.byteLength(speed.rawPayload), 65536);
+    const upload = await app.inject({ method: "POST", url: "/api/diagnostics/speed/upload", headers: { cookie, "content-type": "application/octet-stream", "content-length": "65536" }, payload: Buffer.alloc(65536, 0) });
+    assert.equal(upload.statusCode, 200);
+    assert.deepEqual(upload.json(), { bytes: 65536 });
+    const oversizedUpload = await app.inject({ method: "POST", url: "/api/diagnostics/speed/upload", headers: { cookie, "content-type": "application/octet-stream", "content-length": "32768" }, payload: Buffer.alloc(32768, 0) });
+    assert.equal(oversizedUpload.statusCode, 400);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "local-alist", endpoint: "http://127.0.0.1:5244" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "health-check", endpoint: "http://127.0.0.1:1" } })).statusCode, 201);
