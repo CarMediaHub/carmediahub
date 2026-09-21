@@ -32,6 +32,16 @@ export function resolveManagedExecutable(dataDir: string, component: ComponentCa
   return resolved;
 }
 
+/** Resolve only a persisted, verified installation record; never consults PATH. */
+export function resolveInstalledExecutable(dataDir: string, installed: { id: string; version: string; executable: string }): string {
+  if (!/^[a-z][a-z0-9-]{1,63}$/u.test(installed.id) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(installed.version)) throw new Error("Invalid installed component identity");
+  if (installed.executable.includes("\\") || path.isAbsolute(installed.executable) || installed.executable.includes("..") || !installed.executable.startsWith(`${installed.id}/${installed.version}/`)) throw new Error("Invalid installed component executable");
+  const root = path.resolve(dataDir, "components");
+  const resolved = path.resolve(root, ...installed.executable.split("/"));
+  if (!resolved.startsWith(root + path.sep) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) throw new Error("Installed component executable is unavailable");
+  return resolved;
+}
+
 export function currentPlatformKey(): string {
   const system = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "darwin" : process.platform;
   const architecture = process.arch === "x64" ? "x64" : process.arch === "arm64" ? "arm64" : process.arch;
