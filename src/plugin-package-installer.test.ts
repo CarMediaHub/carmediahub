@@ -22,6 +22,7 @@ test("installs only an exact verified plugin package from Core staging", () => {
   try {
     const installed = installStagedPluginPackage(dataDir, { packageId: "wdr-media", version: "0.1.0", artifactId: "wdr-build", digest: digest(source) });
     assert.equal(fs.readFileSync(path.join(dataDir, installed.location, "worker.js"), "utf8"), "export {};\n");
+    assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "other-plugin", version: "0.1.0", artifactId: "wdr-build", digest: installed.digest, workerEntry: "./missing.js" }), /unavailable/);
     assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "wdr-media", version: "0.1.0", artifactId: "../wdr-build", digest: installed.digest }));
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

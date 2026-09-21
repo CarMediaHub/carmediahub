@@ -34,11 +34,16 @@ function collect(root: string, current = root, entries: string[] = []): string[]
  * Accepts only a Core-owned staged directory and derives its digest from every
  * relative path and file content. The installed root is immutable by convention.
  */
-export function installStagedPluginPackage(dataDir: string, input: { packageId: string; version: string; artifactId: string; digest: string }): InstalledPluginPackage {
+export function installStagedPluginPackage(dataDir: string, input: { packageId: string; version: string; artifactId: string; digest: string; workerEntry?: string }): InstalledPluginPackage {
   if (!identifier.test(input.packageId) || !version.test(input.version) || !identifier.test(input.artifactId) || !checksum.test(input.digest)) throw new Error("Invalid plugin package installation request");
   const stagingRoot = path.resolve(dataDir, "staging", "plugins");
   const source = path.resolve(stagingRoot, input.artifactId);
   if (!source.startsWith(stagingRoot + path.sep) || !fs.existsSync(source) || !fs.statSync(source).isDirectory() || fs.lstatSync(source).isSymbolicLink()) throw new Error("Staged plugin package not found");
+  if (input.workerEntry !== undefined) {
+    if (!/^\.\/[A-Za-z0-9_./-]+$/u.test(input.workerEntry) || input.workerEntry.includes("..")) throw new Error("Plugin worker entry is invalid");
+    const worker = path.resolve(source, input.workerEntry);
+    if (!worker.startsWith(source + path.sep) || !fs.existsSync(worker) || !fs.lstatSync(worker).isFile() || fs.lstatSync(worker).isSymbolicLink()) throw new Error("Plugin worker entry is unavailable");
+  }
   const entries = collect(source).sort();
   if (entries.length === 0) throw new Error("Staged plugin package is empty");
   const hash = crypto.createHash("sha256");

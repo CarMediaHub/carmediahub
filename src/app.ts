@@ -234,8 +234,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
-      const installed = installStagedPluginPackage(options.dataDir, { packageId: release.manifest.id, version: release.manifest.version, artifactId: release.artifact.id, digest: release.artifact.digest });
       const workerEntry = release.manifest.worker?.entry;
+      if (release.manifest.runtime === "isolated-worker" && workerEntry === undefined) throw new Error("Isolated plugin package has no worker entry");
+      const installed = installStagedPluginPackage(options.dataDir, { packageId: release.manifest.id, version: release.manifest.version, artifactId: release.artifact.id, digest: release.artifact.digest, ...(workerEntry === undefined ? {} : { workerEntry }) });
       if (release.manifest.runtime === "isolated-worker" && workerEntry !== undefined) {
         repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, workerEntry });
         supervisor.register(createTrustedNodeWorkerFactory({ packageId: installed.packageId, packageRoot: path.resolve(options.dataDir, installed.location), workerEntry }));
