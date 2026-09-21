@@ -29,6 +29,22 @@ test("service bindings are scoped to the declared plugin installation", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("capability grants can only be reduced from the manifest declaration", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-capability-grant-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const installation = repository.installPlugin({ id: "grant-test", version: "0.1.0", sdk: "^0.1.0", name: { en: "Grant", "zh-CN": "授权", ko: "권한" }, description: { en: "Grant", "zh-CN": "授权", ko: "권한" }, category: "official", runtime: "isolated-worker", capabilities: ["media", "history"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["media", "history"]);
+    assert.equal(repository.updatePluginCapabilities(installation.id, ["media"]), true);
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["media"]);
+    assert.equal(repository.pluginHasCapability(installation.id, "history"), false);
+    assert.equal(repository.updatePluginCapabilities(installation.id, ["network"]), false);
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["media"]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("migrates legacy global binding names to scoped uniqueness", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-binding-migration-"));
   const legacy = new DatabaseSync(path.join(dataDir, "carmediahub.sqlite"));

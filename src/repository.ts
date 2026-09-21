@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { decryptSecret, encryptSecret, generateTotpSecret, hashPassword, keyedHash, randomToken, verifyPassword, verifyTotp } from "./security.js";
-import type { PluginManifest } from "@carmediahub/sdk";
+import type { CapabilityName, PluginManifest } from "@carmediahub/sdk";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
@@ -206,8 +206,8 @@ export class Repository {
     const route = `/apps/${manifest.id}/${installationId}`;
     this.db.exec("BEGIN IMMEDIATE;");
     try {
-      this.db.prepare("INSERT INTO plugin_installations (id, package_id, package_version, runtime, manifest_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(installationId, manifest.id, manifest.version, manifest.runtime, JSON.stringify(manifest), "installed", createdAt, createdAt);
+      this.db.prepare("INSERT INTO plugin_installations (id, package_id, package_version, runtime, manifest_json, granted_capabilities, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(installationId, manifest.id, manifest.version, manifest.runtime, JSON.stringify(manifest), JSON.stringify(manifest.capabilities), "installed", createdAt, createdAt);
       this.addApplication({ name: manifest.name.en, category: manifest.category, route, installationId, vehicleSupported: manifest.ui?.vehicleSupported ?? false });
       this.db.exec("COMMIT;");
     } catch (error) {
@@ -229,21 +229,43 @@ export class Repository {
   }
 
   pluginHasCapability(installationId: string, capability: string): boolean {
-    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string } | undefined;
+    const row = this.db.prepare("SELECT manifest_json, granted_capabilities FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string; granted_capabilities?: string | null } | undefined;
     if (row?.manifest_json === undefined) return false;
     try {
-      const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
-      return Array.isArray(manifest.capabilities) && manifest.capabilities.includes(capability);
+      const fallback = JSON.parse(row.manifest_json) as { capabilities?: unknown };
+      const granted = row.granted_capabilities === null || row.granted_capabilities === undefined ? fallback.capabilities : JSON.parse(row.granted_capabilities);
+      return Array.isArray(granted) && granted.includes(capability);
     } catch { return false; }
   }
 
   pluginCapabilities(installationId: string): string[] {
+    const row = this.db.prepare("SELECT manifest_json, granted_capabilities FROM plugin_installations WHERE id = ?").get(installationId) as { manifest_json?: string; granted_capabilities?: string | null } | undefined;
+    if (row?.manifest_json === undefined) return [];
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
+      const granted = row.granted_capabilities === null || row.granted_capabilities === undefined ? manifest.capabilities : JSON.parse(row.granted_capabilities);
+      return Array.isArray(granted) ? granted.filter((capability): capability is string => typeof capability === "string") : [];
+    } catch { return []; }
+  }
+
+  pluginDeclaredCapabilities(installationId: string): string[] {
     const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ?").get(installationId) as { manifest_json?: string } | undefined;
     if (row?.manifest_json === undefined) return [];
     try {
       const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
       return Array.isArray(manifest.capabilities) ? manifest.capabilities.filter((capability): capability is string => typeof capability === "string") : [];
     } catch { return []; }
+  }
+
+  updatePluginCapabilities(installationId: string, capabilities: readonly CapabilityName[]): boolean {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ?").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return false;
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
+      const declared = new Set(Array.isArray(manifest.capabilities) ? manifest.capabilities.filter((value): value is string => typeof value === "string") : []);
+      if (capabilities.some((capability) => !declared.has(capability))) return false;
+      return this.db.prepare("UPDATE plugin_installations SET granted_capabilities = ?, updated_at = ? WHERE id = ?").run(JSON.stringify([...new Set(capabilities)]), now(), installationId).changes === 1;
+    } catch { return false; }
   }
 
   registerVerifiedPluginPackage(input: Omit<VerifiedPluginPackageRecord, "verifiedAt">): void {

@@ -499,7 +499,18 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/plugins", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, capabilities: repository.pluginCapabilities(installation.id), worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
+    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, capabilities: repository.pluginCapabilities(installation.id), declaredCapabilities: repository.pluginDeclaredCapabilities(installation.id), worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
+  });
+
+  app.patch("/api/plugins/:id/capabilities", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id: string }).id;
+    const input = body<{ capabilities?: unknown }>(request);
+    if (!Array.isArray(input?.capabilities) || input.capabilities.some((capability) => typeof capability !== "string")) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
+    if (!repository.updatePluginCapabilities(installationId, input.capabilities as never[])) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
+    repository.audit(user.id, "plugin.capabilities.updated", installationId);
+    return { installationId, capabilities: repository.pluginCapabilities(installationId) };
   });
 
   app.get("/api/jobs", async (request, reply) => {

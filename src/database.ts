@@ -61,6 +61,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
       package_version TEXT NOT NULL,
       runtime TEXT NOT NULL,
       manifest_json TEXT NOT NULL,
+      granted_capabilities TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -189,6 +190,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
       locked_until TEXT
     );
   `);
+  const pluginColumns = db.prepare("PRAGMA table_info(plugin_installations)").all() as Array<{ name?: string }>;
+  if (!pluginColumns.some((column) => column.name === "granted_capabilities")) db.exec("ALTER TABLE plugin_installations ADD COLUMN granted_capabilities TEXT");
   // Keep existing self-hosted databases compatible with the package runtime contract.
   const columns = db.prepare("PRAGMA table_info(verified_plugin_packages)").all() as Array<{ name?: string }>;
   if (!columns.some((column) => column.name === "runtime_entry")) db.exec("ALTER TABLE verified_plugin_packages ADD COLUMN runtime_entry TEXT");
