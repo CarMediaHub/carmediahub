@@ -242,5 +242,11 @@ test("administrator installs only a signed staged plugin package", async () => {
     const response = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(response.statusCode, 201);
     assert.match(response.json().package.location, /^plugins\/wdr-media\/0\.1\.0\//);
-  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+    await app.close();
+    const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+    await restarted.close();
+  } finally {
+    if (app.server.listening) await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
 });
