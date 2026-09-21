@@ -70,6 +70,12 @@ function validCredential(value: string, field: string): void {
   if (value.trim().length < 3 || value.length > 128) throw new Error(`${field} must contain 3 to 128 characters`);
 }
 
+async function sha256File(location: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  for await (const chunk of fs.createReadStream(location)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
 function publicWorkerStatus(status: ReturnType<WorkerSupervisor["status"]>): { installationId: string; state: string; attempts: number; diagnostic?: string } {
   return { installationId: status.installationId, state: status.state, attempts: status.attempts, ...(status.state === "failed" ? { diagnostic: "worker_failed" } : {}) };
 }
@@ -703,7 +709,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     let health: "healthy" | "unhealthy" = "unhealthy";
     try {
       const executable = resolveInstalledExecutable(options.dataDir, component);
-      const actual = crypto.createHash("sha256").update(fs.readFileSync(executable)).digest("hex");
+      const actual = await sha256File(executable);
       const expected = component.checksum.startsWith("sha256:") ? component.checksum.slice("sha256:".length) : component.checksum;
       if (/^[a-f0-9]{64}$/u.test(expected) && actual === expected) health = "healthy";
     } catch { health = "unhealthy"; }
