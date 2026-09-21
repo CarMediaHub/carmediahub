@@ -15,6 +15,7 @@ import { WorkerSupervisor } from "./worker-supervisor.js";
 import { createTrustedNodeWorkerFactory, type TrustedWorkerPackage } from "./trusted-worker-factory.js";
 import { installStagedPluginPackage } from "./plugin-package-installer.js";
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
+import { MediaLibraryService } from "./media-library-service.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; }
 
@@ -26,7 +27,9 @@ function validCredential(value: string, field: string): void {
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
-  const repository = new Repository(database.db, ensureServerKey(options.dataDir));
+  const serverKey = ensureServerKey(options.dataDir);
+  const repository = new Repository(database.db, serverKey);
+  const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
@@ -176,6 +179,43 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/components/catalog", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { components: catalog.map((component) => ({ ...component, executablePath: resolveManagedExecutable(options.dataDir, component) })) };
+  });
+
+  app.get("/api/media-roots", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { roots: mediaLibrary.roots(user.organizationId) };
+  });
+
+  app.post("/api/media-roots", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ name: string; path: string }>(request);
+      const root = mediaLibrary.addRoot(user.organizationId, input.name, input.path);
+      repository.audit(user.id, "mediaRoot.created", root.id);
+      return reply.code(201).send({ root });
+    } catch {
+      return reply.code(400).send({ code: "CMH.MEDIA_ROOT.INVALID", messageKey: "errors.mediaRoot.invalid" });
+    }
+  });
+
+  app.get("/api/media-roots/:id/items", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const limit = Number((request.query as { limit?: string }).limit ?? "200");
+      return { items: mediaLibrary.list(user.organizationId, (request.params as { id: string }).id, limit) };
+    } catch {
+      return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
+    }
+  });
+
+  app.post("/api/media-roots/:id/revoke", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    if (!mediaLibrary.revoke(user.organizationId, (request.params as { id: string }).id)) return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
+    repository.audit(user.id, "mediaRoot.revoked", (request.params as { id: string }).id);
+    return reply.code(204).send();
   });
 
   app.get("/api/components", async (request, reply) => {

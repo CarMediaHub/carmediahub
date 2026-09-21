@@ -72,6 +72,14 @@ export function openDatabase(dataDir: string): CoreDatabase {
       verified_at TEXT NOT NULL,
       PRIMARY KEY (package_id)
     );
+    CREATE TABLE IF NOT EXISTS media_roots (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id),
+      name TEXT NOT NULL,
+      protected_path TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
     CREATE TABLE IF NOT EXISTS entry_keys (
       id TEXT PRIMARY KEY,
       key_hash TEXT NOT NULL UNIQUE,

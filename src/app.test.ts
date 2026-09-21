@@ -250,3 +250,22 @@ test("administrator installs only a signed staged plugin package", async () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("administrator manages Core-owned media roots without exposing their paths", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const mediaRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-media-"));
+  fs.writeFileSync(path.join(mediaRoot, "trip.mp4"), "video");
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const created = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie: login.headers["set-cookie"] }, payload: { name: "Road media", path: mediaRoot } });
+    assert.equal(created.statusCode, 201);
+    assert.doesNotMatch(created.body, new RegExp(mediaRoot.replace(/[\\/]/gu, "[\\\\/]")));
+    const rootId = created.json().root.id as string;
+    const items = await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie: login.headers["set-cookie"] } });
+    assert.deepEqual(items.json().items.map((item: { title: string }) => item.title), ["trip.mp4"]);
+    assert.equal((await app.inject({ method: "POST", url: `/api/media-roots/${rootId}/revoke`, headers: { cookie: login.headers["set-cookie"] } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie: login.headers["set-cookie"] } })).statusCode, 404);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); fs.rmSync(mediaRoot, { recursive: true, force: true }); }
+});
