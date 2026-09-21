@@ -33,7 +33,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobs = new PluginJobService(database.db);
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
-    installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed"
+    installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed",
+    onWorkerRequest: (request, scope) => {
+      if (request.method === "media.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        return { media: mediaLibrary.roots(scope.organizationId).flatMap((root) => mediaLibrary.list(scope.organizationId, root.id)) };
+      }
+      if (request.method === "media.read") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const input = request.params as { mediaId?: unknown; start?: unknown; end?: unknown } | undefined;
+        if (typeof input?.mediaId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
+        return mediaLibrary.read(scope.organizationId, input.mediaId, input.start, input.end);
+      }
+      throw new Error("Worker method is not available");
+    }
   });
   const supervisor = new WorkerSupervisor({
     endpoint: runtimeBroker.endpoint,

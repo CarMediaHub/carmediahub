@@ -9,6 +9,7 @@ const now = () => new Date().toISOString();
 
 export interface MediaRoot { id: string; name: string; createdAt: string; }
 export interface MediaItem { id: string; title: string; contentType: string; size: number; updatedAt: string; }
+export interface MediaRead { data: string; completed: boolean; }
 
 /** Core-owned media root registry. Plugins receive no filesystem path or root handle. */
 export class MediaLibraryService {
@@ -50,6 +51,26 @@ export class MediaLibraryService {
   revoke(organizationId: string, rootId: string): boolean {
     const result = this.db.prepare("UPDATE media_roots SET revoked_at = ? WHERE id = ? AND organization_id = ? AND revoked_at IS NULL").run(now(), rootId, organizationId);
     return result.changes === 1;
+  }
+
+  read(organizationId: string, mediaId: string, start: number, end: number): MediaRead {
+    if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Media read request is invalid");
+    for (const root of this.roots(organizationId)) {
+      const item = this.list(organizationId, root.id, 1000).find((candidate) => candidate.id === mediaId);
+      if (item === undefined) continue;
+      if (start >= item.size) throw new Error("Media range is unavailable");
+      const rootPath = this.rootPath(organizationId, root.id);
+      const location = path.resolve(rootPath, item.title);
+      if (!location.startsWith(rootPath + path.sep) || fs.lstatSync(location).isSymbolicLink()) throw new Error("Media range is unavailable");
+      const count = Math.min(end, item.size - 1) - start + 1;
+      const handle = fs.openSync(location, "r");
+      try {
+        const bytes = Buffer.allocUnsafe(count);
+        fs.readSync(handle, bytes, 0, count, start);
+        return { data: bytes.toString("base64"), completed: start + count >= item.size };
+      } finally { fs.closeSync(handle); }
+    }
+    throw new Error("Media item is unavailable");
   }
 
   private rootPath(organizationId: string, rootId: string): string {

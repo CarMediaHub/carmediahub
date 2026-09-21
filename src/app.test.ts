@@ -200,6 +200,8 @@ test("registers SDK-validated plugin installations and disables their applicatio
 
 test("gateway starts the trusted WDR Worker and writes its response through the single public route", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const mediaRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-wdr-media-"));
+  fs.writeFileSync(path.join(mediaRoot, "drive.mp4"), "video");
   const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
   const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
   const packageRoot = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "official", "wdr-media", "src");
@@ -208,7 +210,10 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
-    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
+    const root = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie }, payload: { name: "WDR media", path: mediaRoot } });
+    const rootId = root.json().root.id as string;
+    const item = (await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie } })).json().items[0] as { id: string };
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "storage", "media", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/stream", methods: ["GET"] }, { path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
     const pluginKeyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
     const release = { keyId: pluginKeyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
@@ -217,9 +222,14 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media" });
+    const stream = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/stream?id=${item.id}`, headers: { cookie, range: "bytes=1-3" } });
+    assert.equal(stream.statusCode, 206);
+    assert.equal(stream.headers["content-range"], "bytes 1-3/5");
+    assert.equal(stream.body, "ide");
   } finally {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.rmSync(mediaRoot, { recursive: true, force: true });
   }
 });
 

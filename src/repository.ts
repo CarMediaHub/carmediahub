@@ -214,6 +214,15 @@ export class Repository {
     return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
+  pluginHasCapability(installationId: string, capability: string): boolean {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return false;
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
+      return Array.isArray(manifest.capabilities) && manifest.capabilities.includes(capability);
+    } catch { return false; }
+  }
+
   registerVerifiedPluginPackage(input: Omit<VerifiedPluginPackageRecord, "verifiedAt">): void {
     if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.packageId) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(input.packageVersion) || !/^[a-f0-9]{64}$/u.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..") || !/^\.\/[A-Za-z0-9_./-]+$/u.test(input.workerEntry) || input.workerEntry.includes("..")) throw new Error("Invalid verified plugin package record");
     this.db.prepare("INSERT OR REPLACE INTO verified_plugin_packages (package_id, package_version, digest, location, worker_entry, verified_at) VALUES (?, ?, ?, ?, ?, ?)")
