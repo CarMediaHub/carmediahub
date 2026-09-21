@@ -5,7 +5,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { encodeFrame, FrameDecoder, type RpcRequest } from "@carmediahub/sdk";
+import { connectWorkerClient, encodeFrame, FrameDecoder, type RpcRequest } from "@carmediahub/sdk";
 import { RuntimeBroker, type RuntimeCredentialScope } from "./runtime-broker.js";
 
 const scope: RuntimeCredentialScope = {
@@ -89,6 +89,21 @@ test("Broker forwards a gateway invocation over the authenticated worker channel
     await workerRequest;
     assert.deepEqual(result, { status: 206, body: "ok" });
     client.socket.end();
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("SDK worker client completes the broker handshake and serves a logical route", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const worker = await connectWorkerClient({ endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
+    worker.onGatewayRequest((input) => ({ status: 200, body: { path: input.path } }));
+    assert.deepEqual(await broker.invoke(scope.installationId, scope, { method: "GET", path: "/library" }), { status: 200, body: { path: "/library" } });
+    worker.close();
   } finally {
     await broker.stop();
     fs.rmSync(dataDir, { recursive: true, force: true });
