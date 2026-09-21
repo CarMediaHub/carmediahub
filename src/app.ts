@@ -10,9 +10,9 @@ import { installSignedComponentRelease, type SignedComponentRelease } from "./co
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
 import { PluginJobService } from "./job-service.js";
-import { validateManifest } from "@carmediahub/sdk";
+import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -201,8 +201,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     try {
-      validateManifest(request.body);
-      const installation = repository.installPlugin(request.body);
+      if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
+      const manifest = verifyPluginRelease(body<SignedPluginRelease>(request), options.pluginTrustKeys);
+      const installation = repository.installPlugin(manifest);
       repository.audit(user.id, "plugin.installed", installation.id);
       return reply.code(201).send({ installation });
     } catch {

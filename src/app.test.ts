@@ -7,6 +7,7 @@ import test from "node:test";
 import { createApp } from "./app.js";
 import { totpCode } from "./security.js";
 import { currentPlatformKey } from "./components.js";
+import { canonicalPluginManifest } from "./plugin-release.js";
 
 test("bootstraps, authenticates, creates a key, and revokes it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
@@ -161,13 +162,17 @@ test("rate limits repeated credential failures and emits secure cookies when con
 
 test("registers SDK-validated plugin installations and disables their application route", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
-  const app = await createApp({ dataDir });
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey] });
   try {
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
     const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "history", "events"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
-    const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: manifest });
+    const pluginKeyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
+    const release = { keyId: pluginKeyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
+    const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(install.statusCode, 201);
     const installation = install.json().installation as { id: string; status: string };
     assert.equal(installation.status, "installed");
