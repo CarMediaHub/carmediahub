@@ -31,6 +31,16 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
     assert.equal(Buffer.from(service.read("org", "plugin-a", items.find((item) => item.title === "episode.mp4")!.id, 0, 6).data, "base64").toString(), "episode");
     const scope = { organizationId: "org", userId: "user", deviceId: "vehicle-a", installationId: "plugin-a" };
     const playback = service.createPlayback(scope, items[0]!.id);
+    assert.deepEqual(service.probe(scope, items[0]!.id), {
+      mediaId: items[0]!.id,
+      contentType: "video/mp4",
+      size: 5,
+      updatedAt: service.probe(scope, items[0]!.id).updatedAt,
+      container: "mp4",
+      seekable: true,
+      availableModes: ["direct-range"],
+      recommendedMode: "direct-range"
+    });
     assert.equal(Buffer.from(service.readWithPlayback(scope, playback.sessionId, items[0]!.id, 0, 4).data, "base64").toString(), "video");
     assert.throws(() => service.readWithPlayback({ ...scope, deviceId: "vehicle-b" }, playback.sessionId, items[0]!.id, 0, 4), /unavailable/);
     service.revokePlaybackForUser("user");

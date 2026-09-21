@@ -91,6 +91,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof mediaId !== "string") throw new Error("Invalid playback request");
         return mediaLibrary.createPlayback(scope, mediaId);
       }
+      if (request.method === "media.probe") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const mediaId = (request.params as { mediaId?: unknown } | undefined)?.mediaId;
+        if (typeof mediaId !== "string") throw new Error("Invalid media probe request");
+        return mediaLibrary.probe(scope, mediaId);
+      }
       if (request.method === "media.read") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
         const input = request.params as { mediaId?: unknown; sessionId?: unknown; start?: unknown; end?: unknown } | undefined;
