@@ -4,7 +4,7 @@ import { WorkerSupervisor, type TrustedWorkerFactory } from "./worker-supervisor
 import type { RuntimeCredentialScope } from "./runtime-broker.js";
 
 const scope: RuntimeCredentialScope = {
-  deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin_one", locale: "en", policyVersion: 1
+  deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin_one", locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", entry: "navigation", display: { deviceClass: "unknown", input: [], fullscreenAvailable: false, viewport: { width: 0, height: 0 } }, policyVersion: 1
 };
 
 test("Supervisor starts only registered factories and reclaims idle workers", async () => {

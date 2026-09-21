@@ -183,13 +183,13 @@ export class Repository {
     return this.applications().find((application) => requestPath === application.route || requestPath.startsWith(`${application.route}/`));
   }
 
-  runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway"): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; policyVersion: number } | undefined {
+  runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway", presentation: { entry?: "navigation" | "key"; display?: { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } } } = {}): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; entry: "navigation" | "key"; display: { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } }; policyVersion: number } | undefined {
     const row = this.db.prepare(`SELECT u.organization_id, u.locale, u.time_zone, u.theme, u.density, o.deployment_id
       FROM users u JOIN organizations o ON o.id = u.organization_id
       WHERE u.id = ? AND u.revoked_at IS NULL`).get(userId) as { organization_id: string; locale: string; time_zone: string; theme: string; density: string; deployment_id: string } | undefined;
     if (row === undefined || this.pluginInstallation(installationId)?.status !== "installed") return undefined;
     const locale = row.locale === "zh-CN" || row.locale === "ko" ? row.locale : "en";
-    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId, sessionId, installationId, locale, timeZone: row.time_zone, theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system", density: row.density === "compact" ? "compact" : "comfortable", policyVersion: 1 };
+    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId, sessionId, installationId, locale, timeZone: row.time_zone, theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system", density: row.density === "compact" ? "compact" : "comfortable", entry: presentation.entry ?? "navigation", display: presentation.display ?? { deviceClass: "unknown", input: [], fullscreenAvailable: false, viewport: { width: 0, height: 0 } }, policyVersion: 1 };
   }
 
   addApplication(input: Omit<ApplicationRecord, "id">): ApplicationRecord {

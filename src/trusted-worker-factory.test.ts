@@ -12,7 +12,7 @@ test("trusted Node factory resolves only a package-relative worker entry and sto
   try {
     assert.throws(() => createTrustedNodeWorkerFactory({ packageId: "pkg", packageRoot, workerEntry: "../worker.js" }));
     const factory = createTrustedNodeWorkerFactory({ packageId: "pkg", packageRoot, workerEntry: "./worker.js" });
-    const handle = await factory.start({ installationId: "installation", endpoint: "local", runtimeCredential: "credential", scope: { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "installation", locale: "en", policyVersion: 1 } });
+    const handle = await factory.start({ installationId: "installation", endpoint: "local", runtimeCredential: "credential", scope: { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "installation", locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", entry: "navigation", display: { deviceClass: "unknown", input: [], fullscreenAvailable: false, viewport: { width: 0, height: 0 } }, policyVersion: 1 } });
     await new Promise((resolve) => setTimeout(resolve, 50));
     handle.stop();
   } finally {

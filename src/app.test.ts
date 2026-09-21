@@ -4,13 +4,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createApp } from "./app.js";
+import { createApp, filterGatewayHeaders } from "./app.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 import { openDatabase } from "./database.js";
 import { totpCode } from "./security.js";
 import { currentPlatformKey } from "./components.js";
 import { canonicalPluginManifest } from "./plugin-release.js";
 import { canonicalPluginPackageRelease } from "./plugin-package-release.js";
+
+test("gateway forwards only protocol headers and never session or authorization material", () => {
+  assert.deepEqual(filterGatewayHeaders({ range: "bytes=0-1", accept: "video/*", cookie: "cmh_session=secret", authorization: "Bearer secret", "x-cmh-device-class": "vehicle", "x-forwarded-for": "127.0.0.1" }), { range: "bytes=0-1", accept: "video/*" });
+});
 
 function pluginPackageDigest(root: string): string {
   const files = ["ui/index.html", "worker.js"];
@@ -237,9 +241,17 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal(limited.json().code, "CMH.GATEWAY.STREAM_LIMIT");
     heldLease?.release();
     assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } })).statusCode, 200);
-    const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
+    const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "vehicle", "x-cmh-input": "touch,remote", "x-cmh-viewport-width": "1920", "x-cmh-viewport-height": "1200", "x-cmh-fullscreen": "true", authorization: "Bearer should-not-reach-plugin" } });
     assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko" });
+    assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko", entry: "navigation", display: { deviceClass: "vehicle", input: ["touch", "remote"], fullscreenAvailable: true, viewport: { width: 1920, height: 1200 } } });
+    const invalid = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "tablet", "x-cmh-input": "token", "x-cmh-viewport-width": "-1", "x-cmh-viewport-height": "99999", "x-cmh-fullscreen": "yes" } });
+    assert.deepEqual(invalid.json().display, { deviceClass: "unknown", input: [], fullscreenAvailable: false, viewport: { width: 0, height: 0 } });
+    const applications = (await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications as Array<{ id: string; installationId: string }>;
+    const key = await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId: applications.find((item) => item.installationId === installationId)?.id } });
+    const entry = await app.inject({ method: "GET", url: `/k/${key.json().key}` });
+    const entryCookie = String(entry.headers["set-cookie"]).split(";", 1)[0];
+    const keyed = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie: `${cookie}; ${entryCookie}` } });
+    assert.equal(keyed.json().entry, "key");
     const stream = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/stream?id=${item.id}`, headers: { cookie, range: "bytes=1-3" } });
     assert.equal(stream.statusCode, 206);
     assert.equal(stream.headers["content-range"], "bytes 1-3/5");

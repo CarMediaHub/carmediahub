@@ -22,6 +22,44 @@ export interface AppOptions { dataDir: string; cookieSecure?: boolean; component
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
+type DisplayContext = { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } };
+
+const gatewayRequestHeaders = new Set(["accept", "accept-encoding", "accept-language", "content-type", "if-match", "if-modified-since", "if-none-match", "if-range", "if-unmodified-since", "range"]);
+
+function singleHeader(request: FastifyRequest, name: string): string | undefined {
+  const value = request.headers[name];
+  return typeof value === "string" ? value : undefined;
+}
+
+/** Client hints are deliberately bounded UI hints, never identity or authorization input. */
+function presentationContext(request: FastifyRequest, applicationId: string): { entry: "navigation" | "key"; display: DisplayContext } {
+  const deviceClass = singleHeader(request, "x-cmh-device-class");
+  const allowedDevice = deviceClass === "desktop" || deviceClass === "mobile" || deviceClass === "vehicle" ? deviceClass : "unknown";
+  const rawInput = singleHeader(request, "x-cmh-input");
+  const input = rawInput === undefined ? [] : [...new Set(rawInput.split(",").map((value) => value.trim()).filter((value): value is DisplayContext["input"][number] => value === "touch" || value === "keyboard" || value === "pointer" || value === "remote"))];
+  const boundedDimension = (name: string) => {
+    const value = singleHeader(request, name);
+    return value !== undefined && /^(0|[1-9][0-9]{0,4})$/.test(value) && Number(value) <= 16_384 ? Number(value) : 0;
+  };
+  return {
+    entry: request.cookies.cmh_entry === applicationId ? "key" : "navigation",
+    display: {
+      deviceClass: allowedDevice,
+      input,
+      fullscreenAvailable: singleHeader(request, "x-cmh-fullscreen") === "true",
+      viewport: { width: boundedDimension("x-cmh-viewport-width"), height: boundedDimension("x-cmh-viewport-height") }
+    }
+  };
+}
+
+export function filterGatewayHeaders(headers: Record<string, string | string[] | undefined>): Record<string, string> {
+  return Object.fromEntries(Object.entries(headers).filter((entry): entry is [string, string] => gatewayRequestHeaders.has(entry[0].toLowerCase()) && typeof entry[1] === "string"));
+}
+
+function pluginRequestHeaders(request: FastifyRequest): Record<string, string> {
+  return filterGatewayHeaders(request.headers);
+}
+
 function validCredential(value: string, field: string): void {
   if (value.trim().length < 3 || value.length > 128) throw new Error(`${field} must contain 3 to 128 characters`);
 }
@@ -414,7 +452,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const requestPath = request.url.split("?", 1)[0] ?? request.url;
     const application = repository.applicationForPath(requestPath);
     if (application === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
-    const scope = repository.runtimeScope(user.id, application.installationId, session.sessionId, session.deviceLabel);
+    const scope = repository.runtimeScope(user.id, application.installationId, session.sessionId, session.deviceLabel, presentationContext(request, application.id));
     if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
     const streamLease = gatewayStreamQuota.tryAcquire(session.sessionId);
     if (streamLease === undefined) return reply.code(429).header("retry-after", "1").send({ code: "CMH.GATEWAY.STREAM_LIMIT", messageKey: "errors.gateway.streamLimit", retryable: true });
@@ -427,7 +465,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
         path: relativePath,
         query: request.query as Record<string, string | string[]>,
-        headers: Object.fromEntries(Object.entries(request.headers).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+        headers: pluginRequestHeaders(request),
         body: request.body
       });
       const start = await stream.start;
