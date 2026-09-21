@@ -63,6 +63,15 @@ export function openDatabase(dataDir: string): CoreDatabase {
       updated_at TEXT NOT NULL,
       UNIQUE(package_id, id)
     );
+    CREATE TABLE IF NOT EXISTS verified_plugin_packages (
+      package_id TEXT NOT NULL,
+      package_version TEXT NOT NULL,
+      digest TEXT NOT NULL,
+      location TEXT NOT NULL,
+      worker_entry TEXT NOT NULL,
+      verified_at TEXT NOT NULL,
+      PRIMARY KEY (package_id)
+    );
     CREATE TABLE IF NOT EXISTS entry_keys (
       id TEXT PRIMARY KEY,
       key_hash TEXT NOT NULL UNIQUE,

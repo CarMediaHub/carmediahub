@@ -14,6 +14,7 @@ export interface EntryKeyRecord { id: string; applicationId: string; application
 export interface TotpSetup { secret: string; otpauthUrl: string; }
 export interface ManagedUserRecord extends UserRecord { createdAt: string; revokedAt: string | null; }
 export interface PluginInstallationRecord { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled"; createdAt: string; updatedAt: string; }
+export interface VerifiedPluginPackageRecord { packageId: string; packageVersion: string; digest: string; location: string; workerEntry: string; verifiedAt: string; }
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -211,6 +212,17 @@ export class Repository {
     const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE id = ?").get(installationId) as Record<string, string> | undefined;
     if (row === undefined) return undefined;
     return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+  }
+
+  registerVerifiedPluginPackage(input: Omit<VerifiedPluginPackageRecord, "verifiedAt">): void {
+    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.packageId) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(input.packageVersion) || !/^[a-f0-9]{64}$/u.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..") || !/^\.\/[A-Za-z0-9_./-]+$/u.test(input.workerEntry) || input.workerEntry.includes("..")) throw new Error("Invalid verified plugin package record");
+    this.db.prepare("INSERT OR REPLACE INTO verified_plugin_packages (package_id, package_version, digest, location, worker_entry, verified_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(input.packageId, input.packageVersion, input.digest, input.location, input.workerEntry, now());
+  }
+
+  verifiedPluginPackages(): VerifiedPluginPackageRecord[] {
+    return (this.db.prepare("SELECT package_id, package_version, digest, location, worker_entry, verified_at FROM verified_plugin_packages ORDER BY verified_at DESC").all() as Array<Record<string, string>>)
+      .map((row) => ({ packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", digest: row.digest ?? "", location: row.location ?? "", workerEntry: row.worker_entry ?? "", verifiedAt: row.verified_at ?? "" }));
   }
 
   disablePlugin(installationId: string): boolean {

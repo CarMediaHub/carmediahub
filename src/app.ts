@@ -40,6 +40,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       return installation === undefined ? undefined : { packageId: installation.packageId, status: installation.status };
     }
   });
+  for (const verified of repository.verifiedPluginPackages()) {
+    supervisor.register(createTrustedNodeWorkerFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), workerEntry: verified.workerEntry }));
+  }
   for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const app = Fastify({ logger: false });
@@ -232,6 +235,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
       const installed = installStagedPluginPackage(options.dataDir, { packageId: release.manifest.id, version: release.manifest.version, artifactId: release.artifact.id, digest: release.artifact.digest });
+      const workerEntry = release.manifest.worker?.entry;
+      if (release.manifest.runtime === "isolated-worker" && workerEntry !== undefined) {
+        repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, workerEntry });
+        supervisor.register(createTrustedNodeWorkerFactory({ packageId: installed.packageId, packageRoot: path.resolve(options.dataDir, installed.location), workerEntry }));
+      }
       repository.audit(user.id, "plugin.package.installed", `${installed.packageId}@${installed.version}`);
       return reply.code(201).send({ package: installed });
     } catch {
