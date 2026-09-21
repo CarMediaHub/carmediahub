@@ -10,7 +10,10 @@ export default function Security() {
   const [setup, setSetup] = useState<TotpSetup>();
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
   const [locale, setLocale] = useState("en");
-  const refresh = () => { void Promise.all([fetch("/api/auth/totp").then((response) => response.json()), fetch("/api/me").then((response) => response.ok ? response.json() : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? "en"); }); };
+  const [timeZone, setTimeZone] = useState("UTC");
+  const [theme, setTheme] = useState("system");
+  const [density, setDensity] = useState("comfortable");
+  const refresh = () => { void Promise.all([fetch("/api/auth/totp").then((response) => response.json()), fetch("/api/me").then((response) => response.ok ? response.json() : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? "en"); setTimeZone(profile.user?.timeZone ?? "UTC"); setTheme(profile.user?.theme ?? "system"); setDensity(profile.user?.density ?? "comfortable"); }); };
   useEffect(refresh, []);
   const navigation = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/media", name: "Media roots", icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
   return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>Sign out</Button>]}> 
@@ -20,8 +23,11 @@ export default function Security() {
       {enabled && <Alert type="success" showIcon message="Authenticator protection is enabled" description="Use an authenticator code or one unused recovery code when signing in." />}
     </ProCard>
     <ProCard title="Platform preferences" style={{ margin: 24, maxWidth: 780 }}>
-      <ProForm key={locale} layout="inline" initialValues={{ locale }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Unable to update language"); return false; } const result = await response.json(); setLocale(result.user.locale); message.success("Language preference updated"); return true; }}>
+      <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout="inline" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Unable to update platform preferences"); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); message.success("Platform preferences updated"); return true; }}>
         <ProFormSelect name="locale" label="Language" options={[{ label: "English", value: "en" }, { label: "简体中文", value: "zh-CN" }, { label: "한국어", value: "ko" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="timeZone" label="Time zone" options={[{ label: "UTC", value: "UTC" }, { label: "Asia/Shanghai", value: "Asia/Shanghai" }, { label: "Europe/London", value: "Europe/London" }, { label: "America/Los_Angeles", value: "America/Los_Angeles" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="theme" label="Theme" options={[{ label: "System", value: "system" }, { label: "Light", value: "light" }, { label: "Dark", value: "dark" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="density" label="Density" options={[{ label: "Comfortable", value: "comfortable" }, { label: "Compact", value: "compact" }]} rules={[{ required: true }]} />
       </ProForm>
     </ProCard>
     <Modal title="Set up authenticator" open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>

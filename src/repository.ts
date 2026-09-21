@@ -6,7 +6,7 @@ import type { PluginManifest } from "@carmediahub/sdk";
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
 
-export interface UserRecord { id: string; username: string; role: string; locale: string; organizationId: string; }
+export interface UserRecord { id: string; username: string; role: string; locale: string; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; organizationId: string; }
 export interface SessionContext { user: UserRecord; sessionId: string; deviceLabel: string; }
 export interface ApplicationRecord { id: string; name: string; category: string; route: string; installationId: string; vehicleSupported: boolean; }
 export interface EntryResolution { application: ApplicationRecord; userId: string; }
@@ -39,11 +39,11 @@ export class Repository {
       this.db.exec("ROLLBACK;");
       throw error;
     }
-    return { id: userId, username, role: "admin", locale, organizationId };
+    return { id: userId, username, role: "admin", locale, timeZone: "UTC", theme: "system", density: "comfortable", organizationId };
   }
 
   login(username: string, password: string, deviceLabel: string, otp?: string): { token: string; user: UserRecord } | "totp_required" | "totp_invalid" | undefined {
-    const row = this.db.prepare("SELECT id, organization_id, username, password_hash, role, locale, revoked_at, totp_secret, totp_enabled FROM users WHERE username = ?").get(username) as Record<string, string | number | null> | undefined;
+    const row = this.db.prepare("SELECT id, organization_id, username, password_hash, role, locale, time_zone, theme, density, revoked_at, totp_secret, totp_enabled FROM users WHERE username = ?").get(username) as Record<string, string | number | null> | undefined;
     if (row === undefined || row.revoked_at !== null || !verifyPassword(password, String(row.password_hash ?? ""))) return undefined;
     if (Number(row.totp_enabled) === 1) {
       if (otp === undefined || otp.length === 0) return "totp_required";
@@ -55,7 +55,7 @@ export class Repository {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
     this.db.prepare("INSERT INTO sessions (id, user_id, token_hash, device_label, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id("session"), row.id ?? "", keyedHash(token, this.serverKey), deviceLabel.slice(0, 80), expiresAt, createdAt);
-    return { token, user: this.userFromRow({ id: String(row.id), organization_id: String(row.organization_id), username: String(row.username), role: String(row.role), locale: String(row.locale) }) };
+    return { token, user: this.userFromRow({ id: String(row.id), organization_id: String(row.organization_id), username: String(row.username), role: String(row.role), locale: String(row.locale), time_zone: String(row.time_zone), theme: String(row.theme), density: String(row.density) }) };
   }
 
   totpStatus(userId: string): { enabled: boolean } {
@@ -90,14 +90,14 @@ export class Repository {
   }
 
   session(token: string): UserRecord | undefined {
-    const row = this.db.prepare(`SELECT u.id, u.organization_id, u.username, u.role, u.locale
+    const row = this.db.prepare(`SELECT u.id, u.organization_id, u.username, u.role, u.locale, u.time_zone, u.theme, u.density
       FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.revoked_at IS NULL AND u.revoked_at IS NULL AND s.expires_at > ?`).get(keyedHash(token, this.serverKey), now()) as Record<string, string> | undefined;
     return row === undefined ? undefined : this.userFromRow(row);
   }
 
   sessionContext(token: string): SessionContext | undefined {
-    const row = this.db.prepare(`SELECT s.id AS session_id, s.device_label, u.id, u.organization_id, u.username, u.role, u.locale
+    const row = this.db.prepare(`SELECT s.id AS session_id, s.device_label, u.id, u.organization_id, u.username, u.role, u.locale, u.time_zone, u.theme, u.density
       FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.revoked_at IS NULL AND u.revoked_at IS NULL AND s.expires_at > ?`).get(keyedHash(token, this.serverKey), now()) as Record<string, string> | undefined;
     if (row === undefined) return undefined;
@@ -129,23 +129,29 @@ export class Repository {
   clearFailedAttempts(subject: string): void { this.db.prepare("DELETE FROM rate_limit_buckets WHERE subject_hash = ?").run(keyedHash(subject, this.serverKey)); }
 
   users(organizationId: string): ManagedUserRecord[] {
-    return (this.db.prepare("SELECT id, organization_id, username, role, locale, created_at, revoked_at FROM users WHERE organization_id = ? ORDER BY created_at").all(organizationId) as Array<Record<string, string | null>>)
+    return (this.db.prepare("SELECT id, organization_id, username, role, locale, time_zone, theme, density, created_at, revoked_at FROM users WHERE organization_id = ? ORDER BY created_at").all(organizationId) as Array<Record<string, string | null>>)
       .map((row) => ({ ...this.userFromRow(row), createdAt: String(row.created_at), revokedAt: row.revoked_at ?? null }));
   }
 
   createUser(input: { organizationId: string; username: string; password: string; role: string; locale: string }): UserRecord {
     if (input.role !== "admin" && input.role !== "member") throw new Error("Invalid role");
-    const record = { id: id("user"), organizationId: input.organizationId, username: input.username, role: input.role, locale: input.locale };
+    const record = { id: id("user"), organizationId: input.organizationId, username: input.username, role: input.role, locale: input.locale, timeZone: "UTC", theme: "system" as const, density: "comfortable" as const };
     this.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(record.id, record.organizationId, record.username, hashPassword(input.password), record.role, record.locale, now());
     return record;
   }
 
-  updateUserLocale(userId: string, locale: string): UserRecord | undefined {
-    if (locale !== "en" && locale !== "zh-CN" && locale !== "ko") return undefined;
-    const result = this.db.prepare("UPDATE users SET locale = ? WHERE id = ? AND revoked_at IS NULL").run(locale, userId);
+  updateUserPreferences(userId: string, input: { locale?: unknown; timeZone?: unknown; theme?: unknown; density?: unknown }): UserRecord | undefined {
+    const locale = input.locale === undefined ? undefined : (input.locale === "en" || input.locale === "zh-CN" || input.locale === "ko" ? input.locale : undefined);
+    const timeZone = input.timeZone === undefined ? undefined : (typeof input.timeZone === "string" && input.timeZone.length <= 80 && (() => { try { new Intl.DateTimeFormat("en", { timeZone: input.timeZone }).format(); return true; } catch { return false; } })() ? input.timeZone : undefined);
+    const theme = input.theme === undefined ? undefined : (input.theme === "light" || input.theme === "dark" || input.theme === "system" ? input.theme : undefined);
+    const density = input.density === undefined ? undefined : (input.density === "comfortable" || input.density === "compact" ? input.density : undefined);
+    if ((input.locale !== undefined && locale === undefined) || (input.timeZone !== undefined && timeZone === undefined) || (input.theme !== undefined && theme === undefined) || (input.density !== undefined && density === undefined)) return undefined;
+    const current = this.db.prepare("SELECT locale, time_zone, theme, density FROM users WHERE id = ? AND revoked_at IS NULL").get(userId) as { locale: string; time_zone: string; theme: string; density: string } | undefined;
+    if (current === undefined) return undefined;
+    const result = this.db.prepare("UPDATE users SET locale = ?, time_zone = ?, theme = ?, density = ? WHERE id = ? AND revoked_at IS NULL").run(locale ?? current.locale, timeZone ?? current.time_zone, theme ?? current.theme, density ?? current.density, userId);
     if (result.changes !== 1) return undefined;
-    const row = this.db.prepare("SELECT id, organization_id, username, role, locale FROM users WHERE id = ?").get(userId) as Record<string, string | null> | undefined;
+    const row = this.db.prepare("SELECT id, organization_id, username, role, locale, time_zone, theme, density FROM users WHERE id = ?").get(userId) as Record<string, string | null> | undefined;
     return row === undefined ? undefined : this.userFromRow(row);
   }
 
@@ -177,13 +183,13 @@ export class Repository {
     return this.applications().find((application) => requestPath === application.route || requestPath.startsWith(`${application.route}/`));
   }
 
-  runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway"): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; policyVersion: number } | undefined {
-    const row = this.db.prepare(`SELECT u.organization_id, u.locale, o.deployment_id
+  runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway"): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; policyVersion: number } | undefined {
+    const row = this.db.prepare(`SELECT u.organization_id, u.locale, u.time_zone, u.theme, u.density, o.deployment_id
       FROM users u JOIN organizations o ON o.id = u.organization_id
-      WHERE u.id = ? AND u.revoked_at IS NULL`).get(userId) as { organization_id: string; locale: string; deployment_id: string } | undefined;
+      WHERE u.id = ? AND u.revoked_at IS NULL`).get(userId) as { organization_id: string; locale: string; time_zone: string; theme: string; density: string; deployment_id: string } | undefined;
     if (row === undefined || this.pluginInstallation(installationId)?.status !== "installed") return undefined;
     const locale = row.locale === "zh-CN" || row.locale === "ko" ? row.locale : "en";
-    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId, sessionId, installationId, locale, policyVersion: 1 };
+    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId, sessionId, installationId, locale, timeZone: row.time_zone, theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system", density: row.density === "compact" ? "compact" : "comfortable", policyVersion: 1 };
   }
 
   addApplication(input: Omit<ApplicationRecord, "id">): ApplicationRecord {
@@ -316,7 +322,7 @@ export class Repository {
   }
 
   private userFromRow(row: Record<string, string | null>): UserRecord {
-    return { id: row.id ?? "", organizationId: row.organization_id ?? "", username: row.username ?? "", role: row.role ?? "", locale: row.locale ?? "en" };
+    return { id: row.id ?? "", organizationId: row.organization_id ?? "", username: row.username ?? "", role: row.role ?? "", locale: row.locale ?? "en", timeZone: row.time_zone ?? "UTC", theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system", density: row.density === "compact" ? "compact" : "comfortable" };
   }
 
   private addBuiltinApplications(): void {

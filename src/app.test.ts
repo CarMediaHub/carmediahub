@@ -35,9 +35,10 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(login.statusCode, 200);
     const cookie = login.headers["set-cookie"];
     assert.ok(cookie);
-    const preferences = await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } });
+    const preferences = await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko", timeZone: "Asia/Shanghai", theme: "dark", density: "compact" } });
     assert.equal(preferences.statusCode, 200);
     assert.equal(preferences.json().user.locale, "ko");
+    assert.deepEqual({ timeZone: preferences.json().user.timeZone, theme: preferences.json().user.theme, density: preferences.json().user.density }, { timeZone: "Asia/Shanghai", theme: "dark", density: "compact" });
     assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "fr" } })).statusCode, 400);
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");

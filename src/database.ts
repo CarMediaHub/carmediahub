@@ -29,6 +29,9 @@ export function openDatabase(dataDir: string): CoreDatabase {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       locale TEXT NOT NULL,
+      time_zone TEXT NOT NULL DEFAULT 'UTC',
+      theme TEXT NOT NULL DEFAULT 'system',
+      density TEXT NOT NULL DEFAULT 'comfortable',
       created_at TEXT NOT NULL,
       revoked_at TEXT,
       totp_secret TEXT,
@@ -157,5 +160,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
   if (!userColumns.some((column) => column.name === "totp_enabled")) db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0");
+  if (!userColumns.some((column) => column.name === "time_zone")) db.exec("ALTER TABLE users ADD COLUMN time_zone TEXT NOT NULL DEFAULT 'UTC'");
+  if (!userColumns.some((column) => column.name === "theme")) db.exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'");
+  if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
   return { db, close: () => db.close() };
 }

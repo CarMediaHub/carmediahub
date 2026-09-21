@@ -9,7 +9,7 @@ import { connectWorkerClient, encodeFrame, FrameDecoder, type RpcRequest } from 
 import { RuntimeBroker, type RuntimeCredentialScope } from "./runtime-broker.js";
 
 const scope: RuntimeCredentialScope = {
-  deploymentId: "dep_real", organizationId: "org_real", userId: "user_real", deviceId: "device_real", sessionId: "session_real", installationId: "plugin_enabled", locale: "en", policyVersion: 7
+  deploymentId: "dep_real", organizationId: "org_real", userId: "user_real", deviceId: "device_real", sessionId: "session_real", installationId: "plugin_enabled", locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", policyVersion: 7
 };
 
 function request(id: string, method: string, installationId = scope.installationId, params?: unknown): RpcRequest {
@@ -54,7 +54,7 @@ test("Broker injects credential scope and rejects forged scope metadata", async 
     const challenge = await send(client.socket, client.decoder, request("hello", "broker.hello"));
     assert.equal((challenge.result as { type: string }).type, "broker.challenge");
     const welcome = await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
-    assert.deepEqual(welcome.result, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", policyVersion: 7 } });
+    assert.deepEqual(welcome.result, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", policyVersion: 7 } });
     await send(client.socket, client.decoder, request("ready", "lifecycle.ready"));
     await send(client.socket, client.decoder, request("event", "event.emit"));
     assert.deepEqual(receivedScope, scope);
@@ -97,7 +97,7 @@ test("Broker forwards a gateway invocation over the authenticated worker channel
         try {
           const message = client.decoder.push(chunk)[0] as RpcRequest;
           assert.equal(message.method, "gateway.request");
-          assert.deepEqual(message.params, { method: "GET", path: "/media", headers: { "x-test": "yes" }, context: { locale: "en", policyVersion: 7 } });
+          assert.deepEqual(message.params, { method: "GET", path: "/media", headers: { "x-test": "yes" }, context: { locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", policyVersion: 7 } });
           client.socket.write(encodeFrame({ jsonrpc: "2.0", id: message.id, result: { status: 206, body: "ok" }, meta: { schemaVersion: "0.1", requestId: message.meta.requestId, traceId: message.meta.traceId } }));
           resolve();
         } catch (error) { reject(error); }
@@ -119,7 +119,7 @@ test("SDK worker client completes the broker handshake and serves a logical rout
   try {
     const endpoint = await broker.start();
     const worker = await connectWorkerClient({ endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
-    assert.deepEqual(worker.context, { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", policyVersion: 7 });
+    assert.deepEqual(worker.context, { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", timeZone: "UTC", theme: "system", density: "comfortable", policyVersion: 7 });
     worker.onGatewayRequest((input) => ({ status: 200, body: { path: input.path, locale: input.context?.locale } }));
     assert.deepEqual(await broker.invoke(scope.installationId, scope, { method: "GET", path: "/library" }), { status: 200, body: { path: "/library", locale: "en" } });
     worker.close();

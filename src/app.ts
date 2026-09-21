@@ -140,10 +140,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.patch("/api/me/preferences", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
-    const input = body<{ locale?: unknown }>(request);
-    const updated = typeof input.locale === "string" ? repository.updateUserLocale(user.id, input.locale) : undefined;
+    const input = body<{ locale?: unknown; timeZone?: unknown; theme?: unknown; density?: unknown }>(request);
+    const updated = repository.updateUserPreferences(user.id, input);
     if (updated === undefined) return reply.code(400).send({ code: "CMH.PREFERENCE.INVALID_LOCALE", messageKey: "errors.preference.invalidLocale" });
-    repository.audit(user.id, "user.preference.locale_changed", updated.locale);
+    repository.audit(user.id, "user.preference.updated", user.id);
     return { user: updated };
   });
 

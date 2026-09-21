@@ -6,6 +6,9 @@ import { CmhError, encodeFrame, FrameDecoder, validateWorkerRequest, type RpcReq
 
 export interface RuntimeCredentialScope extends ScopeContext {
   locale: "en" | "zh-CN" | "ko";
+  timeZone: string;
+  theme: "light" | "dark" | "system";
+  density: "comfortable" | "compact";
   policyVersion: number;
 }
 
@@ -39,8 +42,8 @@ export interface GatewayInvocation {
   body?: unknown;
 }
 
-function trustedGatewayInvocation(invocation: GatewayInvocation, scope: RuntimeCredentialScope, stream = false): GatewayInvocation & { stream?: boolean; context: { locale: RuntimeCredentialScope["locale"]; policyVersion: number } } {
-  return { ...invocation, ...(stream ? { stream: true } : {}), context: { locale: scope.locale, policyVersion: scope.policyVersion } };
+function trustedGatewayInvocation(invocation: GatewayInvocation, scope: RuntimeCredentialScope, stream = false): GatewayInvocation & { stream?: boolean; context: { locale: RuntimeCredentialScope["locale"]; timeZone: string; theme: RuntimeCredentialScope["theme"]; density: RuntimeCredentialScope["density"]; policyVersion: number } } {
+  return { ...invocation, ...(stream ? { stream: true } : {}), context: { locale: scope.locale, timeZone: scope.timeZone, theme: scope.theme, density: scope.density, policyVersion: scope.policyVersion } };
 }
 
 export interface GatewayStreamStart { status: number; headers?: Record<string, string>; }
@@ -305,7 +308,7 @@ export class RuntimeBroker {
     if (record === undefined || record.expiresAt < Date.now() || record.scope.installationId !== state.installationId || !this.options.installationEnabled(state.installationId)) throw new CmhError({ code: "CMH.PROTOCOL.HANDSHAKE_DENIED", messageKey: "errors.protocol.handshakeDenied", retryable: false, diagnosticId: "diag_broker_credential" });
     this.credentials.delete(credential!);
     state.scope = record.scope;
-    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: record.scope.deploymentId, organizationId: record.scope.organizationId, userId: record.scope.userId, deviceId: record.scope.deviceId, sessionId: record.scope.sessionId, installationId: record.scope.installationId }, locale: record.scope.locale, policyVersion: record.scope.policyVersion } });
+    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: record.scope.deploymentId, organizationId: record.scope.organizationId, userId: record.scope.userId, deviceId: record.scope.deviceId, sessionId: record.scope.sessionId, installationId: record.scope.installationId }, locale: record.scope.locale, timeZone: record.scope.timeZone, theme: record.scope.theme, density: record.scope.density, policyVersion: record.scope.policyVersion } });
     for (const wake of this.connectionWaiters) wake();
   }
 
