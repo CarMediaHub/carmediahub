@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { openDatabase } from "./database.js";
 import { Repository } from "./repository.js";
@@ -17,8 +18,33 @@ test("service bindings are scoped to the declared plugin installation", () => {
     const manifest = { id: "adapter-one", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
     const installation = repository.installPlugin(manifest);
     repository.bindService({ componentId: "alist", name: "adapter-one-service", endpoint: "http://127.0.0.1:5244", installationId: installation.id });
+    const secondInstallation = repository.installPlugin({ ...manifest, id: "adapter-two" });
+    repository.bindService({ componentId: "alist", name: "shared-service-name", endpoint: "http://127.0.0.1:5244", installationId: installation.id });
+    repository.bindService({ componentId: "alist", name: "shared-service-name", endpoint: "http://127.0.0.1:5245", installationId: secondInstallation.id });
+    assert.deepEqual(repository.serviceBindingByName("shared-service-name", installation.id), { endpoint: "http://127.0.0.1:5244/" });
+    assert.deepEqual(repository.serviceBindingByName("shared-service-name", secondInstallation.id), { endpoint: "http://127.0.0.1:5245/" });
     assert.deepEqual(repository.serviceBindingByName("adapter-one-service", installation.id), { endpoint: "http://127.0.0.1:5244/" });
     assert.equal(repository.serviceBindingByName("adapter-one-service", "plugin_other"), undefined);
     assert.throws(() => repository.bindService({ componentId: "alist", name: "disabled-service", endpoint: "http://127.0.0.1:5244", installationId: "plugin_missing" }));
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("migrates legacy global binding names to scoped uniqueness", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-binding-migration-"));
+  const legacy = new DatabaseSync(path.join(dataDir, "carmediahub.sqlite"));
+  legacy.exec(`CREATE TABLE managed_components (id TEXT PRIMARY KEY, version TEXT NOT NULL, executable TEXT NOT NULL, checksum TEXT NOT NULL, installed_at TEXT NOT NULL, health TEXT NOT NULL);
+    CREATE TABLE service_bindings (id TEXT PRIMARY KEY, component_id TEXT NOT NULL, name TEXT NOT NULL UNIQUE, endpoint TEXT NOT NULL, created_at TEXT NOT NULL);
+    INSERT INTO managed_components VALUES ('alist', '1.0.0', 'alist/alist', 'sha256:test', '2026-01-01T00:00:00.000Z', 'unknown');
+    INSERT INTO service_bindings VALUES ('binding_legacy', 'alist', 'legacy-service', 'http://127.0.0.1:5244/', '2026-01-01T00:00:00.000Z');`);
+  legacy.close();
+  const database = openDatabase(dataDir);
+  try {
+    const columns = database.db.prepare("PRAGMA table_info(service_bindings)").all() as Array<{ name?: string }>;
+    assert.ok(columns.some((column) => column.name === "installation_id"));
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const first = repository.installPlugin({ id: "adapter-one", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+    repository.bindService({ componentId: "alist", name: "legacy-service", endpoint: "http://127.0.0.1:5245", installationId: first.id });
+    assert.deepEqual(repository.serviceBindingByName("legacy-service", first.id), { endpoint: "http://127.0.0.1:5245/" });
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

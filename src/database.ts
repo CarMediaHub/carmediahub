@@ -117,7 +117,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
     CREATE TABLE IF NOT EXISTS service_bindings (
       id TEXT PRIMARY KEY,
       component_id TEXT NOT NULL REFERENCES managed_components(id),
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       endpoint TEXT NOT NULL,
       installation_id TEXT,
       created_at TEXT NOT NULL
@@ -194,6 +194,33 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!columns.some((column) => column.name === "runtime_entry")) db.exec("ALTER TABLE verified_plugin_packages ADD COLUMN runtime_entry TEXT");
   const bindingColumns = db.prepare("PRAGMA table_info(service_bindings)").all() as Array<{ name?: string }>;
   if (!bindingColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE service_bindings ADD COLUMN installation_id TEXT");
+  const bindingTable = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'service_bindings'").get() as { sql?: string } | undefined;
+  if (bindingTable?.sql?.includes("name TEXT NOT NULL UNIQUE") === true) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(`
+        CREATE TABLE service_bindings_v2 (
+          id TEXT PRIMARY KEY,
+          component_id TEXT NOT NULL REFERENCES managed_components(id),
+          name TEXT NOT NULL,
+          endpoint TEXT NOT NULL,
+          installation_id TEXT,
+          created_at TEXT NOT NULL
+        );
+        INSERT INTO service_bindings_v2 (id, component_id, name, endpoint, installation_id, created_at)
+          SELECT id, component_id, name, endpoint, installation_id, created_at FROM service_bindings;
+        DROP TABLE service_bindings;
+        ALTER TABLE service_bindings_v2 RENAME TO service_bindings;
+        CREATE UNIQUE INDEX IF NOT EXISTS service_bindings_scope_name
+          ON service_bindings (name, IFNULL(installation_id, '__core__'));
+      `);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS service_bindings_scope_name ON service_bindings (name, IFNULL(installation_id, '__core__'))");
   const mediaRootColumns = db.prepare("PRAGMA table_info(media_roots)").all() as Array<{ name: string }>;
   if (!mediaRootColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE media_roots ADD COLUMN installation_id TEXT NOT NULL DEFAULT '__unbound__'");
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
