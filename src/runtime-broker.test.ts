@@ -97,7 +97,7 @@ test("Broker forwards a gateway invocation over the authenticated worker channel
         try {
           const message = client.decoder.push(chunk)[0] as RpcRequest;
           assert.equal(message.method, "gateway.request");
-          assert.deepEqual(message.params, { method: "GET", path: "/media", headers: { "x-test": "yes" } });
+          assert.deepEqual(message.params, { method: "GET", path: "/media", headers: { "x-test": "yes" }, context: { locale: "en", policyVersion: 7 } });
           client.socket.write(encodeFrame({ jsonrpc: "2.0", id: message.id, result: { status: 206, body: "ok" }, meta: { schemaVersion: "0.1", requestId: message.meta.requestId, traceId: message.meta.traceId } }));
           resolve();
         } catch (error) { reject(error); }
@@ -119,8 +119,8 @@ test("SDK worker client completes the broker handshake and serves a logical rout
   try {
     const endpoint = await broker.start();
     const worker = await connectWorkerClient({ endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
-    worker.onGatewayRequest((input) => ({ status: 200, body: { path: input.path } }));
-    assert.deepEqual(await broker.invoke(scope.installationId, scope, { method: "GET", path: "/library" }), { status: 200, body: { path: "/library" } });
+    worker.onGatewayRequest((input) => ({ status: 200, body: { path: input.path, locale: input.context?.locale } }));
+    assert.deepEqual(await broker.invoke(scope.installationId, scope, { method: "GET", path: "/library" }), { status: 200, body: { path: "/library", locale: "en" } });
     worker.close();
   } finally {
     await broker.stop();

@@ -1,5 +1,5 @@
 import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons";
-import { ProCard, ProForm, ProFormText, ProLayout } from "@ant-design/pro-components";
+import { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from "@ant-design/pro-components";
 import { Alert, Button, Descriptions, Modal, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 
@@ -9,7 +9,8 @@ export default function Security() {
   const [enabled, setEnabled] = useState(false);
   const [setup, setSetup] = useState<TotpSetup>();
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
-  const refresh = () => { void fetch("/api/auth/totp").then((response) => response.json()).then((data) => setEnabled(Boolean(data.enabled))); };
+  const [locale, setLocale] = useState("en");
+  const refresh = () => { void Promise.all([fetch("/api/auth/totp").then((response) => response.json()), fetch("/api/me").then((response) => response.ok ? response.json() : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? "en"); }); };
   useEffect(refresh, []);
   const navigation = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/media", name: "Media roots", icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
   return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>Sign out</Button>]}> 
@@ -17,6 +18,11 @@ export default function Security() {
       <Descriptions items={[{ key: "totp", label: "Authenticator", children: enabled ? "Enabled" : "Not enabled" }]} />
       {!enabled && <Button type="primary" onClick={async () => { const response = await fetch("/api/auth/totp/setup", { method: "POST" }); if (!response.ok) { message.error("Unable to start setup"); return; } setSetup(await response.json()); }}>Set up authenticator</Button>}
       {enabled && <Alert type="success" showIcon message="Authenticator protection is enabled" description="Use an authenticator code or one unused recovery code when signing in." />}
+    </ProCard>
+    <ProCard title="Platform preferences" style={{ margin: 24, maxWidth: 780 }}>
+      <ProForm key={locale} layout="inline" initialValues={{ locale }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Unable to update language"); return false; } const result = await response.json(); setLocale(result.user.locale); message.success("Language preference updated"); return true; }}>
+        <ProFormSelect name="locale" label="Language" options={[{ label: "English", value: "en" }, { label: "简体中文", value: "zh-CN" }, { label: "한국어", value: "ko" }]} rules={[{ required: true }]} />
+      </ProForm>
     </ProCard>
     <Modal title="Set up authenticator" open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>
       {setup !== undefined && <Space direction="vertical" size="middle" style={{ width: "100%" }}><Typography.Paragraph>Enter this secret in an authenticator application, then confirm the current six-digit code.</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch("/api/auth/totp/enable", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("The verification code is invalid"); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name="code" label="Verification code" rules={[{ required: true, pattern: /^\d{6}$/u, message: "Enter a six-digit code" }]} /></ProForm></Space>}

@@ -35,6 +35,10 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(login.statusCode, 200);
     const cookie = login.headers["set-cookie"];
     assert.ok(cookie);
+    const preferences = await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } });
+    assert.equal(preferences.statusCode, 200);
+    assert.equal(preferences.json().user.locale, "ko");
+    assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "fr" } })).statusCode, 400);
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");
     assert.ok(management);
@@ -231,9 +235,10 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal(limited.statusCode, 429);
     assert.equal(limited.json().code, "CMH.GATEWAY.STREAM_LIMIT");
     heldLease?.release();
+    assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } })).statusCode, 200);
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
     assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media" });
+    assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko" });
     const stream = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/stream?id=${item.id}`, headers: { cookie, range: "bytes=1-3" } });
     assert.equal(stream.statusCode, 206);
     assert.equal(stream.headers["content-range"], "bytes 1-3/5");

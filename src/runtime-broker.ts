@@ -39,6 +39,10 @@ export interface GatewayInvocation {
   body?: unknown;
 }
 
+function trustedGatewayInvocation(invocation: GatewayInvocation, scope: RuntimeCredentialScope, stream = false): GatewayInvocation & { stream?: boolean; context: { locale: RuntimeCredentialScope["locale"]; policyVersion: number } } {
+  return { ...invocation, ...(stream ? { stream: true } : {}), context: { locale: scope.locale, policyVersion: scope.policyVersion } };
+}
+
 export interface GatewayStreamStart { status: number; headers?: Record<string, string>; }
 export interface GatewayStream extends AsyncIterable<Buffer> { readonly start: Promise<GatewayStreamStart>; cancel(reason?: string): void; }
 
@@ -106,7 +110,7 @@ export class RuntimeBroker {
     if (connection === undefined) return Promise.reject(new Error("Plugin worker is not connected"));
     const id = `gateway_${crypto.randomUUID()}`;
     const request: RpcRequest<GatewayInvocation> = {
-      jsonrpc: "2.0", id, method: "gateway.request", params: invocation,
+      jsonrpc: "2.0", id, method: "gateway.request", params: trustedGatewayInvocation(invocation, scope),
       meta: { schemaVersion: "0.1", requestId: id, traceId: id, deadlineUnixMs: Date.now() + timeoutMs, installationId }
     };
     return new Promise((resolve, reject) => {
@@ -157,7 +161,7 @@ export class RuntimeBroker {
       if (entry !== undefined) { connection.state.streams.delete(streamId!); entry.stream.fail(new Error("Plugin gateway stream timed out")); connection.socket.write(encodeFrame({ jsonrpc: "2.0", method: "$/cancelRequest", params: { id: streamId, reason: "Plugin gateway stream timed out" }, meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: 0, installationId } })); }
     }, timeoutMs);
     connection.state.streams.set(streamId, { stream, expectedSequence: 0, timer });
-    connection.socket.write(encodeFrame({ jsonrpc: "2.0", id: streamId, method: "gateway.request", params: { ...invocation, stream: true }, meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: Date.now() + timeoutMs, installationId } }));
+    connection.socket.write(encodeFrame({ jsonrpc: "2.0", id: streamId, method: "gateway.request", params: trustedGatewayInvocation(invocation, scope, true), meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: Date.now() + timeoutMs, installationId } }));
     return stream;
   }
 

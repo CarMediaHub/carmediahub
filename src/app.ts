@@ -137,6 +137,16 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user === undefined ? undefined : { user };
   });
 
+  app.patch("/api/me/preferences", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const input = body<{ locale?: unknown }>(request);
+    const updated = typeof input.locale === "string" ? repository.updateUserLocale(user.id, input.locale) : undefined;
+    if (updated === undefined) return reply.code(400).send({ code: "CMH.PREFERENCE.INVALID_LOCALE", messageKey: "errors.preference.invalidLocale" });
+    repository.audit(user.id, "user.preference.locale_changed", updated.locale);
+    return { user: updated };
+  });
+
   app.get("/api/auth/totp", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : repository.totpStatus(user.id);

@@ -141,6 +141,14 @@ export class Repository {
     return record;
   }
 
+  updateUserLocale(userId: string, locale: string): UserRecord | undefined {
+    if (locale !== "en" && locale !== "zh-CN" && locale !== "ko") return undefined;
+    const result = this.db.prepare("UPDATE users SET locale = ? WHERE id = ? AND revoked_at IS NULL").run(locale, userId);
+    if (result.changes !== 1) return undefined;
+    const row = this.db.prepare("SELECT id, organization_id, username, role, locale FROM users WHERE id = ?").get(userId) as Record<string, string | null> | undefined;
+    return row === undefined ? undefined : this.userFromRow(row);
+  }
+
   revokeUser(userId: string, organizationId: string): "revoked" | "not_found" | "last_admin" {
     const target = this.db.prepare("SELECT id, role, revoked_at FROM users WHERE id = ? AND organization_id = ?").get(userId, organizationId) as { id: string; role: string; revoked_at: string | null } | undefined;
     if (target === undefined || target.revoked_at !== null) return "not_found";
