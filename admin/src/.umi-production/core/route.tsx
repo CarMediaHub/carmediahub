@@ -4,7 +4,7 @@
 import React from 'react';
 
 export async function getRoutes() {
-  const routes = {"1":{"path":"/login","id":"1"},"2":{"path":"/","redirect":"/overview","id":"2"},"3":{"path":"/overview","id":"3"},"4":{"path":"/components","id":"4"},"5":{"path":"/media","id":"5"},"6":{"path":"/keys","id":"6"},"7":{"path":"/security","id":"7"},"8":{"path":"/users","id":"8"},"9":{"path":"/plugins","id":"9"}} as const;
+  const routes = {"1":{"path":"/login","id":"1"},"2":{"path":"/","redirect":"/overview","id":"2"},"3":{"path":"/overview","id":"3"},"4":{"path":"/components","id":"4"},"5":{"path":"/media","id":"5"},"6":{"path":"/keys","id":"6"},"7":{"path":"/security","id":"7"},"8":{"path":"/users","id":"8"},"9":{"path":"/plugins","id":"9"},"10":{"path":"/jobs","id":"10"},"11":{"path":"/history","id":"11"},"12":{"path":"/catalog","id":"12"}} as const;
   return {
     routes,
     routeComponents: {
@@ -17,6 +17,9 @@ export async function getRoutes() {
 '7': React.lazy(() => import(/* webpackChunkName: "p__Security" */'@/pages/Security.tsx')),
 '8': React.lazy(() => import(/* webpackChunkName: "p__Users" */'@/pages/Users.tsx')),
 '9': React.lazy(() => import(/* webpackChunkName: "p__Plugins" */'@/pages/Plugins.tsx')),
+'10': React.lazy(() => import(/* webpackChunkName: "p__Jobs" */'@/pages/Jobs.tsx')),
+'11': React.lazy(() => import(/* webpackChunkName: "p__History" */'@/pages/History.tsx')),
+'12': React.lazy(() => import(/* webpackChunkName: "p__Catalog" */'@/pages/Catalog.tsx')),
 },
   };
 }

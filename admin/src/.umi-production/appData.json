@@ -31,7 +31,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "preset",
@@ -44,7 +44,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 11
+        "register": 6
       },
       "enableBy": "register",
       "type": "preset",
@@ -57,7 +57,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 3
       },
       "enableBy": "register",
       "type": "preset",
@@ -121,7 +121,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -135,10 +135,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            22
+            14
           ]
         },
-        "register": 22
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -218,7 +218,7 @@
             0
           ]
         },
-        "register": 9
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1084,7 +1084,7 @@
       "time": {
         "hooks": {
           "onStart": [
-            1
+            0
           ]
         },
         "register": 1
@@ -1113,7 +1113,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 61
+        "register": 57
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1126,7 +1126,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 40
+        "register": 32
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1139,7 +1139,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 11
+        "register": 9
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1153,10 +1153,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            1
+            0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1169,7 +1169,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1182,7 +1182,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1220,7 +1220,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1313,7 +1313,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1326,7 +1326,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1352,7 +1352,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1377,7 +1377,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1390,7 +1390,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1403,7 +1403,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1454,7 +1454,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 16
+        "register": 14
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1491,7 +1491,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 515
+        "register": 504
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1546,7 +1546,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1558,7 +1558,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1596,7 +1596,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
@@ -1620,7 +1620,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 22
+        "register": 21
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1671,7 +1671,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 28
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1683,7 +1683,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1709,7 +1709,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1722,7 +1722,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1761,7 +1761,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1787,7 +1787,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1800,7 +1800,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1826,7 +1826,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1839,7 +1839,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1865,7 +1865,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1878,7 +1878,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1904,7 +1904,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1956,7 +1956,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 4
+        "register": 3
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1971,7 +1971,7 @@
       },
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/analytics.js",
@@ -1984,7 +1984,7 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            1
+            2
           ],
           "modifyAppData": [
             0
@@ -1993,7 +1993,7 @@
             0
           ]
         },
-        "register": 6
+        "register": 5
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/antd.js",
@@ -2018,7 +2018,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2033,7 +2033,7 @@
       },
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2046,7 +2046,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2059,7 +2059,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2072,7 +2072,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2085,7 +2085,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2148,7 +2148,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2161,7 +2161,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2174,7 +2174,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2187,7 +2187,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2201,7 +2201,7 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            1
+            0
           ]
         },
         "register": 1
@@ -2315,6 +2315,18 @@
       {
         "path": "/plugins",
         "component": "./Plugins"
+      },
+      {
+        "path": "/jobs",
+        "component": "./Jobs"
+      },
+      {
+        "path": "/history",
+        "component": "./History"
+      },
+      {
+        "path": "/catalog",
+        "component": "./Catalog"
       }
     ]
   },
@@ -2391,6 +2403,18 @@
       {
         "path": "/plugins",
         "component": "./Plugins"
+      },
+      {
+        "path": "/jobs",
+        "component": "./Jobs"
+      },
+      {
+        "path": "/history",
+        "component": "./History"
+      },
+      {
+        "path": "/catalog",
+        "component": "./Catalog"
       }
     ],
     "targets": {
@@ -3331,7 +3355,7 @@
       "file": "@/pages/Overview.tsx",
       "id": "3",
       "absPath": "/overview",
-      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, Space, Statistic, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };\ntype Component = { id: string; displayName: string; kind: string; version: string; status: string; executablePath: string };\n\nexport default function Overview() {\n  const [applications, setApplications] = useState<Application[]>([]);\n  const [components, setComponents] = useState<Component[]>([]);\n  useEffect(() => { void Promise.all([fetch(\"/api/apps\").then((response) => response.json()), fetch(\"/api/components/catalog\").then((response) => response.ok ? response.json() : { components: [] })]).then(([apps, managed]) => { setApplications(apps.applications ?? []); setComponents(managed.components ?? []); }); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/overview\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <Space direction=\"vertical\" size=\"large\" style={{ width: \"100%\", padding: 24 }}>\n      <ProCard split=\"vertical\"><Statistic title=\"Applications\" value={applications.length} /><Statistic title=\"Managed components\" value={components.length} /><Statistic title=\"Gateway\" value=\"Healthy\" /></ProCard>\n      <ProCard title=\"Applications\"><ProTable<Application> rowKey=\"id\" search={false} options={false} dataSource={applications} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Category\", dataIndex: \"category\" }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Vehicle\", dataIndex: \"vehicleSupported\", render: (_, row) => row.vehicleSupported ? <Tag color=\"green\">Supported</Tag> : <Tag>Desktop</Tag> }]} /></ProCard>\n      <ProCard title=\"Managed component catalog\"><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"displayName\" }, { title: \"Kind\", dataIndex: \"kind\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Status\", dataIndex: \"status\" }, { title: \"Path\", dataIndex: \"executablePath\" }]} /></ProCard>\n    </Space>\n  </ProLayout>;\n}\n",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, Space, Statistic, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };\ntype Component = { id: string; displayName: string; kind: string; version: string; status: string; executablePath: string };\n\nexport default function Overview() {\n  const [applications, setApplications] = useState<Application[]>([]);\n  const [components, setComponents] = useState<Component[]>([]);\n  useEffect(() => { void Promise.all([fetch(\"/api/apps\").then((response) => response.json()), fetch(\"/api/components/catalog\").then((response) => response.ok ? response.json() : { components: [] })]).then(([apps, managed]) => { setApplications(apps.applications ?? []); setComponents(managed.components ?? []); }); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <HistoryOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/overview\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <Space direction=\"vertical\" size=\"large\" style={{ width: \"100%\", padding: 24 }}>\n      <ProCard split=\"vertical\"><Statistic title=\"Applications\" value={applications.length} /><Statistic title=\"Managed components\" value={components.length} /><Statistic title=\"Gateway\" value=\"Healthy\" /></ProCard>\n      <ProCard title=\"Applications\"><ProTable<Application> rowKey=\"id\" search={false} options={false} dataSource={applications} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Category\", dataIndex: \"category\" }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Vehicle\", dataIndex: \"vehicleSupported\", render: (_, row) => row.vehicleSupported ? <Tag color=\"green\">Supported</Tag> : <Tag>Desktop</Tag> }]} /></ProCard>\n      <ProCard title=\"Managed component catalog\"><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"displayName\" }, { title: \"Kind\", dataIndex: \"kind\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Status\", dataIndex: \"status\" }, { title: \"Path\", dataIndex: \"executablePath\" }]} /></ProCard>\n    </Space>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Overview.tsx"
     },
@@ -3367,7 +3391,7 @@
       "file": "@/pages/Security.tsx",
       "id": "7",
       "absPath": "/security",
-      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from \"@ant-design/pro-components\";\nimport { Alert, Button, Descriptions, Modal, Space, Typography, message } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype TotpSetup = { secret: string; otpauthUrl: string };\n\nexport default function Security() {\n  const [enabled, setEnabled] = useState(false);\n  const [setup, setSetup] = useState<TotpSetup>();\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>();\n  const [locale, setLocale] = useState(\"en\");\n  const [timeZone, setTimeZone] = useState(\"UTC\");\n  const [theme, setTheme] = useState(\"system\");\n  const [density, setDensity] = useState(\"comfortable\");\n  const refresh = () => { void Promise.all([fetch(\"/api/auth/totp\").then((response) => response.json()), fetch(\"/api/me\").then((response) => response.ok ? response.json() : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? \"en\"); setTimeZone(profile.user?.timeZone ?? \"UTC\"); setTheme(profile.user?.theme ?? \"system\"); setDensity(profile.user?.density ?? \"comfortable\"); }); };\n  useEffect(refresh, []);\n  const navigation = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: navigation }} location={{ pathname: \"/admin/security\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Account security\" style={{ margin: 24, maxWidth: 780 }}>\n      <Descriptions items={[{ key: \"totp\", label: \"Authenticator\", children: enabled ? \"Enabled\" : \"Not enabled\" }]} />\n      {!enabled && <Button type=\"primary\" onClick={async () => { const response = await fetch(\"/api/auth/totp/setup\", { method: \"POST\" }); if (!response.ok) { message.error(\"Unable to start setup\"); return; } setSetup(await response.json()); }}>Set up authenticator</Button>}\n      {enabled && <Alert type=\"success\" showIcon message=\"Authenticator protection is enabled\" description=\"Use an authenticator code or one unused recovery code when signing in.\" />}\n    </ProCard>\n    <ProCard title=\"Platform preferences\" style={{ margin: 24, maxWidth: 780 }}>\n      <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout=\"inline\" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch(\"/api/me/preferences\", { method: \"PATCH\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"Unable to update platform preferences\"); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); message.success(\"Platform preferences updated\"); return true; }}>\n        <ProFormSelect name=\"locale\" label=\"Language\" options={[{ label: \"English\", value: \"en\" }, { label: \"简体中文\", value: \"zh-CN\" }, { label: \"한국어\", value: \"ko\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"timeZone\" label=\"Time zone\" options={[{ label: \"UTC\", value: \"UTC\" }, { label: \"Asia/Shanghai\", value: \"Asia/Shanghai\" }, { label: \"Europe/London\", value: \"Europe/London\" }, { label: \"America/Los_Angeles\", value: \"America/Los_Angeles\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"theme\" label=\"Theme\" options={[{ label: \"System\", value: \"system\" }, { label: \"Light\", value: \"light\" }, { label: \"Dark\", value: \"dark\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"density\" label=\"Density\" options={[{ label: \"Comfortable\", value: \"comfortable\" }, { label: \"Compact\", value: \"compact\" }]} rules={[{ required: true }]} />\n      </ProForm>\n    </ProCard>\n    <Modal title=\"Set up authenticator\" open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>\n      {setup !== undefined && <Space direction=\"vertical\" size=\"middle\" style={{ width: \"100%\" }}><Typography.Paragraph>Enter this secret in an authenticator application, then confirm the current six-digit code.</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch(\"/api/auth/totp/enable\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"The verification code is invalid\"); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name=\"code\" label=\"Verification code\" rules={[{ required: true, pattern: /^\\d{6}$/u, message: \"Enter a six-digit code\" }]} /></ProForm></Space>}\n    </Modal>\n    <Modal title=\"Save recovery codes\" open={recoveryCodes !== undefined} footer={<Button type=\"primary\" onClick={() => setRecoveryCodes(undefined)}>I saved these codes</Button>} closable={false}><Alert type=\"warning\" showIcon message=\"Each recovery code works once. They will not be shown again.\" /><Typography.Paragraph copyable style={{ whiteSpace: \"pre-line\", marginTop: 16 }}>{recoveryCodes?.join(\"\\n\")}</Typography.Paragraph></Modal>\n  </ProLayout>;\n}\n",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from \"@ant-design/pro-components\";\nimport { Alert, Button, Descriptions, Modal, Space, Typography, message } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype TotpSetup = { secret: string; otpauthUrl: string };\n\nexport default function Security() {\n  const [enabled, setEnabled] = useState(false);\n  const [setup, setSetup] = useState<TotpSetup>();\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>();\n  const [locale, setLocale] = useState(\"en\");\n  const [timeZone, setTimeZone] = useState(\"UTC\");\n  const [theme, setTheme] = useState(\"system\");\n  const [density, setDensity] = useState(\"comfortable\");\n  const refresh = () => { void Promise.all([fetch(\"/api/auth/totp\").then((response) => response.json() as Promise<{ enabled?: boolean }>), fetch(\"/api/me\").then(async (response) => response.ok ? await response.json() as { user?: { locale?: string; timeZone?: string; theme?: string; density?: string } } : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? \"en\"); setTimeZone(profile.user?.timeZone ?? \"UTC\"); setTheme(profile.user?.theme ?? \"system\"); setDensity(profile.user?.density ?? \"comfortable\"); }); };\n  useEffect(refresh, []);\n  const navigation = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: navigation }} location={{ pathname: \"/admin/security\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Account security\" style={{ margin: 24, maxWidth: 780 }}>\n      <Descriptions items={[{ key: \"totp\", label: \"Authenticator\", children: enabled ? \"Enabled\" : \"Not enabled\" }]} />\n      {!enabled && <Button type=\"primary\" onClick={async () => { const response = await fetch(\"/api/auth/totp/setup\", { method: \"POST\" }); if (!response.ok) { message.error(\"Unable to start setup\"); return; } setSetup(await response.json()); }}>Set up authenticator</Button>}\n      {enabled && <Alert type=\"success\" showIcon message=\"Authenticator protection is enabled\" description=\"Use an authenticator code or one unused recovery code when signing in.\" />}\n    </ProCard>\n    <ProCard title=\"Platform preferences\" style={{ margin: 24, maxWidth: 780 }}>\n      <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout=\"inline\" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch(\"/api/me/preferences\", { method: \"PATCH\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"Unable to update platform preferences\"); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); message.success(\"Platform preferences updated\"); return true; }}>\n        <ProFormSelect name=\"locale\" label=\"Language\" options={[{ label: \"English\", value: \"en\" }, { label: \"简体中文\", value: \"zh-CN\" }, { label: \"한국어\", value: \"ko\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"timeZone\" label=\"Time zone\" options={[{ label: \"UTC\", value: \"UTC\" }, { label: \"Asia/Shanghai\", value: \"Asia/Shanghai\" }, { label: \"Europe/London\", value: \"Europe/London\" }, { label: \"America/Los_Angeles\", value: \"America/Los_Angeles\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"theme\" label=\"Theme\" options={[{ label: \"System\", value: \"system\" }, { label: \"Light\", value: \"light\" }, { label: \"Dark\", value: \"dark\" }]} rules={[{ required: true }]} />\n        <ProFormSelect name=\"density\" label=\"Density\" options={[{ label: \"Comfortable\", value: \"comfortable\" }, { label: \"Compact\", value: \"compact\" }]} rules={[{ required: true }]} />\n      </ProForm>\n    </ProCard>\n    <Modal title=\"Set up authenticator\" open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>\n      {setup !== undefined && <Space direction=\"vertical\" size=\"middle\" style={{ width: \"100%\" }}><Typography.Paragraph>Enter this secret in an authenticator application, then confirm the current six-digit code.</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch(\"/api/auth/totp/enable\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"The verification code is invalid\"); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name=\"code\" label=\"Verification code\" rules={[{ required: true, pattern: /^\\d{6}$/u, message: \"Enter a six-digit code\" }]} /></ProForm></Space>}\n    </Modal>\n    <Modal title=\"Save recovery codes\" open={recoveryCodes !== undefined} footer={<Button type=\"primary\" onClick={() => setRecoveryCodes(undefined)}>I saved these codes</Button>} closable={false}><Alert type=\"warning\" showIcon message=\"Each recovery code works once. They will not be shown again.\" /><Typography.Paragraph copyable style={{ whiteSpace: \"pre-line\", marginTop: 16 }}>{recoveryCodes?.join(\"\\n\")}</Typography.Paragraph></Modal>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Security.tsx"
     },
@@ -3388,6 +3412,33 @@
       "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProForm, ProFormTextArea, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Space, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Installation = { id: string; packageId: string; packageVersion: string; runtime: string; status: \"installed\" | \"disabled\"; createdAt: string };\n\nexport default function Plugins() {\n  const [installations, setInstallations] = useState<Installation[]>([]);\n  const refresh = () => { void fetch(\"/api/plugins\").then((response) => response.json()).then((data) => setInstallations(data.installations ?? [])); };\n  useEffect(refresh, []);\n  const routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/plugins\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Install plugin manifest\" style={{ margin: 24 }}><ProForm onFinish={async (values) => { try { const manifest = JSON.parse(String(values.manifest)); const response = await fetch(\"/api/plugins\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(manifest) }); if (!response.ok) { message.error(\"Manifest was rejected\"); return false; } message.success(\"Plugin installation registered\"); refresh(); return true; } catch { message.error(\"Enter valid manifest JSON\"); return false; } }}><ProFormTextArea name=\"manifest\" label=\"Manifest JSON\" fieldProps={{ autoSize: { minRows: 6, maxRows: 16 } }} rules={[{ required: true }]} /></ProForm></ProCard>\n    <ProCard title=\"Plugin installations\" style={{ margin: 24 }}><ProTable<Installation> rowKey=\"id\" search={false} options={false} dataSource={installations} columns={[{ title: \"Package\", dataIndex: \"packageId\" }, { title: \"Version\", dataIndex: \"packageVersion\" }, { title: \"Runtime\", dataIndex: \"runtime\" }, { title: \"Status\", dataIndex: \"status\", render: (value) => <Tag color={value === \"installed\" ? \"green\" : \"default\"}>{value}</Tag> }, { title: \"Action\", render: (_, row) => <Space><Button danger disabled={row.status !== \"installed\"} onClick={async () => { const response = await fetch(`/api/plugins/${row.id}/disable`, { method: \"POST\" }); if (!response.ok) { message.error(\"Unable to disable plugin\"); return; } refresh(); }}>Disable</Button></Space> }]} /></ProCard>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Plugins.tsx"
+    },
+    "10": {
+      "path": "/jobs",
+      "file": "@/pages/Jobs.tsx",
+      "id": "10",
+      "absPath": "/jobs",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Space, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Job = { id: string; type: string; status: string; progress: number; userId: string; installationId: string; createdAt: string; updatedAt: string; completedAt?: string };\nconst routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <UnorderedListOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n\nexport default function Jobs() {\n  const [jobs, setJobs] = useState<Job[]>([]);\n  const refresh = () => { void fetch(\"/api/jobs\").then((response) => response.ok ? response.json() : { jobs: [] }).then((data) => setJobs(data.jobs ?? [])); };\n  useEffect(refresh, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/jobs\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Organization tasks\" style={{ margin: 24 }}><ProTable<Job> rowKey=\"id\" search={false} options={{ reload: refresh }} dataSource={jobs} columns={[{ title: \"Type\", dataIndex: \"type\" }, { title: \"User\", dataIndex: \"userId\" }, { title: \"Plugin\", dataIndex: \"installationId\" }, { title: \"Progress\", dataIndex: \"progress\", render: (value) => `${value}%` }, { title: \"Status\", dataIndex: \"status\", render: (value) => <Tag color={value === \"succeeded\" ? \"green\" : value === \"failed\" ? \"red\" : value === \"running\" ? \"blue\" : \"default\"}>{value}</Tag> }, { title: \"Created\", dataIndex: \"createdAt\" }, { title: \"Action\", render: (_, row) => <Space><Button danger disabled={!([\"queued\", \"running\"].includes(row.status))} onClick={async () => { const response = await fetch(`/api/jobs/${row.id}/cancel`, { method: \"POST\" }); if (!response.ok) { message.error(\"Unable to cancel task\"); return; } message.success(\"Task cancelled\"); refresh(); }}>Cancel</Button></Space> }]} /></ProCard>\n  </ProLayout>;\n}\n",
+      "__isJSFile": true,
+      "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Jobs.tsx"
+    },
+    "11": {
+      "path": "/history",
+      "file": "@/pages/History.tsx",
+      "id": "11",
+      "absPath": "/history",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, DeleteOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Popconfirm, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype HistoryEntry = { id: string; pluginId: string; subjectType: string; title: string; category?: string; route: string; visitedAt: string; sourceDevice: string };\nconst routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <UnorderedListOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n\nexport default function History() {\n  const [entries, setEntries] = useState<HistoryEntry[]>([]);\n  const refresh = () => { void fetch(\"/api/history?limit=500\").then((response) => response.ok ? response.json() : { entries: [] }).then((data) => setEntries(data.entries ?? [])); };\n  useEffect(refresh, []);\n  const clear = async () => { const response = await fetch(\"/api/history\", { method: \"DELETE\", headers: { \"content-type\": \"application/json\" }, body: \"{}\" }); if (!response.ok) { message.error(\"Unable to clear history\"); return; } message.success(\"History cleared\"); refresh(); };\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/history\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Browsing history\" extra={<Popconfirm title=\"Clear all history?\" onConfirm={clear}><Button danger icon={<DeleteOutlined />}>Clear</Button></Popconfirm>} style={{ margin: 24 }}><ProTable<HistoryEntry> rowKey=\"id\" search={false} options={{ reload: refresh }} dataSource={entries} columns={[{ title: \"Title\", dataIndex: \"title\" }, { title: \"Plugin\", dataIndex: \"pluginId\" }, { title: \"Category\", dataIndex: \"category\", render: (value) => value === undefined ? <Tag>Uncategorized</Tag> : <Tag color=\"blue\">{value}</Tag> }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Device\", dataIndex: \"sourceDevice\" }, { title: \"Visited\", dataIndex: \"visitedAt\" }]} /></ProCard>\n  </ProLayout>;\n}\n",
+      "__isJSFile": true,
+      "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/History.tsx"
+    },
+    "12": {
+      "path": "/catalog",
+      "file": "@/pages/Catalog.tsx",
+      "id": "12",
+      "absPath": "/catalog",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype CatalogEntry = { id: string; pluginId: string; subjectType: string; subjectId: string; title: string; description?: string; category: string; route: string; updatedAt: string };\nconst routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <UnorderedListOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n\nexport default function Catalog() {\n  const [entries, setEntries] = useState<CatalogEntry[]>([]);\n  useEffect(() => { void fetch(\"/api/catalog?limit=500\").then((response) => response.ok ? response.json() : { entries: [] }).then((data) => setEntries(data.entries ?? [])); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/catalog\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Unified catalog\" style={{ margin: 24 }}><ProTable<CatalogEntry> rowKey=\"id\" search={{ labelWidth: \"auto\" }} options={false} dataSource={entries} columns={[{ title: \"Title\", dataIndex: \"title\" }, { title: \"Plugin\", dataIndex: \"pluginId\" }, { title: \"Type\", dataIndex: \"subjectType\" }, { title: \"Category\", dataIndex: \"category\", render: (value) => <Tag color=\"blue\">{value}</Tag> }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Updated\", dataIndex: \"updatedAt\" }]} /></ProCard>\n  </ProLayout>;\n}\n",
+      "__isJSFile": true,
+      "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Catalog.tsx"
     }
   },
   "apiRoutes": {},

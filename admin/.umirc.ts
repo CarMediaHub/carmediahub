@@ -21,6 +21,8 @@ export default defineConfig({
     { path: "/security", component: "./Security" },
     { path: "/users", component: "./Users" },
     { path: "/plugins", component: "./Plugins" },
-    { path: "/jobs", component: "./Jobs" }
+    { path: "/jobs", component: "./Jobs" },
+    { path: "/history", component: "./History" },
+    { path: "/catalog", component: "./Catalog" }
   ]
 });
