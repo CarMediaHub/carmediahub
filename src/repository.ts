@@ -155,6 +155,19 @@ export class Repository {
       .map((row) => ({ id: String(row.id), name: String(row.name), category: String(row.category), route: String(row.route), installationId: String(row.installation_id), vehicleSupported: Number(row.vehicle_supported) === 1 }));
   }
 
+  applicationForPath(requestPath: string): ApplicationRecord | undefined {
+    return this.applications().find((application) => requestPath === application.route || requestPath.startsWith(`${application.route}/`));
+  }
+
+  runtimeScope(userId: string, installationId: string): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; policyVersion: number } | undefined {
+    const row = this.db.prepare(`SELECT u.organization_id, u.locale, o.deployment_id
+      FROM users u JOIN organizations o ON o.id = u.organization_id
+      WHERE u.id = ? AND u.revoked_at IS NULL`).get(userId) as { organization_id: string; locale: string; deployment_id: string } | undefined;
+    if (row === undefined || this.pluginInstallation(installationId)?.status !== "installed") return undefined;
+    const locale = row.locale === "zh-CN" || row.locale === "ko" ? row.locale : "en";
+    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId: "gateway", sessionId: "gateway", installationId, locale, policyVersion: 1 };
+  }
+
   addApplication(input: Omit<ApplicationRecord, "id">): ApplicationRecord {
     if (!input.route.startsWith("/apps/") && input.route !== "/system") throw new Error("Application routes must start with /apps/");
     const record = { ...input, id: id("app") };

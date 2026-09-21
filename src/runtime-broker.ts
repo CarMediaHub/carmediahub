@@ -27,6 +27,15 @@ interface ConnectionState {
   nonce?: string;
   scope?: RuntimeCredentialScope;
   requestIds: Set<string>;
+  pending: Map<string, { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout }>;
+}
+
+export interface GatewayInvocation {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  query?: Record<string, string | string[]>;
+  headers?: Record<string, string>;
+  body?: unknown;
 }
 
 function defaultEndpoint(dataDir: string): string {
@@ -60,6 +69,21 @@ export class RuntimeBroker {
     return credential;
   }
 
+  invoke(installationId: string, scope: RuntimeCredentialScope, invocation: GatewayInvocation, timeoutMs = 30_000): Promise<unknown> {
+    const connection = [...this.connections()].find((candidate) => candidate.state.scope?.installationId === installationId && candidate.state.scope.userId === scope.userId);
+    if (connection === undefined) return Promise.reject(new Error("Plugin worker is not connected"));
+    const id = `gateway_${crypto.randomUUID()}`;
+    const request: RpcRequest<GatewayInvocation> = {
+      jsonrpc: "2.0", id, method: "gateway.request", params: invocation,
+      meta: { schemaVersion: "0.1", requestId: id, traceId: id, deadlineUnixMs: Date.now() + timeoutMs, installationId }
+    };
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { connection.state.pending.delete(id); reject(new Error("Plugin gateway request timed out")); }, timeoutMs);
+      connection.state.pending.set(id, { resolve, reject, timer });
+      connection.socket.write(encodeFrame(request));
+    });
+  }
+
   async start(): Promise<string> {
     if (this.server !== undefined) return this.endpoint;
     if (process.platform !== "win32") {
@@ -87,17 +111,46 @@ export class RuntimeBroker {
 
   private accept(socket: net.Socket): void {
     const decoder = new FrameDecoder();
-    const state: ConnectionState = { requestIds: new Set() };
+    const state: ConnectionState = { requestIds: new Set(), pending: new Map() };
+    const connection = { socket, state };
     this.sockets.add(socket);
-    socket.on("close", () => this.sockets.delete(socket));
+    this.connectionStates.set(socket, state);
+    socket.on("close", () => {
+      this.sockets.delete(socket);
+      this.connectionStates.delete(socket);
+      for (const pending of state.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error("Plugin worker disconnected")); }
+      state.pending.clear();
+    });
     socket.on("error", () => socket.destroy());
     socket.on("data", (chunk: Buffer) => {
       try {
-        for (const message of decoder.push(chunk)) this.handle(socket, state, message);
+        for (const message of decoder.push(chunk)) {
+          if (this.handleResponse(state, message)) continue;
+          this.handle(socket, state, message);
+        }
       } catch (error) {
         this.deny(socket, error);
       }
     });
+  }
+
+  private readonly connectionStates = new Map<net.Socket, ConnectionState>();
+
+  private *connections(): Generator<{ socket: net.Socket; state: ConnectionState }> {
+    for (const [socket, state] of this.connectionStates) yield { socket, state };
+  }
+
+  private handleResponse(state: ConnectionState, message: unknown): boolean {
+    if (typeof message !== "object" || message === null || (message as { jsonrpc?: unknown }).jsonrpc !== "2.0" || typeof (message as { id?: unknown }).id !== "string") return false;
+    const id = (message as { id: string }).id;
+    const pending = state.pending.get(id);
+    if (pending === undefined) return false;
+    state.pending.delete(id);
+    clearTimeout(pending.timer);
+    const response = message as { result?: unknown; error?: { message?: string } };
+    if (response.error !== undefined) pending.reject(new Error(response.error.message ?? "Plugin gateway request failed"));
+    else pending.resolve(response.result);
+    return true;
   }
 
   private handle(socket: net.Socket, state: ConnectionState, message: unknown): void {

@@ -65,6 +65,36 @@ test("Broker injects credential scope and rejects forged scope metadata", async 
   }
 });
 
+test("Broker forwards a gateway invocation over the authenticated worker channel", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const credential = broker.issueCredential(scope);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello", "broker.hello"));
+    await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    const workerRequest = new Promise<void>((resolve, reject) => {
+      client.socket.once("data", (chunk: Buffer) => {
+        try {
+          const message = client.decoder.push(chunk)[0] as RpcRequest;
+          assert.equal(message.method, "gateway.request");
+          assert.deepEqual(message.params, { method: "GET", path: "/media", headers: { "x-test": "yes" } });
+          client.socket.write(encodeFrame({ jsonrpc: "2.0", id: message.id, result: { status: 206, body: "ok" }, meta: { schemaVersion: "0.1", requestId: message.meta.requestId, traceId: message.meta.traceId } }));
+          resolve();
+        } catch (error) { reject(error); }
+      });
+    });
+    const result = await broker.invoke(scope.installationId, scope, { method: "GET", path: "/media", headers: { "x-test": "yes" } });
+    await workerRequest;
+    assert.deepEqual(result, { status: 206, body: "ok" });
+    client.socket.end();
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("Broker rejects invalid credentials, disabled installations, and malformed frames", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
   const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });

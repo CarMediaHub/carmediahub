@@ -271,6 +271,28 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  app.all("/apps/*", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const requestPath = request.url.split("?", 1)[0] ?? request.url;
+    const application = repository.applicationForPath(requestPath);
+    if (application === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
+    const scope = repository.runtimeScope(user.id, application.installationId);
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
+    const relativePath = requestPath.slice(application.route.length) || "/";
+    try {
+      const result = await runtimeBroker.invoke(application.installationId, scope, {
+        method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+        path: relativePath,
+        headers: Object.fromEntries(Object.entries(request.headers).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+        body: request.body
+      });
+      return reply.send(result);
+    } catch {
+      return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
+    }
+  });
+
   app.post("/api/service-bindings", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
