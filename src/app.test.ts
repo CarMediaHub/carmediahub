@@ -59,6 +59,10 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const bindingId = ((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string }>)[0]!.id;
     assert.equal((await app.inject({ method: "DELETE", url: `/api/service-bindings/${bindingId}`, headers: { cookie } })).statusCode, 204);
     assert.equal(((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<unknown>).length, 0);
+    const audit = await app.inject({ method: "GET", url: "/api/audit?limit=10", headers: { cookie } });
+    assert.equal(audit.statusCode, 200);
+    assert.equal((audit.json().events as Array<{ type: string }>).some((event) => event.type === "serviceBinding.revoked"), true);
+    assert.equal((await app.inject({ method: "GET", url: "/api/audit?limit=0", headers: { cookie } })).statusCode, 400);
     const notifications = await app.inject({ method: "GET", url: "/api/notifications?unreadOnly=true", headers: { cookie } });
     assert.equal(notifications.statusCode, 200);
     assert.deepEqual(notifications.json(), { notifications: [] });

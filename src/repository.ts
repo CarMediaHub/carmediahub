@@ -329,6 +329,11 @@ export class Repository {
     this.db.prepare("INSERT INTO audit_events (id, actor_id, type, subject, created_at) VALUES (?, ?, ?, ?, ?)").run(id("audit"), actorId ?? null, type, subject, now());
   }
 
+  auditEvents(limit = 200): Array<{ id: string; actorId: string | null; type: string; subject: string; createdAt: string }> {
+    return (this.db.prepare("SELECT id, actor_id, type, subject, created_at FROM audit_events ORDER BY created_at DESC LIMIT ?").all(Math.min(Math.max(Math.floor(limit), 1), 500)) as Array<Record<string, string | null>>)
+      .map((row) => ({ id: String(row.id), actorId: row.actor_id ?? null, type: String(row.type), subject: String(row.subject), createdAt: String(row.created_at) }));
+  }
+
   private userFromRow(row: Record<string, string | null>): UserRecord {
     return { id: row.id ?? "", organizationId: row.organization_id ?? "", username: row.username ?? "", role: row.role ?? "", locale: row.locale ?? "en", timeZone: row.time_zone ?? "UTC", theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system", density: row.density === "compact" ? "compact" : "comfortable" };
   }

@@ -350,6 +350,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { notifications: notifications.listUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), unreadOnly: query.unreadOnly === "true" }) };
   });
 
+  app.get("/api/audit", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const query = request.query as { limit?: string };
+    const parsed = query.limit === undefined ? 200 : Number(query.limit);
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 500) return reply.code(400).send({ code: "CMH.AUDIT.INVALID_LIMIT", messageKey: "errors.audit.invalidLimit" });
+    return { events: repository.auditEvents(parsed) };
+  });
+
   app.post("/api/notifications/:id/read", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
