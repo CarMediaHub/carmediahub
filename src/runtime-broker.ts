@@ -22,6 +22,8 @@ export interface RuntimeBrokerOptions {
   onWorkerRequest?(request: RpcRequest, scope: RuntimeCredentialScope): Promise<unknown> | unknown;
 }
 
+type ContextUpdate = Partial<Pick<RuntimeCredentialScope, "locale" | "timeZone" | "theme" | "density">>;
+
 interface CredentialRecord {
   expiresAt: number;
   scope: RuntimeCredentialScope;
@@ -46,6 +48,13 @@ export interface GatewayInvocation {
 
 function trustedGatewayInvocation(invocation: GatewayInvocation, scope: RuntimeCredentialScope, stream = false): GatewayInvocation & { stream?: boolean; context: { locale: RuntimeCredentialScope["locale"]; timeZone: string; theme: RuntimeCredentialScope["theme"]; density: RuntimeCredentialScope["density"]; entry: RuntimeCredentialScope["entry"]; display: DisplayContext; policyVersion: number } } {
   return { ...invocation, ...(stream ? { stream: true } : {}), context: { locale: scope.locale, timeZone: scope.timeZone, theme: scope.theme, density: scope.density, entry: scope.entry, display: scope.display, policyVersion: scope.policyVersion } };
+}
+
+function workerContext(scope: RuntimeCredentialScope) {
+  return {
+    scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId },
+    locale: scope.locale, timeZone: scope.timeZone, theme: scope.theme, density: scope.density, entry: scope.entry, display: scope.display, policyVersion: scope.policyVersion
+  };
 }
 
 export interface GatewayStreamStart { status: number; headers?: Record<string, string>; }
@@ -108,6 +117,18 @@ export class RuntimeBroker {
     const credential = crypto.randomBytes(32).toString("base64url");
     this.credentials.set(credential, { scope, expiresAt: Date.now() + (this.options.credentialTtlMs ?? 60_000) });
     return credential;
+  }
+
+  /** Broadcasts persisted user preference changes to matching authenticated Workers. */
+  broadcastContext(userId: string, update: ContextUpdate): void {
+    for (const connection of this.connections()) {
+      const scope = connection.state.scope;
+      if (scope === undefined || scope.userId !== userId || connection.socket.destroyed) continue;
+      const updated = { ...scope, ...update, policyVersion: scope.policyVersion + 1 };
+      connection.state.scope = updated;
+      const requestId = `context_${crypto.randomUUID()}`;
+      connection.socket.write(encodeFrame({ jsonrpc: "2.0", method: "context.changed", params: { context: workerContext(updated) }, meta: { schemaVersion: "0.1", requestId, traceId: requestId, deadlineUnixMs: 0, installationId: updated.installationId } }));
+    }
   }
 
   invoke(installationId: string, scope: RuntimeCredentialScope, invocation: GatewayInvocation, timeoutMs = 30_000, signal?: AbortSignal): Promise<unknown> {
@@ -310,7 +331,7 @@ export class RuntimeBroker {
     if (record === undefined || record.expiresAt < Date.now() || record.scope.installationId !== state.installationId || !this.options.installationEnabled(state.installationId)) throw new CmhError({ code: "CMH.PROTOCOL.HANDSHAKE_DENIED", messageKey: "errors.protocol.handshakeDenied", retryable: false, diagnosticId: "diag_broker_credential" });
     this.credentials.delete(credential!);
     state.scope = record.scope;
-    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: record.scope.deploymentId, organizationId: record.scope.organizationId, userId: record.scope.userId, deviceId: record.scope.deviceId, sessionId: record.scope.sessionId, installationId: record.scope.installationId }, locale: record.scope.locale, timeZone: record.scope.timeZone, theme: record.scope.theme, density: record.scope.density, entry: record.scope.entry, display: record.scope.display, policyVersion: record.scope.policyVersion } });
+    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: workerContext(record.scope) });
     for (const wake of this.connectionWaiters) wake();
   }
 

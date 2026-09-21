@@ -181,6 +181,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const input = body<{ locale?: unknown; timeZone?: unknown; theme?: unknown; density?: unknown }>(request);
     const updated = repository.updateUserPreferences(user.id, input);
     if (updated === undefined) return reply.code(400).send({ code: "CMH.PREFERENCE.INVALID_LOCALE", messageKey: "errors.preference.invalidLocale" });
+    runtimeBroker.broadcastContext(user.id, { ...(updated.locale === "en" || updated.locale === "zh-CN" || updated.locale === "ko" ? { locale: updated.locale } : {}), timeZone: updated.timeZone, theme: updated.theme === "light" || updated.theme === "dark" || updated.theme === "system" ? updated.theme : "system", density: updated.density === "compact" ? "compact" : "comfortable" });
     repository.audit(user.id, "user.preference.updated", user.id);
     return { user: updated };
   });
