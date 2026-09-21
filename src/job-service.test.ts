@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
-import { MAX_ACTIVE_JOBS_PER_SCOPE, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
+import { MAX_ACTIVE_JOBS_PER_SCOPE, MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
 
 test("plugin jobs are persisted and isolated by user and installation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-jobs-"));
@@ -42,6 +42,25 @@ test("bounds active jobs and serialized payload size per installation scope", ()
     for (let index = 0; index < MAX_ACTIVE_JOBS_PER_SCOPE; index += 1) jobs.enqueue(scope, `media.transcode.${index}`, { source: String(index) });
     assert.throws(() => jobs.enqueue(scope, "media.transcode.full", { source: "overflow" }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.JOBS.QUEUE_FULL");
     assert.throws(() => jobs.enqueue({ ...scope, installationId: "other" }, "media.transcode", { source: "x".repeat(MAX_JOB_PAYLOAD_BYTES) }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.JOBS.PAYLOAD_TOO_LARGE");
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("limits active media transforms to one per installation scope", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-media-job-limit-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const first = jobs.enqueueMediaTransform(scope, "media.transcode", { mediaId: "opaque" });
+    assert.equal(first.status, "queued");
+    assert.throws(() => jobs.enqueueMediaTransform(scope, "media.remux", { mediaId: "opaque-2" }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.MEDIA.QUOTA_EXCEEDED");
+    assert.equal(jobs.transition(scope, first.id, "cancelled")?.status, "cancelled");
+    assert.equal(jobs.enqueueMediaTransform(scope, "media.remux", { mediaId: "opaque-2" }).status, "queued");
+    assert.equal(MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION, 1);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

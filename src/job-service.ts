@@ -5,6 +5,7 @@ import { CmhError, type ScopeContext } from "@carmediahub/sdk";
 const identifier = /^[a-z][a-z0-9_.-]{0,95}$/u;
 const now = () => new Date().toISOString();
 export const MAX_ACTIVE_JOBS_PER_SCOPE = 10;
+export const MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION = 1;
 export const MAX_JOB_PAYLOAD_BYTES = 64 * 1024;
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
@@ -47,6 +48,13 @@ export class PluginJobService {
     this.db.prepare(`INSERT INTO plugin_jobs (id, organization_id, user_id, installation_id, type, payload_json, status, progress, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(job.id, organizationId, userId, installationId, type, payloadJson, job.status, job.progress, createdAt, createdAt);
     return job;
+  }
+
+  enqueueMediaTransform(scope: ScopeContext, type: "media.remux" | "media.transcode", payload: unknown): PluginJob {
+    const [organizationId, userId, installationId] = scopeValues(scope);
+    const active = this.db.prepare("SELECT COUNT(*) AS count FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND type IN ('media.remux', 'media.transcode') AND status IN ('queued', 'running')").get(organizationId, userId, installationId) as { count: number };
+    if (Number(active.count) >= MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION) throw new CmhError({ code: "CMH.MEDIA.QUOTA_EXCEEDED", messageKey: "errors.media.quotaExceeded", retryable: true, diagnosticId: "diag_media_job_quota", details: { limit: MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION } });
+    return this.enqueue(scope, type, payload);
   }
 
   list(scope: ScopeContext, limit = 100): PluginJob[] {
