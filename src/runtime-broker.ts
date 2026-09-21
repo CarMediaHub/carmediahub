@@ -305,7 +305,7 @@ export class RuntimeBroker {
     if (record === undefined || record.expiresAt < Date.now() || record.scope.installationId !== state.installationId || !this.options.installationEnabled(state.installationId)) throw new CmhError({ code: "CMH.PROTOCOL.HANDSHAKE_DENIED", messageKey: "errors.protocol.handshakeDenied", retryable: false, diagnosticId: "diag_broker_credential" });
     this.credentials.delete(credential!);
     state.scope = record.scope;
-    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { locale: record.scope.locale, policyVersion: record.scope.policyVersion } });
+    this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: record.scope.deploymentId, organizationId: record.scope.organizationId, userId: record.scope.userId, deviceId: record.scope.deviceId, sessionId: record.scope.sessionId, installationId: record.scope.installationId }, locale: record.scope.locale, policyVersion: record.scope.policyVersion } });
     for (const wake of this.connectionWaiters) wake();
   }
 

@@ -54,7 +54,7 @@ test("Broker injects credential scope and rejects forged scope metadata", async 
     const challenge = await send(client.socket, client.decoder, request("hello", "broker.hello"));
     assert.equal((challenge.result as { type: string }).type, "broker.challenge");
     const welcome = await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
-    assert.deepEqual(welcome.result, { type: "broker.welcome", schemaVersion: "0.1", context: { locale: "en", policyVersion: 7 } });
+    assert.deepEqual(welcome.result, { type: "broker.welcome", schemaVersion: "0.1", context: { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", policyVersion: 7 } });
     await send(client.socket, client.decoder, request("ready", "lifecycle.ready"));
     await send(client.socket, client.decoder, request("event", "event.emit"));
     assert.deepEqual(receivedScope, scope);
@@ -119,6 +119,7 @@ test("SDK worker client completes the broker handshake and serves a logical rout
   try {
     const endpoint = await broker.start();
     const worker = await connectWorkerClient({ endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
+    assert.deepEqual(worker.context, { scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId }, locale: "en", policyVersion: 7 });
     worker.onGatewayRequest((input) => ({ status: 200, body: { path: input.path, locale: input.context?.locale } }));
     assert.deepEqual(await broker.invoke(scope.installationId, scope, { method: "GET", path: "/library" }), { status: 200, body: { path: "/library", locale: "en" } });
     worker.close();
