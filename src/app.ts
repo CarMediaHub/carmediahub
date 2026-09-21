@@ -121,7 +121,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
         const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown } | undefined;
         if (typeof input?.binding !== "string" || typeof input.method !== "string" || typeof input.path !== "string") throw new Error("Invalid network request");
-        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body }, (name) => repository.serviceBindingByName(name));
+        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body }, (name) => repository.serviceBindingByName(name, scope.installationId));
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
@@ -709,7 +709,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     try {
-      const input = body<{ componentId: string; name: string; endpoint: string }>(request);
+      const input = body<{ componentId: string; name: string; endpoint: string; installationId?: string }>(request);
       repository.bindService(input);
       repository.audit(user.id, "serviceBinding.created", input.name);
       return reply.code(201).send({ binding: { name: input.name, componentId: input.componentId } });

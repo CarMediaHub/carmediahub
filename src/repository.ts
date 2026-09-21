@@ -305,12 +305,13 @@ export class Repository {
       .run(input.id, input.version, input.executable, input.checksum, now(), "unknown");
   }
 
-  bindService(input: { componentId: string; name: string; endpoint: string }): void {
-    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.componentId) || input.name.trim().length === 0 || input.name.trim().length > 80 || input.endpoint.length > 2048) throw new Error("Invalid service binding identity");
+  bindService(input: { componentId: string; name: string; endpoint: string; installationId?: string }): void {
+    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.componentId) || input.name.trim().length === 0 || input.name.trim().length > 80 || input.endpoint.length > 2048 || (input.installationId !== undefined && !/^plugin_[A-Za-z0-9-]+$/u.test(input.installationId))) throw new Error("Invalid service binding identity");
+    if (input.installationId !== undefined && this.pluginInstallation(input.installationId)?.status !== "installed") throw new Error("Plugin installation is not enabled");
     const endpoint = new URL(input.endpoint);
     if (!(endpoint.protocol === "http:" || endpoint.protocol === "https:") || endpoint.username !== "" || endpoint.password !== "" || endpoint.search !== "" || endpoint.hash !== "" || endpoint.hostname === "" || (endpoint.port !== "" && (!/^\d+$/u.test(endpoint.port) || Number(endpoint.port) < 1 || Number(endpoint.port) > 65535))) throw new Error("Invalid service binding endpoint");
-    this.db.prepare("INSERT INTO service_bindings (id, component_id, name, endpoint, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(id("binding"), input.componentId, input.name.trim(), endpoint.toString(), now());
+    this.db.prepare("INSERT INTO service_bindings (id, component_id, name, endpoint, installation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(id("binding"), input.componentId, input.name.trim(), endpoint.toString(), input.installationId ?? null, now());
   }
 
   components(): Array<Record<string, string>> {
@@ -318,12 +319,15 @@ export class Repository {
   }
 
   serviceBindings(): Array<Record<string, string>> {
-    return this.db.prepare("SELECT id, component_id, name, endpoint, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
+    return this.db.prepare("SELECT id, component_id, name, endpoint, installation_id, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
   }
 
-  serviceBindingByName(name: string): { endpoint: string } | undefined {
-    const row = this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ?").get(name) as { endpoint?: string } | undefined;
-    return row?.endpoint === undefined ? undefined : { endpoint: row.endpoint };
+  serviceBindingByName(name: string, installationId?: string): { endpoint: string } | undefined {
+    const row = installationId === undefined
+      ? this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id IS NULL").get(name)
+      : this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id = ?").get(name, installationId);
+    const typed = row as { endpoint?: string } | undefined;
+    return typed?.endpoint === undefined ? undefined : { endpoint: typed.endpoint };
   }
 
   revokeServiceBinding(bindingId: string): boolean {

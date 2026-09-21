@@ -119,6 +119,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
       component_id TEXT NOT NULL REFERENCES managed_components(id),
       name TEXT NOT NULL UNIQUE,
       endpoint TEXT NOT NULL,
+      installation_id TEXT,
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS audit_events (
@@ -191,6 +192,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
   // Keep existing self-hosted databases compatible with the package runtime contract.
   const columns = db.prepare("PRAGMA table_info(verified_plugin_packages)").all() as Array<{ name?: string }>;
   if (!columns.some((column) => column.name === "runtime_entry")) db.exec("ALTER TABLE verified_plugin_packages ADD COLUMN runtime_entry TEXT");
+  const bindingColumns = db.prepare("PRAGMA table_info(service_bindings)").all() as Array<{ name?: string }>;
+  if (!bindingColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE service_bindings ADD COLUMN installation_id TEXT");
   const mediaRootColumns = db.prepare("PRAGMA table_info(media_roots)").all() as Array<{ name: string }>;
   if (!mediaRootColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE media_roots ADD COLUMN installation_id TEXT NOT NULL DEFAULT '__unbound__'");
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
