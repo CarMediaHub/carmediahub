@@ -17,23 +17,26 @@ interface IndexedMediaItem extends MediaItem { relativePath: string; }
 export class MediaLibraryService {
   constructor(private readonly db: DatabaseSync, private readonly key: Buffer) {}
 
-  addRoot(organizationId: string, name: string, selectedPath: string): MediaRoot {
+  addRoot(organizationId: string, installationId: string, name: string, selectedPath: string): MediaRoot {
+    if (!/^[A-Za-z0-9_-]{3,128}$/u.test(installationId)) throw new Error("Media root installation is invalid");
     if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,79}$/u.test(name.trim())) throw new Error("Media root name is invalid");
     const resolved = fs.realpathSync(selectedPath);
     if (!fs.statSync(resolved).isDirectory()) throw new Error("Selected media root is not a directory");
     const root = { id: `media_root_${crypto.randomUUID()}`, name: name.trim(), createdAt: now() };
-    this.db.prepare("INSERT INTO media_roots (id, organization_id, name, protected_path, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(root.id, organizationId, root.name, encryptSecret(resolved, this.key), root.createdAt);
+    this.db.prepare("INSERT INTO media_roots (id, organization_id, installation_id, name, protected_path, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(root.id, organizationId, installationId, root.name, encryptSecret(resolved, this.key), root.createdAt);
     return root;
   }
 
-  roots(organizationId: string): MediaRoot[] {
-    return (this.db.prepare("SELECT id, name, created_at FROM media_roots WHERE organization_id = ? AND revoked_at IS NULL ORDER BY created_at DESC").all(organizationId) as Array<Record<string, string>>)
+  roots(organizationId: string, installationId?: string): MediaRoot[] {
+    const filter = installationId === undefined ? "" : " AND installation_id = ?";
+    const values = installationId === undefined ? [organizationId] : [organizationId, installationId];
+    return (this.db.prepare(`SELECT id, name, created_at FROM media_roots WHERE organization_id = ?${filter} AND revoked_at IS NULL ORDER BY created_at DESC`).all(...values) as Array<Record<string, string>>)
       .map((row) => ({ id: row.id ?? "", name: row.name ?? "", createdAt: row.created_at ?? "" }));
   }
 
-  list(organizationId: string, rootId: string, limit = 200): MediaItem[] {
-    const root = this.rootPath(organizationId, rootId);
+  list(organizationId: string, installationId: string, rootId: string, limit = 200): MediaItem[] {
+    const root = this.rootPath(organizationId, installationId, rootId);
     return this.index(root, rootId, limit).map(({ relativePath: _relativePath, ...item }) => item);
   }
 
@@ -42,10 +45,10 @@ export class MediaLibraryService {
     return result.changes === 1;
   }
 
-  read(organizationId: string, mediaId: string, start: number, end: number): MediaRead {
+  read(organizationId: string, installationId: string, mediaId: string, start: number, end: number): MediaRead {
     if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Media read request is invalid");
-    for (const root of this.roots(organizationId)) {
-      const rootPath = this.rootPath(organizationId, root.id);
+    for (const root of this.roots(organizationId, installationId)) {
+      const rootPath = this.rootPath(organizationId, installationId, root.id);
       const item = this.index(rootPath, root.id, 1000).find((candidate) => candidate.id === mediaId);
       if (item === undefined) continue;
       if (start >= item.size) throw new Error("Media range is unavailable");
@@ -89,8 +92,8 @@ export class MediaLibraryService {
     return items;
   }
 
-  private rootPath(organizationId: string, rootId: string): string {
-    const row = this.db.prepare("SELECT protected_path FROM media_roots WHERE id = ? AND organization_id = ? AND revoked_at IS NULL").get(rootId, organizationId) as { protected_path?: string } | undefined;
+  private rootPath(organizationId: string, installationId: string, rootId: string): string {
+    const row = this.db.prepare("SELECT protected_path FROM media_roots WHERE id = ? AND organization_id = ? AND installation_id = ? AND revoked_at IS NULL").get(rootId, organizationId, installationId) as { protected_path?: string } | undefined;
     if (row?.protected_path === undefined) throw new Error("Media root is unavailable");
     const root = decryptSecret(row.protected_path, this.key);
     if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new Error("Media root is unavailable");

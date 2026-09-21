@@ -78,6 +78,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
     CREATE TABLE IF NOT EXISTS media_roots (
       id TEXT PRIMARY KEY,
       organization_id TEXT NOT NULL REFERENCES organizations(id),
+      installation_id TEXT NOT NULL,
       name TEXT NOT NULL,
       protected_path TEXT NOT NULL,
       created_at TEXT NOT NULL,
@@ -174,6 +175,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
       locked_until TEXT
     );
   `);
+  const mediaRootColumns = db.prepare("PRAGMA table_info(media_roots)").all() as Array<{ name: string }>;
+  if (!mediaRootColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE media_roots ADD COLUMN installation_id TEXT NOT NULL DEFAULT '__unbound__'");
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
   if (!userColumns.some((column) => column.name === "totp_enabled")) db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0");

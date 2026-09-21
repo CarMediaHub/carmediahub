@@ -20,15 +20,15 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
     database.db.prepare("INSERT INTO deployments (id, created_at, locale) VALUES ('deployment', 'now', 'en')").run();
     database.db.prepare("INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'deployment', 'Default')").run();
     const service = new MediaLibraryService(database.db, Buffer.alloc(32, 1));
-    const mediaRoot = service.addRoot("org", "Road media", root);
+    const mediaRoot = service.addRoot("org", "plugin-a", "Road media", root);
     assert.deepEqual(service.roots("org"), [mediaRoot]);
-    const items = service.list("org", mediaRoot.id);
+    const items = service.list("org", "plugin-a", mediaRoot.id);
     assert.deepEqual(items.map((item) => ({ title: item.title, contentType: item.contentType, size: item.size })), [
       { title: "drive.mp4", contentType: "video/mp4", size: 5 },
       { title: "episode.mp4", contentType: "video/mp4", size: 7 }
     ]);
-    assert.equal(Buffer.from(service.read("org", items.find((item) => item.title === "episode.mp4")!.id, 0, 6).data, "base64").toString(), "episode");
+    assert.equal(Buffer.from(service.read("org", "plugin-a", items.find((item) => item.title === "episode.mp4")!.id, 0, 6).data, "base64").toString(), "episode");
     assert.equal(service.revoke("org", mediaRoot.id), true);
-    assert.throws(() => service.list("org", mediaRoot.id), /unavailable/);
+    assert.throws(() => service.list("org", "plugin-a", mediaRoot.id), /unavailable/);
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); fs.rmSync(root, { recursive: true, force: true }); }
 });

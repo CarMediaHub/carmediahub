@@ -254,15 +254,15 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
-    const root = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie }, payload: { name: "WDR media", path: mediaRoot } });
-    const rootId = root.json().root.id as string;
-    const item = (await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie } })).json().items[0] as { id: string };
     const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "storage", "media", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/stream", methods: ["GET"] }, { path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
     const pluginKeyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
     const release = { keyId: pluginKeyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(install.statusCode, 201);
     const installationId = (install.json() as { installation: { id: string } }).installation.id;
+    const root = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie }, payload: { installationId, name: "WDR media", path: mediaRoot } });
+    const rootId = root.json().root.id as string;
+    const item = (await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie } })).json().items[0] as { id: string };
     const sessionDatabase = openDatabase(dataDir);
     const session = sessionDatabase.db.prepare("SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1").get() as { id: string };
     sessionDatabase.db.close();
@@ -331,7 +331,7 @@ test("administrator manages Core-owned media roots without exposing their paths"
   try {
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
-    const created = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie: login.headers["set-cookie"] }, payload: { name: "Road media", path: mediaRoot } });
+    const created = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie: login.headers["set-cookie"] }, payload: { installationId: "core-management", name: "Road media", path: mediaRoot } });
     assert.equal(created.statusCode, 201);
     assert.doesNotMatch(created.body, new RegExp(mediaRoot.replace(/[\\/]/gu, "[\\\\/]")));
     const rootId = created.json().root.id as string;

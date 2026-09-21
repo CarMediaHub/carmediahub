@@ -83,13 +83,13 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     onWorkerRequest: (request, scope) => {
       if (request.method === "media.list") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
-        return { media: mediaLibrary.roots(scope.organizationId).flatMap((root) => mediaLibrary.list(scope.organizationId, root.id)) };
+        return { media: mediaLibrary.roots(scope.organizationId, scope.installationId).flatMap((root) => mediaLibrary.list(scope.organizationId, scope.installationId, root.id)) };
       }
       if (request.method === "media.read") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
         const input = request.params as { mediaId?: unknown; start?: unknown; end?: unknown } | undefined;
         if (typeof input?.mediaId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
-        return mediaLibrary.read(scope.organizationId, input.mediaId, input.start, input.end);
+        return mediaLibrary.read(scope.organizationId, scope.installationId, input.mediaId, input.start, input.end);
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
@@ -385,8 +385,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     try {
-      const input = body<{ name: string; path: string }>(request);
-      const root = mediaLibrary.addRoot(user.organizationId, input.name, input.path);
+      const input = body<{ installationId: string; name: string; path: string }>(request);
+      const root = mediaLibrary.addRoot(user.organizationId, input.installationId, input.name, input.path);
       repository.audit(user.id, "mediaRoot.created", root.id);
       return reply.code(201).send({ root });
     } catch {
@@ -399,7 +399,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     try {
       const limit = Number((request.query as { limit?: string }).limit ?? "200");
-      return { items: mediaLibrary.list(user.organizationId, (request.params as { id: string }).id, limit) };
+      const rootId = (request.params as { id: string }).id;
+      const row = database.db.prepare("SELECT installation_id FROM media_roots WHERE id = ? AND organization_id = ?").get(rootId, user.organizationId) as { installation_id?: string } | undefined;
+      if (row === undefined) return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
+      return { items: mediaLibrary.list(user.organizationId, row.installation_id ?? "__unbound__", rootId, limit) };
     } catch {
       return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
     }
