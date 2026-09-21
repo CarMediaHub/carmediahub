@@ -353,10 +353,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/audit", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
-    const query = request.query as { limit?: string };
+    const query = request.query as { limit?: string; type?: string; actor?: string; keyword?: string };
     const parsed = query.limit === undefined ? 200 : Number(query.limit);
     if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 500) return reply.code(400).send({ code: "CMH.AUDIT.INVALID_LIMIT", messageKey: "errors.audit.invalidLimit" });
-    return { events: repository.auditEvents(parsed) };
+    if (query.type !== undefined && (query.type.length === 0 || query.type.length > 96) || query.actor !== undefined && (query.actor.length === 0 || query.actor.length > 128) || query.keyword !== undefined && (query.keyword.length === 0 || query.keyword.length > 120)) return reply.code(400).send({ code: "CMH.AUDIT.INVALID_FILTER", messageKey: "errors.audit.invalidFilter" });
+    return { events: repository.auditEvents({ limit: parsed, ...(query.type === undefined ? {} : { type: query.type }), ...(query.actor === undefined ? {} : { actorId: query.actor }), ...(query.keyword === undefined ? {} : { keyword: query.keyword }) }) };
   });
 
   app.post("/api/notifications/:id/read", async (request, reply) => {

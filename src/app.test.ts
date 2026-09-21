@@ -62,6 +62,8 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const audit = await app.inject({ method: "GET", url: "/api/audit?limit=10", headers: { cookie } });
     assert.equal(audit.statusCode, 200);
     assert.equal((audit.json().events as Array<{ type: string }>).some((event) => event.type === "serviceBinding.revoked"), true);
+    assert.equal((await app.inject({ method: "GET", url: "/api/audit?type=serviceBinding.revoked", headers: { cookie } })).json().events.every((event: { type: string }) => event.type === "serviceBinding.revoked"), true);
+    assert.equal((await app.inject({ method: "GET", url: "/api/audit?keyword=local-alist", headers: { cookie } })).json().events.length > 0, true);
     assert.equal((await app.inject({ method: "GET", url: "/api/audit?limit=0", headers: { cookie } })).statusCode, 400);
     const notifications = await app.inject({ method: "GET", url: "/api/notifications?unreadOnly=true", headers: { cookie } });
     assert.equal(notifications.statusCode, 200);
