@@ -14,7 +14,7 @@ export interface EntryKeyRecord { id: string; applicationId: string; application
 export interface TotpSetup { secret: string; otpauthUrl: string; }
 export interface ManagedUserRecord extends UserRecord { createdAt: string; revokedAt: string | null; }
 export interface PluginInstallationRecord { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled"; createdAt: string; updatedAt: string; }
-export interface VerifiedPluginPackageRecord { packageId: string; packageVersion: string; digest: string; location: string; workerEntry: string; verifiedAt: string; }
+export interface VerifiedPluginPackageRecord { packageId: string; packageVersion: string; digest: string; location: string; workerEntry?: string; runtimeEntry?: string; verifiedAt: string; }
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -238,14 +238,15 @@ export class Repository {
   }
 
   registerVerifiedPluginPackage(input: Omit<VerifiedPluginPackageRecord, "verifiedAt">): void {
-    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.packageId) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(input.packageVersion) || !/^[a-f0-9]{64}$/u.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..") || !/^\.\/[A-Za-z0-9_./-]+$/u.test(input.workerEntry) || input.workerEntry.includes("..")) throw new Error("Invalid verified plugin package record");
-    this.db.prepare("INSERT OR REPLACE INTO verified_plugin_packages (package_id, package_version, digest, location, worker_entry, verified_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(input.packageId, input.packageVersion, input.digest, input.location, input.workerEntry, now());
+    const validEntry = (entry: string | undefined) => entry !== undefined && /^\.\/[A-Za-z0-9_./-]+$/u.test(entry) && !entry.includes("..");
+    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.packageId) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(input.packageVersion) || !/^[a-f0-9]{64}$/u.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..") || (input.workerEntry === undefined && input.runtimeEntry === undefined) || (input.workerEntry !== undefined && !validEntry(input.workerEntry)) || (input.runtimeEntry !== undefined && !validEntry(input.runtimeEntry)) || (input.workerEntry !== undefined && input.runtimeEntry !== undefined)) throw new Error("Invalid verified plugin package record");
+    this.db.prepare("INSERT OR REPLACE INTO verified_plugin_packages (package_id, package_version, digest, location, worker_entry, runtime_entry, verified_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(input.packageId, input.packageVersion, input.digest, input.location, input.workerEntry ?? "", input.runtimeEntry ?? null, now());
   }
 
   verifiedPluginPackages(): VerifiedPluginPackageRecord[] {
-    return (this.db.prepare("SELECT package_id, package_version, digest, location, worker_entry, verified_at FROM verified_plugin_packages ORDER BY verified_at DESC").all() as Array<Record<string, string>>)
-      .map((row) => ({ packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", digest: row.digest ?? "", location: row.location ?? "", workerEntry: row.worker_entry ?? "", verifiedAt: row.verified_at ?? "" }));
+    return (this.db.prepare("SELECT package_id, package_version, digest, location, worker_entry, runtime_entry, verified_at FROM verified_plugin_packages ORDER BY verified_at DESC").all() as Array<Record<string, string | null>>)
+      .map((row) => ({ packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", digest: row.digest ?? "", location: row.location ?? "", ...(row.worker_entry === null || row.worker_entry === "" ? {} : { workerEntry: row.worker_entry }), ...(row.runtime_entry === null ? {} : { runtimeEntry: row.runtime_entry }), verifiedAt: row.verified_at ?? "" }));
   }
 
   disablePlugin(installationId: string): boolean {

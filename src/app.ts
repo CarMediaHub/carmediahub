@@ -203,7 +203,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
   for (const verified of repository.verifiedPluginPackages()) {
-    supervisor.register(createTrustedNodeWorkerFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), workerEntry: verified.workerEntry }));
+    if (verified.workerEntry !== undefined) supervisor.register(createTrustedNodeWorkerFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), workerEntry: verified.workerEntry }));
+    else if (verified.runtimeEntry !== undefined) supervisor.register(createTrustedSharedAdapterFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), runtimeEntry: verified.runtimeEntry }));
   }
   for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
@@ -541,6 +542,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (release.manifest.runtime === "isolated-worker" && workerEntry !== undefined) {
         repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, workerEntry });
         supervisor.register(createTrustedNodeWorkerFactory({ packageId: installed.packageId, packageRoot: path.resolve(options.dataDir, installed.location), workerEntry }));
+      } else if (release.manifest.runtime === "shared-adapter-host" && runtimeEntry !== undefined) {
+        repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, runtimeEntry });
+        supervisor.register(createTrustedSharedAdapterFactory({ packageId: installed.packageId, packageRoot: path.resolve(options.dataDir, installed.location), runtimeEntry }));
       }
       repository.audit(user.id, "plugin.package.installed", `${installed.packageId}@${installed.version}`);
       return reply.code(201).send({ package: installed });

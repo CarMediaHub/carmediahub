@@ -71,7 +71,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
       package_version TEXT NOT NULL,
       digest TEXT NOT NULL,
       location TEXT NOT NULL,
-      worker_entry TEXT NOT NULL,
+      worker_entry TEXT,
+      runtime_entry TEXT,
       verified_at TEXT NOT NULL,
       PRIMARY KEY (package_id)
     );
@@ -187,6 +188,9 @@ export function openDatabase(dataDir: string): CoreDatabase {
       locked_until TEXT
     );
   `);
+  // Keep existing self-hosted databases compatible with the package runtime contract.
+  const columns = db.prepare("PRAGMA table_info(verified_plugin_packages)").all() as Array<{ name?: string }>;
+  if (!columns.some((column) => column.name === "runtime_entry")) db.exec("ALTER TABLE verified_plugin_packages ADD COLUMN runtime_entry TEXT");
   const mediaRootColumns = db.prepare("PRAGMA table_info(media_roots)").all() as Array<{ name: string }>;
   if (!mediaRootColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE media_roots ADD COLUMN installation_id TEXT NOT NULL DEFAULT '__unbound__'");
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;

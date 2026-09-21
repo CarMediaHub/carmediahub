@@ -17,7 +17,16 @@ test("gateway forwards only protocol headers and never session or authorization 
 });
 
 function pluginPackageDigest(root: string): string {
-  const files = ["ui/index.html", "worker.js"];
+  const files: string[] = [];
+  const visit = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(location);
+      else if (entry.isFile()) files.push(path.relative(root, location).split(path.sep).join("/"));
+    }
+  };
+  visit(root);
+  files.sort();
   const hash = crypto.createHash("sha256");
   for (const file of files) hash.update(`${file}\0${crypto.createHash("sha256").update(fs.readFileSync(path.join(root, file))).digest("hex")}\n`, "utf8");
   return hash.digest("hex");
@@ -331,6 +340,33 @@ test("administrator installs only a signed staged plugin package", async () => {
     const response = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(response.statusCode, 201);
     assert.match(response.json().package.location, /^plugins\/wdr-media\/0\.1\.0\//);
+    await app.close();
+    const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+    await restarted.close();
+  } finally {
+    if (app.server.listening) await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("persists a verified shared adapter entry across Core restart", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-shared-"));
+  const pair = crypto.generateKeyPairSync("ed25519");
+  const publicKey = pair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const source = path.join(dataDir, "staging", "plugins", "shared-build");
+  fs.mkdirSync(path.join(source, "ui"), { recursive: true });
+  fs.writeFileSync(path.join(source, "adapter.mjs"), "export async function startWorker() { return { stop() {} }; }\n");
+  fs.writeFileSync(path.join(source, "worker.js"), "export {};\n");
+  fs.writeFileSync(path.join(source, "ui", "index.html"), "<main></main>\n");
+  const app = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const manifest = { id: "shared-adapter-example", version: "0.1.0", sdk: "^0.1.0", name: { en: "Shared", "zh-CN": "共享", ko: "공유" }, description: { en: "Shared", "zh-CN": "共享", ko: "공유" }, category: "core-companion", runtime: "shared-adapter-host", capabilities: ["gateway"], routes: [{ path: "/", methods: ["GET"] }], runtimeEntry: { entry: "./adapter.mjs", protocol: "0.1" } } as const;
+    const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
+    const unsigned = { keyId, manifest, artifact: { id: "shared-build", digest: pluginPackageDigest(source) } };
+    const release = { ...unsigned, signature: crypto.sign(null, canonicalPluginPackageRelease(unsigned), pair.privateKey).toString("base64") };
+    assert.equal((await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release })).statusCode, 201);
     await app.close();
     const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
     await restarted.close();
