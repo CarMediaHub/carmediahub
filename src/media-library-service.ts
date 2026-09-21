@@ -11,6 +11,8 @@ export interface MediaRoot { id: string; name: string; createdAt: string; }
 export interface MediaItem { id: string; title: string; contentType: string; size: number; updatedAt: string; }
 export interface MediaRead { data: string; completed: boolean; }
 
+interface IndexedMediaItem extends MediaItem { relativePath: string; }
+
 /** Core-owned media root registry. Plugins receive no filesystem path or root handle. */
 export class MediaLibraryService {
   constructor(private readonly db: DatabaseSync, private readonly key: Buffer) {}
@@ -32,20 +34,7 @@ export class MediaLibraryService {
 
   list(organizationId: string, rootId: string, limit = 200): MediaItem[] {
     const root = this.rootPath(organizationId, rootId);
-    const maximum = Math.min(Math.max(limit, 1), 1000);
-    const items: MediaItem[] = [];
-    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-      if (items.length >= maximum || !entry.isFile() || entry.isSymbolicLink()) continue;
-      const extension = path.extname(entry.name).toLowerCase();
-      const contentType = mediaTypes[extension];
-      if (contentType === undefined) continue;
-      const location = path.resolve(root, entry.name);
-      if (!location.startsWith(root + path.sep)) continue;
-      const stat = fs.statSync(location);
-      const id = keyedHash(`${rootId}\0${entry.name}\0${stat.size}\0${stat.mtimeMs}`, this.key);
-      items.push({ id, title: entry.name, contentType, size: stat.size, updatedAt: stat.mtime.toISOString() });
-    }
-    return items.sort((left, right) => left.title.localeCompare(right.title));
+    return this.index(root, rootId, limit).map(({ relativePath: _relativePath, ...item }) => item);
   }
 
   revoke(organizationId: string, rootId: string): boolean {
@@ -56,11 +45,11 @@ export class MediaLibraryService {
   read(organizationId: string, mediaId: string, start: number, end: number): MediaRead {
     if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Media read request is invalid");
     for (const root of this.roots(organizationId)) {
-      const item = this.list(organizationId, root.id, 1000).find((candidate) => candidate.id === mediaId);
+      const rootPath = this.rootPath(organizationId, root.id);
+      const item = this.index(rootPath, root.id, 1000).find((candidate) => candidate.id === mediaId);
       if (item === undefined) continue;
       if (start >= item.size) throw new Error("Media range is unavailable");
-      const rootPath = this.rootPath(organizationId, root.id);
-      const location = path.resolve(rootPath, item.title);
+      const location = path.resolve(rootPath, item.relativePath);
       if (!location.startsWith(rootPath + path.sep) || fs.lstatSync(location).isSymbolicLink()) throw new Error("Media range is unavailable");
       const count = Math.min(end, item.size - 1) - start + 1;
       const handle = fs.openSync(location, "r");
@@ -71,6 +60,33 @@ export class MediaLibraryService {
       } finally { fs.closeSync(handle); }
     }
     throw new Error("Media item is unavailable");
+  }
+
+  private index(root: string, rootId: string, limit: number): IndexedMediaItem[] {
+    const maximum = Math.min(Math.max(limit, 1), 1000);
+    const items: IndexedMediaItem[] = [];
+    const visit = (directory: string, relativeDirectory: string, depth: number): void => {
+      if (items.length >= maximum || depth > 32) return;
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+        if (items.length >= maximum || entry.isSymbolicLink()) continue;
+        const relativePath = relativeDirectory === "" ? entry.name : path.posix.join(relativeDirectory, entry.name);
+        const location = path.resolve(root, ...relativePath.split("/"));
+        if (!location.startsWith(root + path.sep)) continue;
+        if (entry.isDirectory()) {
+          visit(location, relativePath, depth + 1);
+          continue;
+        }
+        if (!entry.isFile()) continue;
+        const extension = path.extname(entry.name).toLowerCase();
+        const contentType = mediaTypes[extension];
+        if (contentType === undefined) continue;
+        const stat = fs.statSync(location);
+        const id = keyedHash(`${rootId}\0${relativePath}\0${stat.size}\0${stat.mtimeMs}`, this.key);
+        items.push({ id, title: entry.name, contentType, size: stat.size, updatedAt: stat.mtime.toISOString(), relativePath });
+      }
+    };
+    visit(root, "", 0);
+    return items;
   }
 
   private rootPath(organizationId: string, rootId: string): string {
