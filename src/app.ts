@@ -85,6 +85,23 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.mediaId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
         return mediaLibrary.read(scope.organizationId, input.mediaId, input.start, input.end);
       }
+      if (request.method === "jobs.enqueue") {
+        if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
+        const input = request.params as { type?: unknown; payload?: unknown } | undefined;
+        if (typeof input?.type !== "string") throw new Error("Invalid job request");
+        return jobs.enqueue(scope, input.type, input.payload);
+      }
+      if (request.method === "jobs.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
+        const input = request.params as { limit?: unknown } | undefined;
+        return { jobs: jobs.list(scope, typeof input?.limit === "number" ? input.limit : 100) };
+      }
+      if (request.method === "jobs.cancel") {
+        if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
+        const input = request.params as { id?: unknown } | undefined;
+        if (typeof input?.id !== "string") throw new Error("Invalid job cancel request");
+        return { job: jobs.transition(scope, input.id, "cancelled") };
+      }
       throw new Error("Worker method is not available");
     }
   });
