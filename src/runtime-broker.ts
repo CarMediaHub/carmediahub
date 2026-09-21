@@ -88,6 +88,7 @@ export class RuntimeBroker {
   private readonly credentials = new Map<string, CredentialRecord>();
   private readonly sockets = new Set<net.Socket>();
   private server: net.Server | undefined;
+  private readonly connectionWaiters = new Set<() => void>();
 
   constructor(private readonly options: RuntimeBrokerOptions) {
     this.endpoint = options.endpoint ?? defaultEndpoint(options.dataDir);
@@ -122,6 +123,20 @@ export class RuntimeBroker {
         else signal.addEventListener("abort", () => cancel("Plugin gateway request cancelled"), { once: true });
       }
       connection.socket.write(encodeFrame(request));
+    });
+  }
+
+  /** Waits only for the authenticated local Worker matching this request scope. */
+  waitForWorker(installationId: string, userId: string, timeoutMs = 5_000): Promise<void> {
+    if (this.hasWorker(installationId, userId)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { this.connectionWaiters.delete(wake); reject(new Error("Plugin worker did not complete its broker handshake")); }, timeoutMs);
+      const wake = () => {
+        if (!this.hasWorker(installationId, userId)) return;
+        clearTimeout(timeout); this.connectionWaiters.delete(wake); resolve();
+      };
+      this.connectionWaiters.add(wake);
+      wake();
     });
   }
 
@@ -287,6 +302,11 @@ export class RuntimeBroker {
     this.credentials.delete(credential!);
     state.scope = record.scope;
     this.respond(socket, request, { type: "broker.welcome", schemaVersion: "0.1", context: { locale: record.scope.locale, policyVersion: record.scope.policyVersion } });
+    for (const wake of this.connectionWaiters) wake();
+  }
+
+  private hasWorker(installationId: string, userId: string): boolean {
+    return [...this.connections()].some((candidate) => candidate.state.scope?.installationId === installationId && candidate.state.scope.userId === userId);
   }
 
   private respond(socket: net.Socket, request: RpcRequest, result: unknown): void {

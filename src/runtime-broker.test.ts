@@ -65,6 +65,24 @@ test("Broker injects credential scope and rejects forged scope metadata", async 
   }
 });
 
+test("Broker waits for a matching Worker to finish its authenticated handshake", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const ready = broker.waitForWorker(scope.installationId, scope.userId, 1_000);
+    const credential = broker.issueCredential(scope);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello", "broker.hello"));
+    await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    await ready;
+    client.socket.end();
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("Broker forwards a gateway invocation over the authenticated worker channel", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
   const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });

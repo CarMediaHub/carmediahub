@@ -330,6 +330,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       const workerStatus = await supervisor.start(application.installationId, scope);
       if (workerStatus.state !== "running") return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
+      await runtimeBroker.waitForWorker(application.installationId, scope.userId);
       const stream = runtimeBroker.invokeStream(application.installationId, scope, {
         method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
         path: relativePath,
