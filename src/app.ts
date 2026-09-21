@@ -16,8 +16,9 @@ import { createTrustedNodeWorkerFactory, type TrustedWorkerPackage } from "./tru
 import { installStagedPluginPackage } from "./plugin-package-installer.js";
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 import { MediaLibraryService } from "./media-library-service.js";
+import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; gatewayStreamQuota?: GatewayStreamQuota; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -31,6 +32,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const repository = new Repository(database.db, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
+  const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed",
@@ -404,6 +406,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (application === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
     const scope = repository.runtimeScope(user.id, application.installationId, session.sessionId, session.deviceLabel);
     if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
+    const streamLease = gatewayStreamQuota.tryAcquire(session.sessionId);
+    if (streamLease === undefined) return reply.code(429).header("retry-after", "1").send({ code: "CMH.GATEWAY.STREAM_LIMIT", messageKey: "errors.gateway.streamLimit", retryable: true });
     const relativePath = requestPath.slice(application.route.length) || "/";
     try {
       const workerStatus = await supervisor.start(application.installationId, scope);
@@ -434,9 +438,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!reply.raw.destroyed) reply.raw.destroy();
       } finally {
         request.raw.off("close", abort);
+        streamLease.release();
       }
       return reply;
     } catch {
+      streamLease.release();
       return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
     }
   });

@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createApp } from "./app.js";
+import { GatewayStreamQuota } from "./gateway-stream-quota.js";
+import { openDatabase } from "./database.js";
 import { totpCode } from "./security.js";
 import { currentPlatformKey } from "./components.js";
 import { canonicalPluginManifest } from "./plugin-release.js";
@@ -205,7 +207,8 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
   const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
   const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
   const packageRoot = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "official", "wdr-media", "src");
-  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages: [{ packageId: "wdr-media", packageRoot, workerEntry: "./worker.js" }] });
+  const gatewayStreamQuota = new GatewayStreamQuota(1);
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages: [{ packageId: "wdr-media", packageRoot, workerEntry: "./worker.js" }], gatewayStreamQuota });
   try {
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
@@ -219,6 +222,15 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(install.statusCode, 201);
     const installationId = (install.json() as { installation: { id: string } }).installation.id;
+    const sessionDatabase = openDatabase(dataDir);
+    const session = sessionDatabase.db.prepare("SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1").get() as { id: string };
+    sessionDatabase.db.close();
+    const heldLease = gatewayStreamQuota.tryAcquire(session.id);
+    assert.notEqual(heldLease, undefined);
+    const limited = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
+    assert.equal(limited.statusCode, 429);
+    assert.equal(limited.json().code, "CMH.GATEWAY.STREAM_LIMIT");
+    heldLease?.release();
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media" });
