@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
-import { PluginJobService } from "./job-service.js";
+import { MAX_ACTIVE_JOBS_PER_SCOPE, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
 
 test("plugin jobs are persisted and isolated by user and installation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-jobs-"));
@@ -26,6 +26,22 @@ test("plugin jobs are persisted and isolated by user and installation", () => {
     assert.equal(completed?.progress, 100);
     assert.deepEqual(completed?.result, { output: "ready" });
     assert.equal(jobs.transition(firstScope, job.id, "running"), undefined);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("bounds active jobs and serialized payload size per installation scope", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-limits-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    for (let index = 0; index < MAX_ACTIVE_JOBS_PER_SCOPE; index += 1) jobs.enqueue(scope, `media.transcode.${index}`, { source: String(index) });
+    assert.throws(() => jobs.enqueue(scope, "media.transcode.full", { source: "overflow" }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.JOBS.QUEUE_FULL");
+    assert.throws(() => jobs.enqueue({ ...scope, installationId: "other" }, "media.transcode", { source: "x".repeat(MAX_JOB_PAYLOAD_BYTES) }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.JOBS.PAYLOAD_TOO_LARGE");
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
