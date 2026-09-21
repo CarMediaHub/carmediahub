@@ -365,6 +365,15 @@ export class Repository {
     return this.db.prepare("SELECT id, version, executable, checksum, installed_at, health FROM managed_components ORDER BY id").all() as Array<Record<string, string>>;
   }
 
+  componentById(componentId: string): { id: string; version: string; executable: string; checksum: string; health: string } | undefined {
+    const row = this.db.prepare("SELECT id, version, executable, checksum, health FROM managed_components WHERE id = ?").get(componentId) as Record<string, string> | undefined;
+    return row === undefined ? undefined : { id: row.id ?? "", version: row.version ?? "", executable: row.executable ?? "", checksum: row.checksum ?? "", health: row.health ?? "unknown" };
+  }
+
+  updateComponentHealth(componentId: string, health: "healthy" | "unhealthy"): boolean {
+    return this.db.prepare("UPDATE managed_components SET health = ? WHERE id = ?").run(health, componentId).changes === 1;
+  }
+
   serviceBindings(): Array<Record<string, string>> {
     return this.db.prepare("SELECT id, component_id, name, endpoint, installation_id, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
   }

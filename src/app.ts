@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
@@ -5,7 +6,7 @@ import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
 import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
-import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
+import { loadComponentCatalog, resolveInstalledExecutable, resolveManagedExecutable } from "./components.js";
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
@@ -691,6 +692,24 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     } catch {
       return reply.code(400).send({ code: "CMH.COMPONENT.INSTALL_INVALID", messageKey: "errors.component.installInvalid" });
     }
+  });
+
+  app.post("/api/components/:id/health", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const componentId = (request.params as { id: string }).id;
+    const component = repository.componentById(componentId);
+    if (component === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.NOT_FOUND", messageKey: "errors.component.notFound" });
+    let health: "healthy" | "unhealthy" = "unhealthy";
+    try {
+      const executable = resolveInstalledExecutable(options.dataDir, component);
+      const actual = crypto.createHash("sha256").update(fs.readFileSync(executable)).digest("hex");
+      const expected = component.checksum.startsWith("sha256:") ? component.checksum.slice("sha256:".length) : component.checksum;
+      if (/^[a-f0-9]{64}$/u.test(expected) && actual === expected) health = "healthy";
+    } catch { health = "unhealthy"; }
+    repository.updateComponentHealth(componentId, health);
+    repository.audit(user.id, health === "healthy" ? "component.healthChecked" : "component.healthFailed", componentId);
+    return { component: { id: componentId, health } };
   });
 
   app.all("/apps/*", async (request, reply) => {

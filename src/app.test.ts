@@ -16,6 +16,26 @@ test("gateway forwards only protocol headers and never session or authorization 
   assert.deepEqual(filterGatewayHeaders({ range: "bytes=0-1", accept: "video/*", cookie: "cmh_session=secret", authorization: "Bearer secret", "x-cmh-device-class": "vehicle", "x-forwarded-for": "127.0.0.1" }), { range: "bytes=0-1", accept: "video/*" });
 });
 
+test("component health checks verify the managed file digest without executing it", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-health-"));
+  const executable = path.join(dataDir, "components", "alist", "1.0.0", "alist");
+  fs.mkdirSync(path.dirname(executable), { recursive: true });
+  fs.writeFileSync(executable, "managed component", "utf8");
+  const digest = crypto.createHash("sha256").update(fs.readFileSync(executable)).digest("hex");
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: `sha256:${digest}` } })).statusCode, 201);
+    const healthy = await app.inject({ method: "POST", url: "/api/components/alist/health", headers: { cookie } });
+    assert.equal(healthy.statusCode, 200);
+    assert.deepEqual(healthy.json().component, { id: "alist", health: "healthy" });
+    fs.writeFileSync(executable, "tampered", "utf8");
+    assert.deepEqual((await app.inject({ method: "POST", url: "/api/components/alist/health", headers: { cookie } })).json().component, { id: "alist", health: "unhealthy" });
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 function pluginPackageDigest(root: string): string {
   const files: string[] = [];
   const visit = (directory: string) => {
