@@ -689,6 +689,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       request.raw.once("close", abort);
       try {
         for await (const chunk of stream) {
+          if (!streamLease.consume(chunk.length)) {
+            stream.cancel("Gateway stream byte quota exceeded");
+            if (!reply.raw.destroyed) reply.raw.destroy();
+            return reply;
+          }
           if (!reply.raw.destroyed) reply.raw.write(chunk);
         }
         if (!reply.raw.destroyed) reply.raw.end();

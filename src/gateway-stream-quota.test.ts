@@ -22,4 +22,15 @@ test("gateway stream quota isolates concurrent limits between sessions", () => {
   assert.notEqual(quota.tryAcquire("session-a"), undefined);
   assert.notEqual(quota.tryAcquire("session-b"), undefined);
   assert.throws(() => new GatewayStreamQuota(0), /positive integer/u);
+  assert.throws(() => new GatewayStreamQuota(1, 0), /byte quota/u);
+});
+
+test("bounds bytes per stream and remains releasable", () => {
+  const quota = new GatewayStreamQuota(1, 4);
+  const lease = quota.tryAcquire("session-a");
+  assert.notEqual(lease, undefined);
+  assert.equal(lease?.consume(3), true);
+  assert.equal(lease?.consume(2), false);
+  lease?.release();
+  assert.notEqual(quota.tryAcquire("session-a"), undefined);
 });

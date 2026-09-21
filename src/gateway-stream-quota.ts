@@ -1,4 +1,5 @@
 export interface GatewayStreamLease {
+  consume(bytes: number): boolean;
   release(): void;
 }
 
@@ -10,8 +11,9 @@ export interface GatewayStreamLease {
 export class GatewayStreamQuota {
   private readonly active = new Map<string, number>();
 
-  constructor(private readonly maxPerSession = 2) {
+  constructor(private readonly maxPerSession = 2, private readonly maxBytesPerStream = 256 * 1024 * 1024) {
     if (!Number.isSafeInteger(maxPerSession) || maxPerSession < 1) throw new Error("Gateway stream quota must be a positive integer");
+    if (!Number.isSafeInteger(maxBytesPerStream) || maxBytesPerStream < 1) throw new Error("Gateway stream byte quota must be a positive integer");
   }
 
   tryAcquire(sessionId: string): GatewayStreamLease | undefined {
@@ -19,7 +21,13 @@ export class GatewayStreamQuota {
     if (current >= this.maxPerSession) return undefined;
     this.active.set(sessionId, current + 1);
     let released = false;
+    let bytes = 0;
     return {
+      consume: (chunkBytes: number) => {
+        if (!Number.isSafeInteger(chunkBytes) || chunkBytes < 0 || bytes + chunkBytes > this.maxBytesPerStream) return false;
+        bytes += chunkBytes;
+        return true;
+      },
       release: () => {
         if (released) return;
         released = true;
