@@ -136,6 +136,17 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.id !== "string") throw new Error("Invalid catalog remove request");
         return { removed: catalogService.remove(scope, input.id) };
       }
+      if (request.method === "display.capabilities") {
+        if (!repository.pluginHasCapability(scope.installationId, "display")) throw new Error("Plugin display capability is not granted");
+        return scope.display;
+      }
+      if (request.method === "display.requestMode") {
+        if (!repository.pluginHasCapability(scope.installationId, "display")) throw new Error("Plugin display capability is not granted");
+        const input = request.params as { mode?: unknown } | undefined;
+        if (input?.mode !== "normal" && input?.mode !== "fullscreen") throw new Error("Invalid display mode");
+        if (input.mode === "fullscreen" && !scope.display.fullscreenAvailable) return { mode: input.mode, accepted: false, reason: "unsupported" };
+        return { mode: input.mode, accepted: true };
+      }
       throw new Error("Worker method is not available");
     }
   });
