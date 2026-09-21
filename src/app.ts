@@ -81,7 +81,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed",
-    onWorkerRequest: (request, scope) => {
+    onWorkerRequest: async (request, scope) => {
       if (request.method === "media.list") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
         return { media: mediaLibrary.roots(scope.organizationId, scope.installationId).flatMap((root) => mediaLibrary.list(scope.organizationId, scope.installationId, root.id)) };
@@ -115,6 +115,22 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { mediaId?: unknown; sessionId?: unknown; start?: unknown; end?: unknown } | undefined;
         if (typeof input?.mediaId !== "string" || typeof input.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
         return mediaLibrary.readWithPlayback(scope, input.sessionId, input.mediaId, input.start, input.end);
+      }
+      if (request.method === "network.request") {
+        if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
+        const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown } | undefined;
+        if (typeof input?.binding !== "string" || !/^[a-z][a-z0-9-]{0,63}$/u.test(input.binding) || typeof input.path !== "string" || !input.path.startsWith("/") || input.path.includes("\\") || input.path.split("/").includes("..") || !["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(String(input.method))) throw new Error("Invalid network request");
+        if (input.body !== undefined && (typeof input.body !== "string" || Buffer.byteLength(input.body, "utf8") > 64 * 1024)) throw new Error("Network request body is too large");
+        const binding = repository.serviceBindingByName(input.binding);
+        if (binding === undefined) throw new Error("Network target is not bound");
+        const target = new URL(input.path, binding.endpoint);
+        if (target.origin !== new URL(binding.endpoint).origin || target.username !== "" || target.password !== "" || target.hash !== "") throw new Error("Network target is invalid");
+        const requestHeaders: Record<string, string> = typeof input.headers === "object" && input.headers !== null ? Object.fromEntries(Object.entries(input.headers as Record<string, unknown>).filter(([key, value]) => ["accept", "accept-language", "content-type", "if-none-match", "range"].includes(key.toLowerCase()) && typeof value === "string" && value.length <= 2048) as Array<[string, string]>) : {};
+        const response = await fetch(target, { method: String(input.method), headers: requestHeaders, signal: AbortSignal.timeout(30_000), ...(input.body === undefined ? {} : { body: input.body }) });
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length > 1024 * 1024) throw new Error("Network response is too large");
+        const responseHeaders = Object.fromEntries(["content-type", "content-length", "content-range", "etag", "last-modified", "accept-ranges"].flatMap((name) => { const value = response.headers.get(name); return value === null ? [] : [[name, value]]; }));
+        return { status: response.status, headers: responseHeaders, ...(input.method === "HEAD" ? {} : { bodyBase64: bytes.toString("base64") }) };
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
