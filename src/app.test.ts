@@ -8,6 +8,14 @@ import { createApp } from "./app.js";
 import { totpCode } from "./security.js";
 import { currentPlatformKey } from "./components.js";
 import { canonicalPluginManifest } from "./plugin-release.js";
+import { canonicalPluginPackageRelease } from "./plugin-package-release.js";
+
+function pluginPackageDigest(root: string): string {
+  const files = ["ui/index.html", "worker.js"];
+  const hash = crypto.createHash("sha256");
+  for (const file of files) hash.update(`${file}\0${crypto.createHash("sha256").update(fs.readFileSync(path.join(root, file))).digest("hex")}\n`, "utf8");
+  return hash.digest("hex");
+}
 
 test("bootstraps, authenticates, creates a key, and revokes it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
@@ -213,4 +221,26 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+test("administrator installs only a signed staged plugin package", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const pair = crypto.generateKeyPairSync("ed25519");
+  const publicKey = pair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const source = path.join(dataDir, "staging", "plugins", "wdr-build");
+  fs.mkdirSync(path.join(source, "ui"), { recursive: true });
+  fs.writeFileSync(path.join(source, "worker.js"), "export {};\n");
+  fs.writeFileSync(path.join(source, "ui", "index.html"), "<main></main>\n");
+  const app = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
+    const unsigned = { keyId, manifest, artifact: { id: "wdr-build", digest: pluginPackageDigest(source) } };
+    const release = { ...unsigned, signature: crypto.sign(null, canonicalPluginPackageRelease(unsigned), pair.privateKey).toString("base64") };
+    const response = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
+    assert.equal(response.statusCode, 201);
+    assert.match(response.json().package.location, /^plugins\/wdr-media\/0\.1\.0\//);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
