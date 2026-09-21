@@ -44,7 +44,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 6
+        "register": 7
       },
       "enableBy": "register",
       "type": "preset",
@@ -74,7 +74,7 @@
             0
           ]
         },
-        "register": 4
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -91,7 +91,7 @@
             1
           ]
         },
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -108,7 +108,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -135,10 +135,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            13
+            14
           ]
         },
-        "register": 15
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -218,7 +218,7 @@
             0
           ]
         },
-        "register": 6
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1084,10 +1084,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            0
+            1
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1100,7 +1100,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1113,7 +1113,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 56
+        "register": 58
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1126,7 +1126,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 31
+        "register": 32
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1156,7 +1156,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1207,7 +1207,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1220,7 +1220,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1274,7 +1274,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1287,7 +1287,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1365,7 +1365,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
@@ -1377,7 +1377,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1403,7 +1403,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1416,7 +1416,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1442,7 +1442,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 4
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1491,7 +1491,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 495
+        "register": 486
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1584,7 +1584,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1596,7 +1596,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
@@ -1620,7 +1620,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 22
+        "register": 21
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1632,7 +1632,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1658,7 +1658,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 25
+        "register": 24
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1671,7 +1671,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 27
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1683,7 +1683,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1696,7 +1696,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1722,7 +1722,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1735,7 +1735,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1891,7 +1891,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1904,7 +1904,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1917,7 +1917,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1930,7 +1930,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1984,7 +1984,7 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            1
+            2
           ],
           "modifyAppData": [
             0
@@ -1993,7 +1993,7 @@
             0
           ]
         },
-        "register": 6
+        "register": 5
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/antd.js",
@@ -2018,7 +2018,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2046,7 +2046,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2059,7 +2059,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2174,7 +2174,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2187,7 +2187,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2204,7 +2204,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2221,7 +2221,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2251,7 +2251,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",

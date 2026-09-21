@@ -357,7 +357,14 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const parsed = query.limit === undefined ? 200 : Number(query.limit);
     if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 500) return reply.code(400).send({ code: "CMH.AUDIT.INVALID_LIMIT", messageKey: "errors.audit.invalidLimit" });
     if (query.type !== undefined && (query.type.length === 0 || query.type.length > 96) || query.actor !== undefined && (query.actor.length === 0 || query.actor.length > 128) || query.keyword !== undefined && (query.keyword.length === 0 || query.keyword.length > 120)) return reply.code(400).send({ code: "CMH.AUDIT.INVALID_FILTER", messageKey: "errors.audit.invalidFilter" });
-    return { events: repository.auditEvents({ limit: parsed, ...(query.type === undefined ? {} : { type: query.type }), ...(query.actor === undefined ? {} : { actorId: query.actor }), ...(query.keyword === undefined ? {} : { keyword: query.keyword }) }) };
+    const events = repository.auditEvents({ limit: parsed, ...(query.type === undefined ? {} : { type: query.type }), ...(query.actor === undefined ? {} : { actorId: query.actor }), ...(query.keyword === undefined ? {} : { keyword: query.keyword }) });
+    if ((request.query as { format?: string }).format === "csv") {
+      const csvCell = (value: string | null): string => `"${(value ?? "").replaceAll('"', '""')}"`;
+      repository.audit(user.id, "audit.exported", `count:${events.length}`);
+      const csv = ["id,actor_id,type,subject,created_at", ...events.map((event) => [event.id, event.actorId, event.type, event.subject, event.createdAt].map(csvCell).join(","))].join("\r\n") + "\r\n";
+      return reply.type("text/csv; charset=utf-8").header("Content-Disposition", "attachment; filename=car-media-hub-audit.csv").header("Cache-Control", "no-store").send(csv);
+    }
+    return { events };
   });
 
   app.post("/api/notifications/:id/read", async (request, reply) => {
