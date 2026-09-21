@@ -114,6 +114,10 @@ export class WorkerSupervisor {
     }
   }
 
+  async stopAll(): Promise<void> {
+    await Promise.all([...this.workers.keys()].map((installationId) => this.stop(installationId)));
+  }
+
   private touchIdle(installationId: string): void {
     const worker = this.workers.get(installationId);
     if (worker === undefined || worker.state !== "running") return;

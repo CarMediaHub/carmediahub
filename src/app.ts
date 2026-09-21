@@ -11,8 +11,10 @@ import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
 import { PluginJobService } from "./job-service.js";
 import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
+import { WorkerSupervisor } from "./worker-supervisor.js";
+import { createTrustedNodeWorkerFactory, type TrustedWorkerPackage } from "./trusted-worker-factory.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -28,6 +30,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed"
   });
+  const supervisor = new WorkerSupervisor({
+    endpoint: runtimeBroker.endpoint,
+    issueCredential: (scope) => runtimeBroker.issueCredential(scope),
+    installation: (installationId) => {
+      const installation = repository.pluginInstallation(installationId);
+      return installation === undefined ? undefined : { packageId: installation.packageId, status: installation.status };
+    }
+  });
+  for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const app = Fastify({ logger: false });
   await app.register(cookie);
@@ -36,6 +47,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   await runtimeBroker.start();
   app.addHook("onClose", async () => {
+    await supervisor.stopAll();
     await runtimeBroker.stop();
     database.close();
   });
@@ -216,6 +228,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const installationId = (request.params as { id: string }).id;
     if (!repository.disablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();
   });
@@ -315,6 +328,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
     const relativePath = requestPath.slice(application.route.length) || "/";
     try {
+      const workerStatus = await supervisor.start(application.installationId, scope);
+      if (workerStatus.state !== "running") return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
       const result = await runtimeBroker.invoke(application.installationId, scope, {
         method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
         path: relativePath,
