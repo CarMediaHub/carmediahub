@@ -296,6 +296,22 @@ export class Repository {
     return true;
   }
 
+  enablePlugin(installationId: string): boolean {
+    const current = this.db.prepare("SELECT id FROM plugin_installations WHERE id = ? AND status = 'disabled'").get(installationId);
+    if (current === undefined) return false;
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      const updatedAt = now();
+      this.db.prepare("UPDATE plugin_installations SET status = 'installed', updated_at = ? WHERE id = ?").run(updatedAt, installationId);
+      this.db.prepare("UPDATE applications SET enabled = 1 WHERE installation_id = ?").run(installationId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return true;
+  }
+
   createEntryKey(applicationId: string, userId: string, expiresAt?: string): { id: string; key: string } {
     const application = this.db.prepare("SELECT id FROM applications WHERE id = ? AND enabled = 1").get(applicationId);
     if (application === undefined) throw new Error("Application not found");

@@ -45,6 +45,22 @@ test("capability grants can only be reduced from the manifest declaration", () =
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("disabled plugin installations can be re-enabled without changing their grants", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-enable-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const installation = repository.installPlugin({ id: "enable-test", version: "0.1.0", sdk: "^0.1.0", name: { en: "Enable", "zh-CN": "启用", ko: "활성화" }, description: { en: "Enable", "zh-CN": "启用", ko: "활성화" }, category: "official", runtime: "isolated-worker", capabilities: ["history"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+    assert.equal(repository.disablePlugin(installation.id), true);
+    assert.equal(repository.pluginInstallation(installation.id)?.status, "disabled");
+    assert.equal(repository.enablePlugin(installation.id), true);
+    assert.equal(repository.pluginInstallation(installation.id)?.status, "installed");
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["history"]);
+    assert.equal(repository.enablePlugin(installation.id), false);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("migrates legacy global binding names to scoped uniqueness", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-binding-migration-"));
   const legacy = new DatabaseSync(path.join(dataDir, "carmediahub.sqlite"));

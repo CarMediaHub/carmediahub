@@ -264,6 +264,8 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
     assert.equal((await app.inject({ method: "GET", url: `/api/plugins/${installation.id}/jobs`, headers: { cookie } })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), false);
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
   } finally {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

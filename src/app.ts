@@ -602,6 +602,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/plugins/:id/enable", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id: string }).id;
+    if (!repository.enablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    repository.audit(user.id, "plugin.enabled", installationId);
+    return reply.code(204).send();
+  });
+
   app.post("/api/apps", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
