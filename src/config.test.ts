@@ -11,3 +11,12 @@ test("uses explicit configuration rather than environment variables", () => {
   assert.equal(config.cookieSecure, true);
   assert.equal(parseConfig(["--cookie-secure"]).cookieSecure, true);
 });
+
+test("rejects invalid or incomplete deployment options", () => {
+  assert.throws(() => parseConfig(["--port", "0"]), /between 1 and 65535/);
+  assert.throws(() => parseConfig(["--port", "70000"]), /between 1 and 65535/);
+  assert.throws(() => parseConfig(["--host"]), /requires a valid value/);
+  assert.throws(() => parseConfig(["--data-dir"]), /requires a value/);
+  assert.throws(() => parseConfig(["--unknown"]), /Unknown option/);
+  assert.throws(() => parseConfig(["--public-url", "https://user:pass@example.test"]), /credential-free/);
+});
