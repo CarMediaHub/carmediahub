@@ -26,3 +26,17 @@ test("installs only an exact verified plugin package from Core staging", () => {
     assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "wdr-media", version: "0.1.0", artifactId: "../wdr-build", digest: installed.digest }));
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
+
+test("validates a shared runtime entry without treating it as a command", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-shared-package-"));
+  const source = path.join(dataDir, "staging", "plugins", "shared-build");
+  fs.mkdirSync(path.join(source, "src"), { recursive: true });
+  fs.writeFileSync(path.join(source, "src", "adapter.mjs"), "export {};");
+  const hash = crypto.createHash("sha256");
+  hash.update(`src/adapter.mjs\0${crypto.createHash("sha256").update(fs.readFileSync(path.join(source, "src", "adapter.mjs"))).digest("hex")}\n`, "utf8");
+  try {
+    const installed = installStagedPluginPackage(dataDir, { packageId: "shared-adapter-example", version: "0.1.0", artifactId: "shared-build", digest: hash.digest("hex"), runtimeEntry: "./src/adapter.mjs" });
+    assert.equal(fs.readFileSync(path.join(dataDir, installed.location, "src", "adapter.mjs"), "utf8"), "export {};" );
+    assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "shared-adapter-example", version: "0.1.1", artifactId: "shared-build", digest: installed.digest, runtimeEntry: "../adapter.mjs" }), /invalid|mismatch/);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
