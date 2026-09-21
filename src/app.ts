@@ -8,6 +8,7 @@ import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
 import { installStagedComponent } from "./component-installer.js";
 import { RuntimeBroker } from "./runtime-broker.js";
+import { PluginJobService } from "./job-service.js";
 import { validateManifest } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
@@ -21,6 +22,7 @@ function validCredential(value: string, field: string): void {
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
   const repository = new Repository(database.db, ensureServerKey(options.dataDir));
+  const jobs = new PluginJobService(database.db);
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed"
@@ -166,6 +168,32 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/plugins", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { installations: repository.pluginInstallations() };
+  });
+
+  app.get("/api/plugins/:id/jobs", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    const installationId = (request.params as { id: string }).id;
+    const scope = session === undefined ? undefined : repository.runtimeScope(user.id, installationId, session.sessionId, session.deviceLabel);
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    const query = request.query as { limit?: string };
+    return { jobs: jobs.list(scope, query.limit === undefined ? 100 : Number(query.limit)) };
+  });
+
+  app.post("/api/plugins/:id/jobs/:jobId/cancel", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    const params = request.params as { id: string; jobId: string };
+    const scope = session === undefined ? undefined : repository.runtimeScope(user.id, params.id, session.sessionId, session.deviceLabel);
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    const job = jobs.transition(scope, params.jobId, "cancelled");
+    if (job === undefined) return reply.code(404).send({ code: "CMH.JOB.NOT_FOUND", messageKey: "errors.job.notFound" });
+    repository.audit(user.id, "job.cancelled", job.id);
+    return { job };
   });
 
   app.post("/api/plugins", async (request, reply) => {

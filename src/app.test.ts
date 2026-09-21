@@ -148,7 +148,11 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal(installation.status, "installed");
     const listed = await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } });
     assert.equal(listed.json().installations.length, 1);
+    const scopedJobs = await app.inject({ method: "GET", url: `/api/plugins/${installation.id}/jobs`, headers: { cookie } });
+    assert.equal(scopedJobs.statusCode, 200);
+    assert.deepEqual(scopedJobs.json().jobs, []);
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: `/api/plugins/${installation.id}/jobs`, headers: { cookie } })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), false);
   } finally {
     await app.close();
