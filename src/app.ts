@@ -19,6 +19,7 @@ import { MediaLibraryService } from "./media-library-service.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 import { HistoryService } from "./history-service.js";
 import { CatalogService } from "./catalog-service.js";
+import { NotificationService } from "./notification-service.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; gatewayStreamQuota?: GatewayStreamQuota; }
 
@@ -74,6 +75,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobs = new PluginJobService(database.db);
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
+  const notifications = new NotificationService(database.db);
   const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
@@ -146,6 +148,23 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (input?.mode !== "normal" && input?.mode !== "fullscreen") throw new Error("Invalid display mode");
         if (input.mode === "fullscreen" && !scope.display.fullscreenAvailable) return { mode: input.mode, accepted: false, reason: "unsupported" };
         return { mode: input.mode, accepted: true };
+      }
+      if (request.method === "notifications.publish") {
+        if (!repository.pluginHasCapability(scope.installationId, "events")) throw new Error("Plugin events capability is not granted");
+        const input = request.params as { severity?: unknown; title?: unknown; body?: unknown } | undefined;
+        if (input === undefined || typeof input.severity !== "string" || typeof input.title !== "string" || (input.body !== undefined && typeof input.body !== "string")) throw new Error("Invalid notification request");
+        return notifications.publish(scope, { severity: input.severity as "info" | "success" | "warning" | "error", title: input.title, ...(input.body === undefined ? {} : { body: input.body }) });
+      }
+      if (request.method === "notifications.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "events")) throw new Error("Plugin events capability is not granted");
+        const input = request.params as { limit?: unknown; unreadOnly?: unknown } | undefined;
+        return { notifications: notifications.list(scope, { limit: typeof input?.limit === "number" ? input.limit : 100, unreadOnly: input?.unreadOnly === true }) };
+      }
+      if (request.method === "notifications.markRead") {
+        if (!repository.pluginHasCapability(scope.installationId, "events")) throw new Error("Plugin events capability is not granted");
+        const id = (request.params as { id?: unknown } | undefined)?.id;
+        if (typeof id !== "string") throw new Error("Invalid notification ID");
+        return { marked: notifications.markRead(scope, id) };
       }
       throw new Error("Worker method is not available");
     }
@@ -294,6 +313,21 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const query = request.query as { limit?: string; keyword?: string; category?: string };
     return { entries: catalogService.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) }) };
+  });
+
+  app.get("/api/notifications", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const query = request.query as { limit?: string; unreadOnly?: string };
+    return { notifications: notifications.listUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), unreadOnly: query.unreadOnly === "true" }) };
+  });
+
+  app.post("/api/notifications/:id/read", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const marked = notifications.markReadUser(user.organizationId, user.id, (request.params as { id: string }).id);
+    if (!marked) return reply.code(404).send({ code: "CMH.NOTIFICATION.NOT_FOUND", messageKey: "errors.notification.notFound" });
+    return { marked: true };
   });
 
   app.get("/api/diagnostics/speed/download", async (request, reply) => {

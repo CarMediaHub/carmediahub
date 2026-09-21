@@ -24,6 +24,7 @@ export default defineConfig({
     { path: "/jobs", component: "./Jobs" },
     { path: "/history", component: "./History" },
     { path: "/catalog", component: "./Catalog" },
-    { path: "/speed", component: "./Speed" }
+    { path: "/speed", component: "./Speed" },
+    { path: "/notifications", component: "./Notifications" }
   ]
 });

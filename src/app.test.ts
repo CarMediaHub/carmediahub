@@ -53,6 +53,9 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(speed.headers["cache-control"], "no-store, max-age=0");
     assert.equal(speed.headers["content-length"], "65536");
     assert.equal(Buffer.byteLength(speed.rawPayload), 65536);
+    const notifications = await app.inject({ method: "GET", url: "/api/notifications?unreadOnly=true", headers: { cookie } });
+    assert.equal(notifications.statusCode, 200);
+    assert.deepEqual(notifications.json(), { notifications: [] });
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");
     assert.ok(management);

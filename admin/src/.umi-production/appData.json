@@ -31,7 +31,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "preset",
@@ -135,10 +135,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            12
+            14
           ]
         },
-        "register": 20
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -188,7 +188,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -218,7 +218,7 @@
             0
           ]
         },
-        "register": 8
+        "register": 7
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1070,7 +1070,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1084,7 +1084,7 @@
       "time": {
         "hooks": {
           "onStart": [
-            1
+            0
           ]
         },
         "register": 1
@@ -1100,7 +1100,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1126,7 +1126,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 31
+        "register": 28
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1139,7 +1139,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 10
+        "register": 12
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1195,7 +1195,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 25
+        "register": 23
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/mock/mock.js",
@@ -1220,7 +1220,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1245,7 +1245,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1313,7 +1313,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1326,7 +1326,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1365,7 +1365,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
@@ -1390,7 +1390,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1403,7 +1403,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1416,7 +1416,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1429,7 +1429,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1442,7 +1442,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 6
+        "register": 4
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/apiRoute/apiRoute.js",
@@ -1454,7 +1454,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 15
+        "register": 16
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1491,7 +1491,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 530
+        "register": 494
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1546,7 +1546,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/ui/ui.js",
@@ -1558,7 +1558,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1571,7 +1571,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1584,7 +1584,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1620,7 +1620,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 22
+        "register": 21
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1632,7 +1632,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1645,7 +1645,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1658,7 +1658,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 26
+        "register": 24
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1671,7 +1671,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 30
+        "register": 27
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1722,7 +1722,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1735,7 +1735,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1748,7 +1748,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1761,7 +1761,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1787,7 +1787,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1800,7 +1800,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1813,7 +1813,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1839,7 +1839,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1852,7 +1852,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1878,7 +1878,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1891,7 +1891,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1904,7 +1904,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1917,7 +1917,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1993,7 +1993,7 @@
             0
           ]
         },
-        "register": 6
+        "register": 5
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/antd.js",
@@ -2018,7 +2018,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2033,7 +2033,7 @@
       },
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2046,7 +2046,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2059,7 +2059,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2085,7 +2085,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2098,7 +2098,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2123,7 +2123,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 2
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/qiankun/slave.js",
@@ -2135,7 +2135,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2148,7 +2148,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2174,7 +2174,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2187,7 +2187,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2204,7 +2204,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2235,10 +2235,10 @@
       "time": {
         "hooks": {
           "onCheckPkgJSON": [
-            1
+            0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2251,7 +2251,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2331,6 +2331,10 @@
       {
         "path": "/speed",
         "component": "./Speed"
+      },
+      {
+        "path": "/notifications",
+        "component": "./Notifications"
       }
     ]
   },
@@ -2423,6 +2427,10 @@
       {
         "path": "/speed",
         "component": "./Speed"
+      },
+      {
+        "path": "/notifications",
+        "component": "./Notifications"
       }
     ],
     "targets": {
@@ -3363,7 +3371,7 @@
       "file": "@/pages/Overview.tsx",
       "id": "3",
       "absPath": "/overview",
-      "__content": "import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, Space, Statistic, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };\ntype Component = { id: string; displayName: string; kind: string; version: string; status: string; executablePath: string };\n\nexport default function Overview() {\n  const [applications, setApplications] = useState<Application[]>([]);\n  const [components, setComponents] = useState<Component[]>([]);\n  useEffect(() => { void Promise.all([fetch(\"/api/apps\").then((response) => response.json()), fetch(\"/api/components/catalog\").then((response) => response.ok ? response.json() : { components: [] })]).then(([apps, managed]) => { setApplications(apps.applications ?? []); setComponents(managed.components ?? []); }); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <HistoryOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/speed\", name: \"Speed test\", icon: <DashboardOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/overview\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}>\n    <Space direction=\"vertical\" size=\"large\" style={{ width: \"100%\", padding: 24 }}>\n      <ProCard split=\"vertical\"><Statistic title=\"Applications\" value={applications.length} /><Statistic title=\"Managed components\" value={components.length} /><Statistic title=\"Gateway\" value=\"Healthy\" /></ProCard>\n      <ProCard title=\"Applications\"><ProTable<Application> rowKey=\"id\" search={false} options={false} dataSource={applications} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Category\", dataIndex: \"category\" }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Vehicle\", dataIndex: \"vehicleSupported\", render: (_, row) => row.vehicleSupported ? <Tag color=\"green\">Supported</Tag> : <Tag>Desktop</Tag> }]} /></ProCard>\n      <ProCard title=\"Managed component catalog\"><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"displayName\" }, { title: \"Kind\", dataIndex: \"kind\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Status\", dataIndex: \"status\" }, { title: \"Path\", dataIndex: \"executablePath\" }]} /></ProCard>\n    </Space>\n  </ProLayout>;\n}\n",
+      "__content": "import { AppstoreOutlined, BellOutlined, CloudServerOutlined, DashboardOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, Space, Statistic, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };\ntype Component = { id: string; displayName: string; kind: string; version: string; status: string; executablePath: string };\n\nexport default function Overview() {\n  const [applications, setApplications] = useState<Application[]>([]);\n  const [components, setComponents] = useState<Component[]>([]);\n  useEffect(() => { void Promise.all([fetch(\"/api/apps\").then((response) => response.json()), fetch(\"/api/components/catalog\").then((response) => response.ok ? response.json() : { components: [] })]).then(([apps, managed]) => { setApplications(apps.applications ?? []); setComponents(managed.components ?? []); }); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <HistoryOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/speed\", name: \"Speed test\", icon: <DashboardOutlined /> }, { path: \"/admin/notifications\", name: \"Notifications\", icon: <BellOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/overview\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <Space direction=\"vertical\" size=\"large\" style={{ width: \"100%\", padding: 24 }}>\n      <ProCard split=\"vertical\"><Statistic title=\"Applications\" value={applications.length} /><Statistic title=\"Managed components\" value={components.length} /><Statistic title=\"Gateway\" value=\"Healthy\" /></ProCard>\n      <ProCard title=\"Applications\"><ProTable<Application> rowKey=\"id\" search={false} options={false} dataSource={applications} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Category\", dataIndex: \"category\" }, { title: \"Route\", dataIndex: \"route\" }, { title: \"Vehicle\", dataIndex: \"vehicleSupported\", render: (_, row) => row.vehicleSupported ? <Tag color=\"green\">Supported</Tag> : <Tag>Desktop</Tag> }]} /></ProCard>\n      <ProCard title=\"Managed component catalog\"><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"displayName\" }, { title: \"Kind\", dataIndex: \"kind\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Status\", dataIndex: \"status\" }, { title: \"Path\", dataIndex: \"executablePath\" }]} /></ProCard>\n    </Space>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Overview.tsx"
     },
@@ -3456,6 +3464,15 @@
       "__content": "import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, Statistic } from \"@ant-design/pro-components\";\nimport { Button, Progress, Space, message } from \"antd\";\nimport { useState } from \"react\";\n\nconst routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <UnorderedListOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/speed\", name: \"Speed test\", icon: <DashboardOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n\nexport default function Speed() {\n  const [running, setRunning] = useState(false);\n  const [progress, setProgress] = useState(0);\n  const [latency, setLatency] = useState<number>();\n  const [throughput, setThroughput] = useState<number>();\n  const run = async () => {\n    setRunning(true); setProgress(0); setLatency(undefined); setThroughput(undefined);\n    const started = performance.now();\n    try {\n      const response = await fetch(\"/api/diagnostics/speed/download?bytes=1048576\", { cache: \"no-store\" });\n      if (!response.ok || response.body === null) throw new Error(\"speed test failed\");\n      const reader = response.body.getReader(); let total = 0;\n      for (;;) { const chunk = await reader.read(); if (chunk.done) break; total += chunk.value.byteLength; setProgress(Math.min(100, Math.round(total / 1048576 * 100))); }\n      const elapsed = Math.max(1, performance.now() - started); setLatency(Math.round(elapsed)); setThroughput(Number((total * 8 / (elapsed / 1000) / 1_000_000).toFixed(2)));\n    } catch { message.error(\"Speed test failed\"); } finally { setRunning(false); }\n  };\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/speed\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <Space direction=\"vertical\" size=\"large\" style={{ width: \"100%\", padding: 24 }}>\n      <ProCard title=\"Connection speed\" extra={<Button type=\"primary\" onClick={() => void run()} loading={running}>Run test</Button>}>\n        <Progress percent={progress} status={running ? \"active\" : \"normal\"} />\n        <ProCard split=\"vertical\"><Statistic title=\"Latency\" value={latency ?? \"-\"} suffix={latency === undefined ? \"\" : \"ms\"} /><Statistic title=\"Download\" value={throughput ?? \"-\"} suffix={throughput === undefined ? \"\" : \"Mbps\"} /></ProCard>\n      </ProCard>\n    </Space>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Speed.tsx"
+    },
+    "14": {
+      "path": "/notifications",
+      "file": "@/pages/Notifications.tsx",
+      "id": "14",
+      "absPath": "/notifications",
+      "__content": "import { AppstoreOutlined, BellOutlined, CloudServerOutlined, DashboardOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Space, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Notification = { id: string; pluginId: string; severity: string; title: string; body?: string; createdAt: string; readAt?: string };\nconst routes = [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/plugins\", name: \"Plugins\", icon: <ThunderboltOutlined /> }, { path: \"/admin/jobs\", name: \"Tasks\", icon: <UnorderedListOutlined /> }, { path: \"/admin/history\", name: \"History\", icon: <HistoryOutlined /> }, { path: \"/admin/catalog\", name: \"Catalog\", icon: <AppstoreOutlined /> }, { path: \"/admin/speed\", name: \"Speed test\", icon: <DashboardOutlined /> }, { path: \"/admin/notifications\", name: \"Notifications\", icon: <BellOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }];\n\nexport default function Notifications() {\n  const [items, setItems] = useState<Notification[]>([]);\n  const refresh = () => { void fetch(\"/api/notifications?limit=500\").then((response) => response.ok ? response.json() : { notifications: [] }).then((data) => setItems(data.notifications ?? [])); };\n  useEffect(refresh, []);\n  const markRead = async (id: string) => { const response = await fetch(`/api/notifications/${id}/read`, { method: \"POST\" }); if (!response.ok) { message.error(\"Unable to mark notification read\"); return; } refresh(); };\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes }} location={{ pathname: \"/admin/notifications\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Notifications\" style={{ margin: 24 }}><ProTable<Notification> rowKey=\"id\" search={false} options={{ reload: refresh }} dataSource={items} columns={[{ title: \"Severity\", dataIndex: \"severity\", render: (value) => <Tag color={value === \"error\" ? \"red\" : value === \"warning\" ? \"orange\" : value === \"success\" ? \"green\" : \"blue\"}>{value}</Tag> }, { title: \"Title\", dataIndex: \"title\" }, { title: \"Message\", dataIndex: \"body\" }, { title: \"Plugin\", dataIndex: \"pluginId\" }, { title: \"Created\", dataIndex: \"createdAt\" }, { title: \"Status\", render: (_, row) => row.readAt === undefined ? <Space><Tag>Unread</Tag><Button size=\"small\" onClick={() => void markRead(row.id)}>Mark read</Button></Space> : <Tag>Read</Tag> }]} /></ProCard>\n  </ProLayout>;\n}\n",
+      "__isJSFile": true,
+      "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Notifications.tsx"
     }
   },
   "apiRoutes": {},
