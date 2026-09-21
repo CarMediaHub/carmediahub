@@ -118,6 +118,9 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const notifications = await app.inject({ method: "GET", url: "/api/notifications?unreadOnly=true", headers: { cookie } });
     assert.equal(notifications.statusCode, 200);
     assert.deepEqual(notifications.json(), { notifications: [] });
+    const markedNotifications = await app.inject({ method: "POST", url: "/api/notifications/read-all", headers: { cookie } });
+    assert.equal(markedNotifications.statusCode, 200);
+    assert.deepEqual(markedNotifications.json(), { marked: 0 });
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");
     assert.ok(management);

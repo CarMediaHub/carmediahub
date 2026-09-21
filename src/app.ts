@@ -399,6 +399,14 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { marked: true };
   });
 
+  app.post("/api/notifications/read-all", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const marked = notifications.markAllReadUser(user.organizationId, user.id);
+    repository.audit(user.id, "notifications.read_all", String(marked));
+    return { marked };
+  });
+
   app.get("/api/diagnostics/speed/download", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
