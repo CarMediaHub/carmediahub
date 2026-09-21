@@ -55,6 +55,22 @@ export class PluginJobService {
       .all(organizationId, userId, installationId, Math.min(Math.max(limit, 1), 500)) as Array<Record<string, string | number | null>>).map(jobFromRow);
   }
 
+  listOrganization(organizationId: string, limit = 200): Array<PluginJob & { userId: string; installationId: string }> {
+    assertIdentifier(organizationId, "organizationId");
+    return (this.db.prepare("SELECT * FROM plugin_jobs WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?")
+      .all(organizationId, Math.min(Math.max(limit, 1), 500)) as Array<Record<string, string | number | null>>).map((row) => ({ ...jobFromRow(row), userId: String(row.user_id), installationId: String(row.installation_id) }));
+  }
+
+  cancelOrganization(organizationId: string, id: string): PluginJob | undefined {
+    assertIdentifier(organizationId, "organizationId");
+    if (!id.startsWith("job_")) throw new Error("job id is invalid");
+    const current = this.db.prepare("SELECT * FROM plugin_jobs WHERE id = ? AND organization_id = ?").get(id, organizationId) as Record<string, string | number | null> | undefined;
+    if (current === undefined || !["queued", "running"].includes(String(current.status))) return undefined;
+    const completedAt = now();
+    this.db.prepare("UPDATE plugin_jobs SET status = 'cancelled', updated_at = ?, completed_at = ? WHERE id = ? AND organization_id = ?").run(completedAt, completedAt, id, organizationId);
+    return jobFromRow(this.db.prepare("SELECT * FROM plugin_jobs WHERE id = ?").get(id) as Record<string, string | number | null>);
+  }
+
   transition(scope: ScopeContext, id: string, status: JobStatus, options: { progress?: number; result?: unknown; errorCode?: string } = {}): PluginJob | undefined {
     const [organizationId, userId, installationId] = scopeValues(scope);
     if (!id.startsWith("job_")) throw new Error("job id is invalid");

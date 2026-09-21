@@ -309,6 +309,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user === undefined ? undefined : { installations: repository.pluginInstallations() };
   });
 
+  app.get("/api/jobs", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const query = request.query as { limit?: string };
+    return { jobs: jobs.listOrganization(user.organizationId, query.limit === undefined ? 200 : Number(query.limit)).map(({ payload: _payload, result: _result, ...metadata }) => metadata) };
+  });
+
+  app.post("/api/jobs/:id/cancel", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const job = jobs.cancelOrganization(user.organizationId, (request.params as { id: string }).id);
+    return job === undefined ? reply.code(404).send({ code: "CMH.JOB.NOT_FOUND", messageKey: "errors.job.notFound" }) : { job: { id: job.id, status: job.status, updatedAt: job.updatedAt, completedAt: job.completedAt } };
+  });
+
   app.get("/api/plugins/:id/jobs", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;

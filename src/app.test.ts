@@ -209,6 +209,26 @@ test("registers SDK-validated plugin installations and disables their applicatio
   }
 });
 
+test("admin task center exposes redacted organization jobs and cancels only its organization", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-admin-jobs-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const database = openDatabase(dataDir);
+    const user = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
+    database.db.prepare("INSERT INTO plugin_jobs (id, organization_id, user_id, installation_id, type, payload_json, status, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("job_admin_test", user.organization_id, user.id, "wdr", "media.transcode", JSON.stringify({ secret: "must-not-leak" }), "queued", 0, new Date().toISOString(), new Date().toISOString());
+    database.close();
+    const listed = await app.inject({ method: "GET", url: "/api/jobs", headers: { cookie } });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(listed.json().jobs[0].id, "job_admin_test");
+    assert.equal("payload" in listed.json().jobs[0], false);
+    assert.equal((await app.inject({ method: "POST", url: "/api/jobs/job_admin_test/cancel", headers: { cookie } })).json().job.status, "cancelled");
+    assert.equal((await app.inject({ method: "GET", url: "/api/jobs", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("gateway starts the trusted WDR Worker and writes its response through the single public route", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
   const mediaRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-wdr-media-"));

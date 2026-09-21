@@ -20,6 +20,7 @@ export default defineConfig({
     { path: "/keys", component: "./Keys" },
     { path: "/security", component: "./Security" },
     { path: "/users", component: "./Users" },
-    { path: "/plugins", component: "./Plugins" }
+    { path: "/plugins", component: "./Plugins" },
+    { path: "/jobs", component: "./Jobs" }
   ]
 });

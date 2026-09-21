@@ -47,3 +47,16 @@ test("bounds active jobs and serialized payload size per installation scope", ()
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("organization task view omits cross-organization jobs and supports admin cancellation", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-admin-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'), ('dep2', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'), ('org2', 'dep2', 'Other'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z'), ('user2', 'org2', 'b', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const first = jobs.enqueue({ deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "d", sessionId: "s", installationId: "wdr" }, "media.transcode", { source: "a" });
+    jobs.enqueue({ deploymentId: "dep2", organizationId: "org2", userId: "user2", deviceId: "d", sessionId: "s", installationId: "wdr" }, "media.transcode", { source: "b" });
+    assert.deepEqual(jobs.listOrganization("org").map((job) => job.id), [first.id]);
+    assert.equal(jobs.cancelOrganization("org", first.id)?.status, "cancelled");
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
