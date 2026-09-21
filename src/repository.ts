@@ -305,8 +305,11 @@ export class Repository {
   }
 
   bindService(input: { componentId: string; name: string; endpoint: string }): void {
+    if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.componentId) || input.name.trim().length === 0 || input.name.trim().length > 80 || input.endpoint.length > 2048) throw new Error("Invalid service binding identity");
+    const endpoint = new URL(input.endpoint);
+    if (!(endpoint.protocol === "http:" || endpoint.protocol === "https:") || endpoint.username !== "" || endpoint.password !== "" || endpoint.search !== "" || endpoint.hash !== "" || endpoint.hostname === "" || (endpoint.port !== "" && (!/^\d+$/u.test(endpoint.port) || Number(endpoint.port) < 1 || Number(endpoint.port) > 65535))) throw new Error("Invalid service binding endpoint");
     this.db.prepare("INSERT INTO service_bindings (id, component_id, name, endpoint, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(id("binding"), input.componentId, input.name, input.endpoint, now());
+      .run(id("binding"), input.componentId, input.name.trim(), endpoint.toString(), now());
   }
 
   components(): Array<Record<string, string>> {
