@@ -120,3 +120,33 @@ test("Broker rejects invalid credentials, disabled installations, and malformed 
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("Broker sends cancellation to a worker when a gateway request times out", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const credential = broker.issueCredential(scope);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello", "broker.hello"));
+    await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    const methods: string[] = [];
+    const received = new Promise<void>((resolve, reject) => {
+      client.socket.on("data", (chunk: Buffer) => {
+        try {
+          for (const message of client.decoder.push(chunk)) {
+            methods.push((message as RpcRequest).method);
+            if (methods.includes("$/cancelRequest")) resolve();
+          }
+        } catch (error) { reject(error); }
+      });
+    });
+    await assert.rejects(() => broker.invoke(scope.installationId, scope, { method: "GET", path: "/slow" }, 5), /timed out/);
+    await received;
+    assert.deepEqual(methods, ["gateway.request", "$/cancelRequest"]);
+    client.socket.end();
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

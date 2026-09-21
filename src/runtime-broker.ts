@@ -69,7 +69,7 @@ export class RuntimeBroker {
     return credential;
   }
 
-  invoke(installationId: string, scope: RuntimeCredentialScope, invocation: GatewayInvocation, timeoutMs = 30_000): Promise<unknown> {
+  invoke(installationId: string, scope: RuntimeCredentialScope, invocation: GatewayInvocation, timeoutMs = 30_000, signal?: AbortSignal): Promise<unknown> {
     const connection = [...this.connections()].find((candidate) => candidate.state.scope?.installationId === installationId && candidate.state.scope.userId === scope.userId);
     if (connection === undefined) return Promise.reject(new Error("Plugin worker is not connected"));
     const id = `gateway_${crypto.randomUUID()}`;
@@ -78,8 +78,18 @@ export class RuntimeBroker {
       meta: { schemaVersion: "0.1", requestId: id, traceId: id, deadlineUnixMs: Date.now() + timeoutMs, installationId }
     };
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { connection.state.pending.delete(id); reject(new Error("Plugin gateway request timed out")); }, timeoutMs);
+      const cancel = (reason: string) => {
+        if (!connection.state.pending.delete(id)) return;
+        clearTimeout(timer);
+        connection.socket.write(encodeFrame({ jsonrpc: "2.0", method: "$/cancelRequest", params: { id, reason }, meta: { schemaVersion: "0.1", requestId: id, traceId: id, deadlineUnixMs: 0, installationId } }));
+        reject(new Error(reason));
+      };
+      const timer = setTimeout(() => cancel("Plugin gateway request timed out"), timeoutMs);
       connection.state.pending.set(id, { resolve, reject, timer });
+      if (signal !== undefined) {
+        if (signal.aborted) cancel("Plugin gateway request cancelled");
+        else signal.addEventListener("abort", () => cancel("Plugin gateway request cancelled"), { once: true });
+      }
       connection.socket.write(encodeFrame(request));
     });
   }
