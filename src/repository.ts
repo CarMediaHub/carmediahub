@@ -7,6 +7,7 @@ const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
 
 export interface UserRecord { id: string; username: string; role: string; locale: string; organizationId: string; }
+export interface SessionContext { user: UserRecord; sessionId: string; deviceLabel: string; }
 export interface ApplicationRecord { id: string; name: string; category: string; route: string; installationId: string; vehicleSupported: boolean; }
 export interface EntryResolution { application: ApplicationRecord; userId: string; }
 export interface EntryKeyRecord { id: string; applicationId: string; applicationName: string; route: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
@@ -94,6 +95,14 @@ export class Repository {
     return row === undefined ? undefined : this.userFromRow(row);
   }
 
+  sessionContext(token: string): SessionContext | undefined {
+    const row = this.db.prepare(`SELECT s.id AS session_id, s.device_label, u.id, u.organization_id, u.username, u.role, u.locale
+      FROM sessions s JOIN users u ON u.id = s.user_id
+      WHERE s.token_hash = ? AND s.revoked_at IS NULL AND u.revoked_at IS NULL AND s.expires_at > ?`).get(keyedHash(token, this.serverKey), now()) as Record<string, string> | undefined;
+    if (row === undefined) return undefined;
+    return { user: this.userFromRow(row), sessionId: row.session_id ?? "", deviceLabel: row.device_label ?? "" };
+  }
+
   revokeSession(token: string): void { this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?").run(now(), keyedHash(token, this.serverKey)); }
 
   rateLimited(subject: string): boolean {
@@ -159,13 +168,13 @@ export class Repository {
     return this.applications().find((application) => requestPath === application.route || requestPath.startsWith(`${application.route}/`));
   }
 
-  runtimeScope(userId: string, installationId: string): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; policyVersion: number } | undefined {
+  runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway"): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; policyVersion: number } | undefined {
     const row = this.db.prepare(`SELECT u.organization_id, u.locale, o.deployment_id
       FROM users u JOIN organizations o ON o.id = u.organization_id
       WHERE u.id = ? AND u.revoked_at IS NULL`).get(userId) as { organization_id: string; locale: string; deployment_id: string } | undefined;
     if (row === undefined || this.pluginInstallation(installationId)?.status !== "installed") return undefined;
     const locale = row.locale === "zh-CN" || row.locale === "ko" ? row.locale : "en";
-    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId: "gateway", sessionId: "gateway", installationId, locale, policyVersion: 1 };
+    return { deploymentId: row.deployment_id, organizationId: row.organization_id, userId, deviceId, sessionId, installationId, locale, policyVersion: 1 };
   }
 
   addApplication(input: Omit<ApplicationRecord, "id">): ApplicationRecord {

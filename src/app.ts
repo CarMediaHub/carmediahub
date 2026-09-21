@@ -274,10 +274,13 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.all("/apps/*", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    if (session === undefined) return reply.code(401).send({ code: "CMH.AUTH.REQUIRED", messageKey: "errors.auth.required" });
     const requestPath = request.url.split("?", 1)[0] ?? request.url;
     const application = repository.applicationForPath(requestPath);
     if (application === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
-    const scope = repository.runtimeScope(user.id, application.installationId);
+    const scope = repository.runtimeScope(user.id, application.installationId, session.sessionId, session.deviceLabel);
     if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
     const relativePath = requestPath.slice(application.route.length) || "/";
     try {
