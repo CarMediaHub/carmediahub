@@ -27,3 +27,21 @@ test("executes only a bound-origin request with filtered headers and redirects",
     await assert.rejects(() => executeNetworkRequest({ binding: "local-service", method: "GET", path: "/cross" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })));
   } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); await new Promise<void>((resolve, reject) => cross.close((error) => error ? reject(error) : resolve())); }
 });
+
+test("limits concurrent requests per binding and releases the slot", async () => {
+  let requests = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const server = http.createServer(async (_request, response) => { requests += 1; await gate; response.end("ok"); });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    const pending = Array.from({ length: 10 }, () => executeNetworkRequest({ binding: "busy", method: "GET", path: "/" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })));
+    for (let attempt = 0; attempt < 20 && requests < 10; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(requests, 10);
+    await assert.rejects(() => executeNetworkRequest({ binding: "busy", method: "GET", path: "/" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })), /concurrency/);
+    release();
+    await Promise.all(pending);
+  } finally { release(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+});
