@@ -165,3 +165,25 @@ test("Broker sends cancellation to a worker when a gateway request times out", a
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("Broker validates bounded gateway stream order and cancellation", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const credential = broker.issueCredential(scope);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello", "broker.hello"));
+    await send(client.socket, client.decoder, request("prove", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    const stream = broker.invokeStream(scope.installationId, scope, { method: "GET", path: "/video" }, 2_000);
+    const workerRequest = await new Promise<RpcRequest>((resolve) => client.socket.once("data", (chunk: Buffer) => resolve(client.decoder.push(chunk)[0] as RpcRequest)));
+    const id = workerRequest.id!;
+    client.socket.write(encodeFrame({ jsonrpc: "2.0", method: "gateway.responseStart", params: { id, status: 206, headers: { "content-type": "video/mp4" } }, meta: { schemaVersion: "0.1", requestId: id, traceId: id, installationId: scope.installationId } }));
+    client.socket.write(encodeFrame({ jsonrpc: "2.0", method: "gateway.responseChunk", params: { id, sequence: 0, data: Buffer.from("abc").toString("base64") }, meta: { schemaVersion: "0.1", requestId: id, traceId: id, installationId: scope.installationId } }));
+    client.socket.write(encodeFrame({ jsonrpc: "2.0", method: "gateway.responseEnd", params: { id }, meta: { schemaVersion: "0.1", requestId: id, traceId: id, installationId: scope.installationId } }));
+    assert.deepEqual(await stream.start, { status: 206, headers: { "content-type": "video/mp4" } });
+    assert.deepEqual((await stream[Symbol.asyncIterator]().next()).value, Buffer.from("abc"));
+    assert.equal((await stream[Symbol.asyncIterator]().next()).done, true);
+    client.socket.end();
+  } finally { await broker.stop(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});

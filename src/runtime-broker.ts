@@ -28,6 +28,7 @@ interface ConnectionState {
   scope?: RuntimeCredentialScope;
   requestIds: Set<string>;
   pending: Map<string, { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout }>;
+  streams: Map<string, { stream: ResponseStream; expectedSequence: number; timer: NodeJS.Timeout }>;
 }
 
 export interface GatewayInvocation {
@@ -36,6 +37,36 @@ export interface GatewayInvocation {
   query?: Record<string, string | string[]>;
   headers?: Record<string, string>;
   body?: unknown;
+}
+
+export interface GatewayStreamStart { status: number; headers?: Record<string, string>; }
+export interface GatewayStream extends AsyncIterable<Buffer> { readonly start: Promise<GatewayStreamStart>; cancel(reason?: string): void; }
+
+class ResponseStream implements GatewayStream {
+  readonly start: Promise<GatewayStreamStart>;
+  private readonly queued: Buffer[] = [];
+  private readonly waiters: Array<(result: IteratorResult<Buffer>) => void> = [];
+  private startResolve!: (value: GatewayStreamStart) => void;
+  private startReject!: (error: Error) => void;
+  private ended = false;
+  private failure: Error | undefined;
+  constructor(private readonly onCancel: (reason: string) => void, private readonly maxQueue = 32) {
+    this.start = new Promise<GatewayStreamStart>((resolve, reject) => { this.startResolve = resolve; this.startReject = reject; });
+  }
+  begin(value: GatewayStreamStart): void { this.startResolve(value); }
+  push(chunk: Buffer): void {
+    if (this.ended) return;
+    const waiter = this.waiters.shift();
+    if (waiter !== undefined) waiter({ done: false, value: chunk });
+    else if (this.queued.length < this.maxQueue) this.queued.push(chunk);
+    else this.fail(new Error("Gateway stream backpressure limit exceeded"));
+  }
+  end(): void { if (this.ended) return; this.ended = true; while (this.waiters.length > 0) this.waiters.shift()!({ done: true, value: undefined }); }
+  fail(error: Error): void { if (this.ended) return; this.failure = error; this.ended = true; this.startReject(error); while (this.waiters.length > 0) this.waiters.shift()!({ done: true, value: undefined }); }
+  cancel(reason = "Gateway stream cancelled"): void { this.onCancel(reason); this.fail(new Error(reason)); }
+  [Symbol.asyncIterator](): AsyncIterator<Buffer> {
+    return { next: async () => { const chunk = this.queued.shift(); if (chunk !== undefined) return { done: false, value: chunk }; if (this.failure !== undefined) throw this.failure; if (this.ended) return { done: true, value: undefined }; return new Promise<IteratorResult<Buffer>>((resolve) => this.waiters.push(resolve)); }, return: async () => { this.cancel(); return { done: true, value: undefined }; } };
+  }
 }
 
 function defaultEndpoint(dataDir: string): string {
@@ -94,6 +125,27 @@ export class RuntimeBroker {
     });
   }
 
+  invokeStream(installationId: string, scope: RuntimeCredentialScope, invocation: GatewayInvocation, timeoutMs = 30_000): GatewayStream {
+    const connection = [...this.connections()].find((candidate) => candidate.state.scope?.installationId === installationId && candidate.state.scope.userId === scope.userId);
+    let streamId: string | undefined;
+    const stream = new ResponseStream((reason) => {
+      if (connection === undefined || streamId === undefined) return;
+      const entry = connection.state.streams.get(streamId);
+      if (entry === undefined) return;
+      clearTimeout(entry.timer); connection.state.streams.delete(streamId);
+      connection.socket.write(encodeFrame({ jsonrpc: "2.0", method: "$/cancelRequest", params: { id: streamId, reason }, meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: 0, installationId } }));
+    });
+    if (connection === undefined) { stream.fail(new Error("Plugin worker is not connected")); return stream; }
+    streamId = `stream_${crypto.randomUUID()}`;
+    const timer = setTimeout(() => {
+      const entry = connection.state.streams.get(streamId!);
+      if (entry !== undefined) { connection.state.streams.delete(streamId!); entry.stream.fail(new Error("Plugin gateway stream timed out")); connection.socket.write(encodeFrame({ jsonrpc: "2.0", method: "$/cancelRequest", params: { id: streamId, reason: "Plugin gateway stream timed out" }, meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: 0, installationId } })); }
+    }, timeoutMs);
+    connection.state.streams.set(streamId, { stream, expectedSequence: 0, timer });
+    connection.socket.write(encodeFrame({ jsonrpc: "2.0", id: streamId, method: "gateway.request", params: { ...invocation, stream: true }, meta: { schemaVersion: "0.1", requestId: streamId, traceId: streamId, deadlineUnixMs: Date.now() + timeoutMs, installationId } }));
+    return stream;
+  }
+
   async start(): Promise<string> {
     if (this.server !== undefined) return this.endpoint;
     if (process.platform !== "win32") {
@@ -121,7 +173,7 @@ export class RuntimeBroker {
 
   private accept(socket: net.Socket): void {
     const decoder = new FrameDecoder();
-    const state: ConnectionState = { requestIds: new Set(), pending: new Map() };
+    const state: ConnectionState = { requestIds: new Set(), pending: new Map(), streams: new Map() };
     const connection = { socket, state };
     this.sockets.add(socket);
     this.connectionStates.set(socket, state);
@@ -130,6 +182,8 @@ export class RuntimeBroker {
       this.connectionStates.delete(socket);
       for (const pending of state.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error("Plugin worker disconnected")); }
       state.pending.clear();
+      for (const entry of state.streams.values()) { clearTimeout(entry.timer); entry.stream.fail(new Error("Plugin worker disconnected")); }
+      state.streams.clear();
     });
     socket.on("error", () => socket.destroy());
     socket.on("data", (chunk: Buffer) => {
@@ -151,6 +205,27 @@ export class RuntimeBroker {
   }
 
   private handleResponse(state: ConnectionState, message: unknown): boolean {
+    if (typeof message === "object" && message !== null && (message as { method?: unknown }).method === "gateway.responseStart") {
+      const params = (message as { params?: { id?: unknown; status?: unknown; headers?: unknown } }).params;
+      if (typeof params?.id !== "string" || typeof params.status !== "number") return true;
+      const entry = state.streams.get(params.id);
+      if (entry !== undefined) entry.stream.begin(params.headers === undefined ? { status: params.status } : { status: params.status, headers: params.headers as Record<string, string> });
+      return true;
+    }
+    if (typeof message === "object" && message !== null && (message as { method?: unknown }).method === "gateway.responseChunk") {
+      const params = (message as { params?: { id?: unknown; sequence?: unknown; data?: unknown } }).params;
+      if (typeof params?.id !== "string" || typeof params.sequence !== "number" || typeof params.data !== "string") return true;
+      const entry = state.streams.get(params.id);
+      if (entry === undefined) return true;
+      if (entry.expectedSequence !== params.sequence) { clearTimeout(entry.timer); state.streams.delete(params.id); entry.stream.fail(new Error("Gateway stream sequence mismatch")); return true; }
+      entry.expectedSequence += 1; entry.stream.push(Buffer.from(params.data, "base64"));
+      return true;
+    }
+    if (typeof message === "object" && message !== null && (message as { method?: unknown }).method === "gateway.responseEnd") {
+      const id = ((message as { params?: { id?: unknown } }).params)?.id;
+      if (typeof id === "string") { const entry = state.streams.get(id); if (entry !== undefined) { clearTimeout(entry.timer); entry.stream.end(); state.streams.delete(id); } }
+      return true;
+    }
     if (typeof message !== "object" || message === null || (message as { jsonrpc?: unknown }).jsonrpc !== "2.0" || typeof (message as { id?: unknown }).id !== "string") return false;
     const id = (message as { id: string }).id;
     const pending = state.pending.get(id);
