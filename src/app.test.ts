@@ -56,6 +56,9 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "local-alist", endpoint: "http://127.0.0.1:5244" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "Bad", endpoint: "http://user:pass@127.0.0.1:5244/?token=secret" } })).statusCode, 400);
+    const bindingId = ((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string }>)[0]!.id;
+    assert.equal((await app.inject({ method: "DELETE", url: `/api/service-bindings/${bindingId}`, headers: { cookie } })).statusCode, 204);
+    assert.equal(((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<unknown>).length, 0);
     const notifications = await app.inject({ method: "GET", url: "/api/notifications?unreadOnly=true", headers: { cookie } });
     assert.equal(notifications.statusCode, 200);
     assert.deepEqual(notifications.json(), { notifications: [] });

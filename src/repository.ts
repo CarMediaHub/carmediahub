@@ -320,6 +320,11 @@ export class Repository {
     return this.db.prepare("SELECT id, component_id, name, endpoint, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
   }
 
+  revokeServiceBinding(bindingId: string): boolean {
+    if (!/^binding_[A-Za-z0-9-]+$/u.test(bindingId)) throw new Error("Invalid service binding ID");
+    return this.db.prepare("DELETE FROM service_bindings WHERE id = ?").run(bindingId).changes === 1;
+  }
+
   audit(actorId: string | undefined, type: string, subject: string): void {
     this.db.prepare("INSERT INTO audit_events (id, actor_id, type, subject, created_at) VALUES (?, ?, ?, ?, ?)").run(id("audit"), actorId ?? null, type, subject, now());
   }

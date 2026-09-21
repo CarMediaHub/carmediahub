@@ -687,6 +687,19 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  app.delete("/api/service-bindings/:id", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const bindingId = (request.params as { id: string }).id;
+      if (!repository.revokeServiceBinding(bindingId)) return reply.code(404).send({ code: "CMH.SERVICE_BINDING.NOT_FOUND", messageKey: "errors.serviceBinding.notFound" });
+      repository.audit(user.id, "serviceBinding.revoked", bindingId);
+      return reply.code(204).send();
+    } catch {
+      return reply.code(400).send({ code: "CMH.SERVICE_BINDING.INVALID", messageKey: "errors.serviceBinding.invalid" });
+    }
+  });
+
   app.get("/", async (_request, reply) => {
     const page = path.join(import.meta.dirname, "..", "public", "index.html");
     return reply.type("text/html; charset=utf-8").send(fs.readFileSync(page, "utf8"));

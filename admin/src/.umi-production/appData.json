@@ -44,7 +44,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 7
+        "register": 6
       },
       "enableBy": "register",
       "type": "preset",
@@ -57,7 +57,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 4
       },
       "enableBy": "register",
       "type": "preset",
@@ -88,10 +88,10 @@
       "time": {
         "hooks": {
           "onStart": [
-            2
+            1
           ]
         },
-        "register": 1
+        "register": 2
       },
       "enableBy": "register",
       "type": "plugin",
@@ -105,10 +105,10 @@
       "time": {
         "hooks": {
           "modifyRoutes": [
-            0
+            1
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -135,10 +135,10 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            13
+            12
           ]
         },
-        "register": 15
+        "register": 16
       },
       "enableBy": "register",
       "type": "plugin",
@@ -171,7 +171,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -188,7 +188,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -201,7 +201,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -218,7 +218,7 @@
             0
           ]
         },
-        "register": 7
+        "register": 6
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1100,7 +1100,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1113,7 +1113,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 59
+        "register": 57
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1126,7 +1126,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 29
+        "register": 30
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1139,7 +1139,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 11
+        "register": 10
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1153,7 +1153,7 @@
       "time": {
         "hooks": {
           "modifyAppData": [
-            1
+            0
           ]
         },
         "register": 1
@@ -1220,7 +1220,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/okam/okam.js",
@@ -1259,10 +1259,10 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            0
+            1
           ]
         },
-        "register": 2
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/polyfill/polyfill.js",
@@ -1365,7 +1365,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routeProps/routeProps.js",
@@ -1377,7 +1377,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1403,7 +1403,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 3
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1416,7 +1416,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 3
+        "register": 2
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1429,7 +1429,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1454,7 +1454,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 17
+        "register": 15
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1479,7 +1479,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/clickToComponent/clickToComponent.js",
@@ -1491,7 +1491,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 494
+        "register": 498
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1504,7 +1504,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1517,7 +1517,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/webpack/webpack.js",
@@ -1533,7 +1533,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1558,7 +1558,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -1584,7 +1584,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/reactCompiler/reactCompiler.js",
@@ -1596,7 +1596,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/utoopack/utoopack.js",
@@ -1620,7 +1620,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 20
+        "register": 21
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/features/routePreloadOnLoad/routePreloadOnLoad.js",
@@ -1671,7 +1671,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 28
+        "register": 27
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+preset-umi@4.7.19_@t_9e28966f76246e6a3e9514210f052752/node_modules/@umijs/preset-umi/dist/commands/dev/dev.js",
@@ -1683,7 +1683,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1709,7 +1709,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1722,7 +1722,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1774,7 +1774,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1787,7 +1787,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1813,7 +1813,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1826,7 +1826,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1852,7 +1852,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1865,7 +1865,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1878,7 +1878,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1904,7 +1904,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1917,7 +1917,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -1971,7 +1971,7 @@
       },
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/analytics.js",
@@ -1984,7 +1984,7 @@
       "time": {
         "hooks": {
           "modifyConfig": [
-            2
+            1
           ],
           "modifyAppData": [
             0
@@ -2005,7 +2005,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 5
+        "register": 4
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2018,7 +2018,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2098,7 +2098,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2123,7 +2123,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 2
+        "register": 1
       },
       "type": "plugin",
       "path": "E:/projects/mine/CarMediaHub/carmediahub/admin/node_modules/.pnpm/@umijs+plugins@4.7.19_@babe_8a6c44b635843d931b12be0cc33f3e35/node_modules/@umijs/plugins/dist/qiankun/slave.js",
@@ -2135,7 +2135,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2148,7 +2148,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2161,7 +2161,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2174,7 +2174,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2187,7 +2187,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 0
+        "register": 1
       },
       "enableBy": "config",
       "type": "plugin",
@@ -2204,7 +2204,7 @@
             0
           ]
         },
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2221,7 +2221,7 @@
             0
           ]
         },
-        "register": 0
+        "register": 1
       },
       "enableBy": "register",
       "type": "plugin",
@@ -2251,7 +2251,7 @@
       "config": {},
       "time": {
         "hooks": {},
-        "register": 1
+        "register": 0
       },
       "enableBy": "register",
       "type": "plugin",
@@ -3380,7 +3380,7 @@
       "file": "@/pages/Components.tsx",
       "id": "4",
       "absPath": "/components",
-      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Component = { id: string; version: string; executable: string; checksum: string; installed_at: string; health: string };\ntype Binding = { id: string; component_id: string; name: string; endpoint: string; created_at: string };\n\nexport default function Components() {\n  const [components, setComponents] = useState<Component[]>([]);\n  const [bindings, setBindings] = useState<Binding[]>([]);\n  const refresh = () => { void fetch(\"/api/components\").then((response) => response.json()).then((data) => { setComponents(data.components ?? []); setBindings(data.bindings ?? []); }); };\n  useEffect(() => { refresh(); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/components\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Installed components\" style={{ margin: 24 }}><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"id\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Executable\", dataIndex: \"executable\" }, { title: \"Health\", dataIndex: \"health\", render: (value) => <Tag color={value === \"healthy\" ? \"green\" : \"default\"}>{value}</Tag> }]} /></ProCard>\n    <ProCard title=\"Add service binding\" style={{ margin: 24 }}><ProForm layout=\"inline\" onFinish={async (values) => { const response = await fetch(\"/api/service-bindings\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"Unable to create service binding\"); return false; } message.success(\"Service binding created\"); refresh(); return true; }}><ProFormSelect name=\"componentId\" label=\"Component\" options={components.map((component) => ({ label: `${component.id} (${component.version})`, value: component.id }))} rules={[{ required: true }]} /><ProFormText name=\"name\" label=\"Name\" rules={[{ required: true, max: 80 }]} /><ProFormText name=\"endpoint\" label=\"HTTP(S) endpoint\" placeholder=\"http://127.0.0.1:5244\" rules={[{ required: true, type: \"url\" }, { max: 2048 }]} /></ProForm></ProCard>\n    <ProCard title=\"Service bindings\" style={{ margin: 24 }}><ProTable<Binding> rowKey=\"id\" search={false} options={false} dataSource={bindings} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Component\", dataIndex: \"component_id\" }, { title: \"Endpoint\", dataIndex: \"endpoint\" }]} /></ProCard>\n  </ProLayout>;\n}\n",
+      "__content": "import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from \"@ant-design/icons\";\nimport { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout, ProTable } from \"@ant-design/pro-components\";\nimport { Button, message, Tag } from \"antd\";\nimport { useEffect, useState } from \"react\";\n\ntype Component = { id: string; version: string; executable: string; checksum: string; installed_at: string; health: string };\ntype Binding = { id: string; component_id: string; name: string; endpoint: string; created_at: string };\n\nexport default function Components() {\n  const [components, setComponents] = useState<Component[]>([]);\n  const [bindings, setBindings] = useState<Binding[]>([]);\n  const refresh = () => { void fetch(\"/api/components\").then((response) => response.json()).then((data) => { setComponents(data.components ?? []); setBindings(data.bindings ?? []); }); };\n  useEffect(() => { refresh(); }, []);\n  return <ProLayout title=\"CarMediaHub\" logo={false} route={{ routes: [{ path: \"/admin/overview\", name: \"Overview\", icon: <AppstoreOutlined /> }, { path: \"/admin/components\", name: \"Components\", icon: <CloudServerOutlined /> }, { path: \"/admin/media\", name: \"Media roots\", icon: <FolderOpenOutlined /> }, { path: \"/admin/keys\", name: \"Entry keys\", icon: <KeyOutlined /> }, { path: \"/admin/security\", name: \"Security\", icon: <SafetyCertificateOutlined /> }, { path: \"/admin/users\", name: \"Users\", icon: <TeamOutlined /> }] }} location={{ pathname: \"/admin/components\" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key=\"logout\" icon={<LogoutOutlined />} onClick={async () => { await fetch(\"/api/auth/logout\", { method: \"POST\" }); window.location.href = \"/admin/login\"; }}>Sign out</Button>]}> \n    <ProCard title=\"Installed components\" style={{ margin: 24 }}><ProTable<Component> rowKey=\"id\" search={false} options={false} dataSource={components} columns={[{ title: \"Component\", dataIndex: \"id\" }, { title: \"Version\", dataIndex: \"version\" }, { title: \"Executable\", dataIndex: \"executable\" }, { title: \"Health\", dataIndex: \"health\", render: (value) => <Tag color={value === \"healthy\" ? \"green\" : \"default\"}>{value}</Tag> }]} /></ProCard>\n    <ProCard title=\"Add service binding\" style={{ margin: 24 }}><ProForm layout=\"inline\" onFinish={async (values) => { const response = await fetch(\"/api/service-bindings\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(\"Unable to create service binding\"); return false; } message.success(\"Service binding created\"); refresh(); return true; }}><ProFormSelect name=\"componentId\" label=\"Component\" options={components.map((component) => ({ label: `${component.id} (${component.version})`, value: component.id }))} rules={[{ required: true }]} /><ProFormText name=\"name\" label=\"Name\" rules={[{ required: true, max: 80 }]} /><ProFormText name=\"endpoint\" label=\"HTTP(S) endpoint\" placeholder=\"http://127.0.0.1:5244\" rules={[{ required: true, type: \"url\" }, { max: 2048 }]} /></ProForm></ProCard>\n    <ProCard title=\"Service bindings\" style={{ margin: 24 }}><ProTable<Binding> rowKey=\"id\" search={false} options={false} dataSource={bindings} columns={[{ title: \"Name\", dataIndex: \"name\" }, { title: \"Component\", dataIndex: \"component_id\" }, { title: \"Endpoint\", dataIndex: \"endpoint\" }, { title: \"Action\", render: (_, row) => <Button danger onClick={async () => { const response = await fetch(`/api/service-bindings/${row.id}`, { method: \"DELETE\" }); if (!response.ok) { message.error(\"Unable to revoke service binding\"); return; } message.success(\"Service binding revoked\"); refresh(); }}>Revoke</Button> }]} /></ProCard>\n  </ProLayout>;\n}\n",
       "__isJSFile": true,
       "__absFile": "E:/projects/mine/CarMediaHub/carmediahub/admin/src/pages/Components.tsx"
     },
