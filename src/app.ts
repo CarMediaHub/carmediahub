@@ -330,13 +330,33 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       const workerStatus = await supervisor.start(application.installationId, scope);
       if (workerStatus.state !== "running") return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
-      const result = await runtimeBroker.invoke(application.installationId, scope, {
+      const stream = runtimeBroker.invokeStream(application.installationId, scope, {
         method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
         path: relativePath,
+        query: request.query as Record<string, string | string[]>,
         headers: Object.fromEntries(Object.entries(request.headers).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
         body: request.body
       });
-      return reply.send(result);
+      const start = await stream.start;
+      const allowedHeaders = new Set(["content-type", "content-length", "content-range", "accept-ranges", "cache-control", "etag", "last-modified"]);
+      reply.hijack();
+      reply.raw.statusCode = start.status;
+      for (const [name, value] of Object.entries(start.headers ?? {})) {
+        if (allowedHeaders.has(name.toLowerCase()) && !name.includes("\r") && !name.includes("\n")) reply.raw.setHeader(name, value);
+      }
+      const abort = () => stream.cancel("Client disconnected");
+      request.raw.once("close", abort);
+      try {
+        for await (const chunk of stream) {
+          if (!reply.raw.destroyed) reply.raw.write(chunk);
+        }
+        if (!reply.raw.destroyed) reply.raw.end();
+      } catch {
+        if (!reply.raw.destroyed) reply.raw.destroy();
+      } finally {
+        request.raw.off("close", abort);
+      }
+      return reply;
     } catch {
       return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
     }

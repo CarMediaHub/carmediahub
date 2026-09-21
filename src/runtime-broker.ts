@@ -229,10 +229,25 @@ export class RuntimeBroker {
     if (typeof message !== "object" || message === null || (message as { jsonrpc?: unknown }).jsonrpc !== "2.0" || typeof (message as { id?: unknown }).id !== "string") return false;
     const id = (message as { id: string }).id;
     const pending = state.pending.get(id);
-    if (pending === undefined) return false;
+    const response = message as { result?: unknown; error?: { message?: string } };
+    if (pending === undefined) {
+      const stream = state.streams.get(id);
+      if (stream === undefined) return false;
+      clearTimeout(stream.timer);
+      state.streams.delete(id);
+      if (response.error !== undefined) stream.stream.fail(new Error(response.error.message ?? "Plugin gateway request failed"));
+      else {
+        const result = response.result as { status?: unknown; headers?: unknown; body?: unknown };
+        const status = typeof result?.status === "number" ? result.status : 200;
+        const headers = result?.headers as Record<string, string> | undefined;
+        stream.stream.begin(headers === undefined ? { status } : { status, headers });
+        if (result?.body !== undefined) stream.stream.push(Buffer.from(typeof result.body === "string" ? result.body : JSON.stringify(result.body)));
+        stream.stream.end();
+      }
+      return true;
+    }
     state.pending.delete(id);
     clearTimeout(pending.timer);
-    const response = message as { result?: unknown; error?: { message?: string } };
     if (response.error !== undefined) pending.reject(new Error(response.error.message ?? "Plugin gateway request failed"));
     else pending.resolve(response.result);
     return true;
