@@ -48,6 +48,24 @@ test("bounds active jobs and serialized payload size per installation scope", ()
   }
 });
 
+test("rejects oversized results without changing the active job", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-result-limit-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const job = jobs.enqueue(scope, "media.transcode", { source: "asset" });
+    assert.equal(jobs.transition(scope, job.id, "running")?.status, "running");
+    assert.throws(() => jobs.transition(scope, job.id, "succeeded", { progress: 100, result: { output: "x".repeat(MAX_JOB_PAYLOAD_BYTES) } }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "CMH.JOBS.RESULT_TOO_LARGE");
+    assert.equal(jobs.list(scope)[0]?.status, "running");
+    assert.equal(jobs.transition(scope, job.id, "succeeded", { progress: 100, result: { output: "ready" } })?.status, "succeeded");
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("organization task view omits cross-organization jobs and supports admin cancellation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-admin-"));
   const database = openDatabase(dataDir);
