@@ -113,6 +113,23 @@ export function openDatabase(dataDir: string): CoreDatabase {
     );
     CREATE INDEX IF NOT EXISTS plugin_data_scope_index
       ON plugin_data (organization_id, user_id, installation_id, collection, record_key);
+    CREATE TABLE IF NOT EXISTS plugin_jobs (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      progress INTEGER NOT NULL DEFAULT 0,
+      result_json TEXT,
+      error_code TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS plugin_jobs_scope_index
+      ON plugin_jobs (organization_id, user_id, installation_id, status, created_at);
     CREATE TABLE IF NOT EXISTS rate_limit_buckets (
       subject_hash TEXT PRIMARY KEY,
       window_started_at TEXT NOT NULL,
