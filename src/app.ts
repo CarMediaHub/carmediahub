@@ -18,6 +18,7 @@ import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./p
 import { MediaLibraryService } from "./media-library-service.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 import { HistoryService } from "./history-service.js";
+import { CatalogService } from "./catalog-service.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; gatewayStreamQuota?: GatewayStreamQuota; }
 
@@ -72,6 +73,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
   const history = new HistoryService(database.db);
+  const catalogService = new CatalogService(database.db);
   const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
@@ -117,6 +119,22 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (request.method === "history.clear") {
         if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
         return { cleared: history.clear(scope, request.params as Parameters<HistoryService["clear"]>[1] | undefined) };
+      }
+      if (request.method === "catalog.register") {
+        if (!repository.pluginHasCapability(scope.installationId, "catalog")) throw new Error("Plugin catalog capability is not granted");
+        const input = request.params as Parameters<CatalogService["register"]>[1] | undefined;
+        if (input === undefined) throw new Error("Invalid catalog register request");
+        return catalogService.register(scope, input);
+      }
+      if (request.method === "catalog.query") {
+        if (!repository.pluginHasCapability(scope.installationId, "catalog")) throw new Error("Plugin catalog capability is not granted");
+        return { entries: catalogService.query(scope, request.params as Parameters<CatalogService["query"]>[1] | undefined) };
+      }
+      if (request.method === "catalog.remove") {
+        if (!repository.pluginHasCapability(scope.installationId, "catalog")) throw new Error("Plugin catalog capability is not granted");
+        const input = request.params as { id?: unknown } | undefined;
+        if (typeof input?.id !== "string") throw new Error("Invalid catalog remove request");
+        return { removed: catalogService.remove(scope, input.id) };
       }
       throw new Error("Worker method is not available");
     }
