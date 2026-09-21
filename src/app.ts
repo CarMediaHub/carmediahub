@@ -17,6 +17,7 @@ import { installStagedPluginPackage } from "./plugin-package-installer.js";
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 import { MediaLibraryService } from "./media-library-service.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
+import { HistoryService } from "./history-service.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; gatewayStreamQuota?: GatewayStreamQuota; }
 
@@ -70,6 +71,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const repository = new Repository(database.db, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
+  const history = new HistoryService(database.db);
   const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
@@ -101,6 +103,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { id?: unknown } | undefined;
         if (typeof input?.id !== "string") throw new Error("Invalid job cancel request");
         return { job: jobs.transition(scope, input.id, "cancelled") };
+      }
+      if (request.method === "history.record") {
+        if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
+        const input = request.params as Parameters<HistoryService["record"]>[1] | undefined;
+        if (input === undefined) throw new Error("Invalid history record request");
+        return history.record(scope, input);
+      }
+      if (request.method === "history.query") {
+        if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
+        return { entries: history.query(scope, request.params as Parameters<HistoryService["query"]>[1] | undefined) };
+      }
+      if (request.method === "history.clear") {
+        if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
+        return { cleared: history.clear(scope, request.params as Parameters<HistoryService["clear"]>[1] | undefined) };
       }
       throw new Error("Worker method is not available");
     }

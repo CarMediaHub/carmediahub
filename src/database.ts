@@ -133,6 +133,12 @@ export function openDatabase(dataDir: string): CoreDatabase {
     );
     CREATE INDEX IF NOT EXISTS plugin_data_scope_index
       ON plugin_data (organization_id, user_id, installation_id, collection, record_key);
+    CREATE TABLE IF NOT EXISTS platform_history (
+      id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, user_id TEXT NOT NULL REFERENCES users(id), installation_id TEXT NOT NULL,
+      subject_type TEXT NOT NULL, subject_id TEXT NOT NULL, plugin_id TEXT NOT NULL, route TEXT NOT NULL, title TEXT NOT NULL,
+      category TEXT, visited_at TEXT NOT NULL, source_device TEXT NOT NULL, metadata_digest TEXT
+    );
+    CREATE INDEX IF NOT EXISTS platform_history_scope_index ON platform_history (organization_id, user_id, installation_id, visited_at);
     CREATE TABLE IF NOT EXISTS plugin_jobs (
       id TEXT PRIMARY KEY,
       organization_id TEXT NOT NULL,
