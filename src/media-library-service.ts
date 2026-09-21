@@ -10,6 +10,8 @@ const now = () => new Date().toISOString();
 export interface MediaRoot { id: string; name: string; createdAt: string; }
 export interface MediaItem { id: string; title: string; contentType: string; size: number; updatedAt: string; }
 export interface MediaRead { data: string; completed: boolean; }
+export interface PlaybackScope { organizationId: string; userId: string; deviceId: string; installationId: string; }
+export interface PlaybackSession { sessionId: string; mediaId: string; expiresAt: string; }
 
 interface IndexedMediaItem extends MediaItem { relativePath: string; }
 
@@ -45,6 +47,20 @@ export class MediaLibraryService {
     return result.changes === 1;
   }
 
+  createPlayback(scope: PlaybackScope, mediaId: string): PlaybackSession {
+    if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId)) throw new Error("Media item is unavailable");
+    const exists = this.findItem(scope.organizationId, scope.installationId, mediaId);
+    if (exists === undefined) throw new Error("Media item is unavailable");
+    const sessionId = `playback_${crypto.randomBytes(32).toString("base64url")}`;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    this.db.prepare("INSERT INTO playback_sessions (token_hash, organization_id, user_id, device_id, installation_id, media_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(keyedHash(sessionId, this.key), scope.organizationId, scope.userId, scope.deviceId, scope.installationId, mediaId, expiresAt, now());
+    return { sessionId, mediaId, expiresAt };
+  }
+
+  revokePlaybackForUser(userId: string): void { this.db.prepare("UPDATE playback_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId); }
+  revokePlaybackForInstallation(installationId: string): void { this.db.prepare("UPDATE playback_sessions SET revoked_at = ? WHERE installation_id = ? AND revoked_at IS NULL").run(now(), installationId); }
+
   read(organizationId: string, installationId: string, mediaId: string, start: number, end: number): MediaRead {
     if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Media read request is invalid");
     for (const root of this.roots(organizationId, installationId)) {
@@ -63,6 +79,12 @@ export class MediaLibraryService {
       } finally { fs.closeSync(handle); }
     }
     throw new Error("Media item is unavailable");
+  }
+
+  readWithPlayback(scope: PlaybackScope, sessionId: string, mediaId: string, start: number, end: number): MediaRead {
+    const row = this.db.prepare("SELECT media_id FROM playback_sessions WHERE token_hash = ? AND organization_id = ? AND user_id = ? AND device_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(keyedHash(sessionId, this.key), scope.organizationId, scope.userId, scope.deviceId, scope.installationId, now()) as { media_id?: string } | undefined;
+    if (row?.media_id !== mediaId) throw new Error("Playback session is unavailable");
+    return this.read(scope.organizationId, scope.installationId, mediaId, start, end);
   }
 
   private index(root: string, rootId: string, limit: number): IndexedMediaItem[] {
@@ -90,6 +112,14 @@ export class MediaLibraryService {
     };
     visit(root, "", 0);
     return items;
+  }
+
+  private findItem(organizationId: string, installationId: string, mediaId: string): MediaItem | undefined {
+    for (const root of this.roots(organizationId, installationId)) {
+      const item = this.index(this.rootPath(organizationId, installationId, root.id), root.id, 1000).find((candidate) => candidate.id === mediaId);
+      if (item !== undefined) return item;
+    }
+    return undefined;
   }
 
   private rootPath(organizationId: string, installationId: string, rootId: string): string {

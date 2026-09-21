@@ -85,11 +85,17 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
         return { media: mediaLibrary.roots(scope.organizationId, scope.installationId).flatMap((root) => mediaLibrary.list(scope.organizationId, scope.installationId, root.id)) };
       }
+      if (request.method === "media.createPlayback") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const mediaId = (request.params as { mediaId?: unknown } | undefined)?.mediaId;
+        if (typeof mediaId !== "string") throw new Error("Invalid playback request");
+        return mediaLibrary.createPlayback(scope, mediaId);
+      }
       if (request.method === "media.read") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
-        const input = request.params as { mediaId?: unknown; start?: unknown; end?: unknown } | undefined;
-        if (typeof input?.mediaId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
-        return mediaLibrary.read(scope.organizationId, scope.installationId, input.mediaId, input.start, input.end);
+        const input = request.params as { mediaId?: unknown; sessionId?: unknown; start?: unknown; end?: unknown } | undefined;
+        if (typeof input?.mediaId !== "string" || typeof input.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
+        return mediaLibrary.readWithPlayback(scope, input.sessionId, input.mediaId, input.start, input.end);
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");
@@ -246,7 +252,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.post("/api/auth/logout", async (request, reply) => {
-    if (request.cookies.cmh_session !== undefined) repository.revokeSession(request.cookies.cmh_session);
+    if (request.cookies.cmh_session !== undefined) {
+      const session = repository.sessionContext(request.cookies.cmh_session);
+      repository.revokeSession(request.cookies.cmh_session);
+      if (session !== undefined) mediaLibrary.revokePlaybackForUser(session.user.id);
+    }
     reply.clearCookie("cmh_session", { path: "/" });
     return reply.code(204).send();
   });
@@ -367,6 +377,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const result = repository.revokeUser((request.params as { id: string }).id, user.organizationId);
     if (result === "last_admin") return reply.code(409).send({ code: "CMH.USER.LAST_ADMIN", messageKey: "errors.user.lastAdmin" });
     if (result === "not_found") return reply.code(404).send({ code: "CMH.USER.NOT_FOUND", messageKey: "errors.user.notFound" });
+    mediaLibrary.revokePlaybackForUser((request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
   });
@@ -505,6 +516,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const installationId = (request.params as { id: string }).id;
     if (!repository.disablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    mediaLibrary.revokePlaybackForInstallation(installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();
