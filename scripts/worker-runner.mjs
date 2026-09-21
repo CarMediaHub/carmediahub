@@ -6,7 +6,10 @@ for (let index = 2; index < process.argv.length; index += 2) values.set(process.
 const entry = values.get("--entry");
 const endpoint = values.get("--endpoint");
 const installationId = values.get("--installation-id");
-const runtimeCredential = values.get("--runtime-credential");
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+let runtimeCredential;
+try { runtimeCredential = JSON.parse(Buffer.concat(chunks).toString("utf8")).runtimeCredential; } catch { runtimeCredential = undefined; }
 
 if (![entry, endpoint, installationId, runtimeCredential].every((value) => typeof value === "string" && value.length > 0)) process.exit(64);
 if (!path.isAbsolute(entry)) process.exit(64);

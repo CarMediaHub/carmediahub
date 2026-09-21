@@ -28,7 +28,8 @@ export function createTrustedNodeWorkerFactory(input: TrustedWorkerPackage): Tru
   return {
     packageId: input.packageId,
     async start(start: TrustedWorkerStart): Promise<WorkerHandle> {
-      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId, "--runtime-credential", start.runtimeCredential], { shell: false, windowsHide: true, stdio: "ignore" });
+      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
+      child.stdin.end(JSON.stringify({ runtimeCredential: start.runtimeCredential }));
       let crashListener: ((error: Error) => void) | undefined;
       child.once("error", (error) => crashListener?.(error));
       child.once("exit", (code, signal) => { if (code !== 0 && signal !== "SIGTERM") crashListener?.(new Error(`Worker exited (${code ?? signal ?? "unknown"})`)); });
