@@ -69,6 +69,10 @@ function validCredential(value: string, field: string): void {
   if (value.trim().length < 3 || value.length > 128) throw new Error(`${field} must contain 3 to 128 characters`);
 }
 
+function publicWorkerStatus(status: ReturnType<WorkerSupervisor["status"]>): { installationId: string; state: string; attempts: number; diagnostic?: string } {
+  return { installationId: status.installationId, state: status.state, attempts: status.attempts, ...(status.state === "failed" ? { diagnostic: "worker_failed" } : {}) };
+}
+
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
   const serverKey = ensureServerKey(options.dataDir);
@@ -495,7 +499,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/plugins", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, worker: supervisor.status(installation.id) })) };
+    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
   });
 
   app.get("/api/jobs", async (request, reply) => {

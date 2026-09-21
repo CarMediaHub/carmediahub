@@ -252,6 +252,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     const listed = await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } });
     assert.equal(listed.json().installations.length, 1);
     assert.deepEqual(listed.json().installations[0].worker, { installationId: installation.id, state: "stopped", attempts: 0 });
+    assert.equal(JSON.stringify(listed.json().installations[0].worker).includes("lastError"), false);
     const scopedJobs = await app.inject({ method: "GET", url: `/api/plugins/${installation.id}/jobs`, headers: { cookie } });
     assert.equal(scopedJobs.statusCode, 200);
     assert.deepEqual(scopedJobs.json().jobs, []);
