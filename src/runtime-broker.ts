@@ -11,6 +11,7 @@ export interface RuntimeCredentialScope extends ScopeContext {
   density: "comfortable" | "compact";
   entry: "navigation" | "key";
   display: DisplayContext;
+  grantedCapabilities?: readonly string[];
   policyVersion: number;
 }
 
@@ -53,7 +54,7 @@ function trustedGatewayInvocation(invocation: GatewayInvocation, scope: RuntimeC
 function workerContext(scope: RuntimeCredentialScope) {
   return {
     scope: { deploymentId: scope.deploymentId, organizationId: scope.organizationId, userId: scope.userId, deviceId: scope.deviceId, sessionId: scope.sessionId, installationId: scope.installationId },
-    locale: scope.locale, timeZone: scope.timeZone, theme: scope.theme, density: scope.density, entry: scope.entry, display: scope.display, policyVersion: scope.policyVersion
+    locale: scope.locale, timeZone: scope.timeZone, theme: scope.theme, density: scope.density, entry: scope.entry, display: scope.display, ...(scope.grantedCapabilities === undefined ? {} : { grantedCapabilities: [...scope.grantedCapabilities] }), policyVersion: scope.policyVersion
   };
 }
 
