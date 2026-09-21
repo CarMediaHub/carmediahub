@@ -731,6 +731,23 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  app.post("/api/service-bindings/:id/health", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const bindingId = (request.params as { id: string }).id;
+    const binding = repository.serviceBindingById(bindingId);
+    if (binding === undefined) return reply.code(404).send({ code: "CMH.SERVICE_BINDING.NOT_FOUND", messageKey: "errors.serviceBinding.notFound" });
+    const startedAt = Date.now();
+    try {
+      const response = await fetch(binding.endpoint, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(5_000) });
+      repository.audit(user.id, "serviceBinding.healthChecked", bindingId);
+      return { reachable: true, status: response.status, latencyMs: Date.now() - startedAt };
+    } catch {
+      repository.audit(user.id, "serviceBinding.healthFailed", bindingId);
+      return reply.code(503).send({ reachable: false, latencyMs: Date.now() - startedAt, code: "CMH.SERVICE_BINDING.UNREACHABLE", messageKey: "errors.serviceBinding.unreachable" });
+    }
+  });
+
   app.get("/", async (_request, reply) => {
     const page = path.join(import.meta.dirname, "..", "public", "index.html");
     return reply.type("text/html; charset=utf-8").send(fs.readFileSync(page, "utf8"));

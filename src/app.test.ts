@@ -64,9 +64,20 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(Buffer.byteLength(speed.rawPayload), 65536);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "local-alist", endpoint: "http://127.0.0.1:5244" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "health-check", endpoint: "http://127.0.0.1:1" } })).statusCode, 201);
+    const health = await app.inject({ method: "POST", url: "/api/service-bindings/unknown/health", headers: { cookie } });
+    assert.equal(health.statusCode, 404);
+    const healthBinding = ((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string; name: string }>).find((binding) => binding.name === "health-check");
+    assert.ok(healthBinding);
+    const unreachable = await app.inject({ method: "POST", url: `/api/service-bindings/${healthBinding.id}/health`, headers: { cookie } });
+    assert.equal(unreachable.statusCode, 503);
+    assert.equal(unreachable.json().reachable, false);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "Bad", endpoint: "http://user:pass@127.0.0.1:5244/?token=secret" } })).statusCode, 400);
     const bindingId = ((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string }>)[0]!.id;
     assert.equal((await app.inject({ method: "DELETE", url: `/api/service-bindings/${bindingId}`, headers: { cookie } })).statusCode, 204);
+    for (const binding of (await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string }>) {
+      await app.inject({ method: "DELETE", url: `/api/service-bindings/${binding.id}`, headers: { cookie } });
+    }
     assert.equal(((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<unknown>).length, 0);
     const audit = await app.inject({ method: "GET", url: "/api/audit?limit=10", headers: { cookie } });
     assert.equal(audit.statusCode, 200);

@@ -322,6 +322,11 @@ export class Repository {
     return this.db.prepare("SELECT id, component_id, name, endpoint, installation_id, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
   }
 
+  serviceBindingById(bindingId: string): { id: string; endpoint: string } | undefined {
+    const row = this.db.prepare("SELECT id, endpoint FROM service_bindings WHERE id = ?").get(bindingId) as { id?: string; endpoint?: string } | undefined;
+    return row?.id !== undefined && row.endpoint !== undefined ? { id: row.id, endpoint: row.endpoint } : undefined;
+  }
+
   serviceBindingByName(name: string, installationId?: string): { endpoint: string } | undefined {
     const row = installationId === undefined
       ? this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id IS NULL").get(name)
