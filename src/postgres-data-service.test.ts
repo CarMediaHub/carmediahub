@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPostgresPluginDataStore, ensurePostgresPluginDataSchema, type PostgresQueryClient } from "./postgres-data-service.js";
+import { createPostgresPluginDataStore, createPostgresPool, ensurePostgresPluginDataSchema, type PostgresQueryClient } from "./postgres-data-service.js";
 
 test("PostgreSQL data adapter keeps scope in every parameterized operation", async () => {
   const queries: Array<{ text: string; values: readonly unknown[] }> = [];
@@ -24,4 +24,10 @@ test("PostgreSQL data adapter rejects unsafe logical identifiers", async () => {
   const store = createPostgresPluginDataStore(client, { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" });
   await assert.rejects(() => store.get("History", "key"));
   await assert.rejects(() => store.list("history", { prefix: "bad/prefix" }));
+});
+
+test("PostgreSQL pool rejects incomplete config instead of reading PG* environment variables", () => {
+  assert.throws(() => createPostgresPool({}), /explicit connectionString/);
+  const pool = createPostgresPool({ host: "127.0.0.1", port: 5432, database: "cmh", user: "cmh" });
+  void pool.end();
 });

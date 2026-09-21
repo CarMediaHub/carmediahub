@@ -94,6 +94,14 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
 }
 
 export function createPostgresPool(config: PoolConfig): Pool {
-  // Explicit config is mandatory at the Core boundary; no environment lookup occurs here.
+  // pg falls back to PG* environment variables when these fields are absent.
+  // Reject incomplete config at the Core boundary so deployment behavior is explicit.
+  const connectionString = typeof config.connectionString === "string" ? config.connectionString.trim() : "";
+  const hasExplicitEndpoint = typeof config.host === "string" && config.host.trim().length > 0
+    && typeof config.database === "string" && config.database.trim().length > 0
+    && typeof config.user === "string" && config.user.trim().length > 0;
+  if (connectionString.length === 0 && !hasExplicitEndpoint) {
+    throw new Error("PostgreSQL requires an explicit connectionString or host/database/user configuration");
+  }
   return new Pool(config);
 }
