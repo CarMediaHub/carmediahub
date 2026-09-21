@@ -325,6 +325,8 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "vehicle", "x-cmh-input": "touch,remote", "x-cmh-viewport-width": "1920", "x-cmh-viewport-height": "1200", "x-cmh-fullscreen": "true", authorization: "Bearer should-not-reach-plugin" } });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko", entry: "navigation", display: { deviceClass: "vehicle", input: ["touch", "remote"], fullscreenAvailable: true, viewport: { width: 1920, height: 1200 } } });
+    const runningInstallation = (await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.find((candidate: { id: string }) => candidate.id === installationId);
+    assert.deepEqual(runningInstallation.worker, { installationId, state: "running", attempts: 0 });
     const invalid = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "tablet", "x-cmh-input": "token", "x-cmh-viewport-width": "-1", "x-cmh-viewport-height": "99999", "x-cmh-fullscreen": "yes" } });
     assert.deepEqual(invalid.json().display, { deviceClass: "unknown", input: [], fullscreenAvailable: false, viewport: { width: 0, height: 0 } });
     const applications = (await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications as Array<{ id: string; installationId: string }>;
