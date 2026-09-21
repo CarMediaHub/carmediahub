@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createApp } from "./app.js";
 import { totpCode } from "./security.js";
+import { currentPlatformKey } from "./components.js";
 
 test("bootstraps, authenticates, creates a key, and revokes it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
@@ -60,6 +62,29 @@ test("rejects absolute managed component executables", async () => {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+test("installs staged components only from a trusted signed release", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const keyPair = crypto.generateKeyPairSync("ed25519");
+  const publicKey = keyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  try {
+    const artifact = "signed binary";
+    fs.mkdirSync(path.join(dataDir, "staging"), { recursive: true });
+    fs.writeFileSync(path.join(dataDir, "staging", "ffmpeg-signed"), artifact);
+    const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
+    const release = { schemaVersion: 1, keyId, componentId: "ffmpeg", version: "7.0.0", artifactId: "ffmpeg-signed", sha256: crypto.createHash("sha256").update(artifact).digest("hex"), platform: currentPlatformKey() };
+    const canonical = Buffer.from(JSON.stringify({ artifactId: release.artifactId, componentId: release.componentId, keyId: release.keyId, platform: release.platform, schemaVersion: release.schemaVersion, sha256: release.sha256, version: release.version }), "utf8");
+    const signed = { release, signature: crypto.sign(null, canonical, keyPair.privateKey).toString("base64") };
+    const app = await createApp({ dataDir, componentTrustKeys: [publicKey] });
+    try {
+      await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+      const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+      const installed = await app.inject({ method: "POST", url: "/api/components/install", headers: { cookie: login.headers["set-cookie"] }, payload: signed });
+      assert.equal(installed.statusCode, 201);
+      assert.equal(installed.json().component.id, "ffmpeg");
+    } finally { await app.close(); }
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
 test("supports TOTP enrollment, second-factor login, and one-time recovery codes", async () => {

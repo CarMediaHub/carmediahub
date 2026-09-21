@@ -6,12 +6,13 @@ import { openDatabase } from "./database.js";
 import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveManagedExecutable } from "./components.js";
-import { installStagedComponent } from "./component-installer.js";
+import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
+import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
 import { PluginJobService } from "./job-service.js";
 import { validateManifest } from "@carmediahub/sdk";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -289,8 +290,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     try {
-      const input = body<{ componentId: string; version: string; artifactId: string; sha256: string }>(request);
-      const installed = installStagedComponent(options.dataDir, catalog, input);
+      if (options.componentTrustKeys === undefined || options.componentTrustKeys.length === 0) throw new Error("No component release trust keys configured");
+      const input = body<SignedComponentRelease>(request);
+      const installed = installSignedComponentRelease(options.dataDir, catalog, input, options.componentTrustKeys, currentPlatformKey());
       repository.registerComponent({ id: installed.id, version: installed.version, executable: installed.executable, checksum: installed.checksum });
       repository.audit(user.id, "component.installed", `${installed.id}@${installed.version}`);
       return reply.code(201).send({ component: installed });
