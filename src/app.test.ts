@@ -166,7 +166,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
-    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "history", "events"], routes: [{ path: "/", methods: ["GET"] }], ui: { entry: "./ui/index.html", vehicleSupported: true } };
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "history", "events"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: manifest });
     assert.equal(install.statusCode, 201);
     const installation = install.json().installation as { id: string; status: string };
