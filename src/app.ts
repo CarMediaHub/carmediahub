@@ -97,6 +97,18 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof mediaId !== "string") throw new Error("Invalid media probe request");
         return mediaLibrary.probe(scope, mediaId);
       }
+      if (request.method === "media.transform") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const input = request.params as { mediaId?: unknown; mode?: unknown; container?: unknown; videoCodec?: unknown; audioCodec?: unknown } | undefined;
+        if (typeof input?.mediaId !== "string" || (input.mode !== "remux" && input.mode !== "transcode")) throw new Error("Invalid media transform request");
+        const allowedContainers = new Set(["mp4", "fmp4", "ts"]);
+        const allowedVideo = new Set(["copy", "h264", "h265"]);
+        const allowedAudio = new Set(["copy", "aac", "opus"]);
+        if ((input.container !== undefined && (typeof input.container !== "string" || !allowedContainers.has(input.container))) || (input.videoCodec !== undefined && (typeof input.videoCodec !== "string" || !allowedVideo.has(input.videoCodec))) || (input.audioCodec !== undefined && (typeof input.audioCodec !== "string" || !allowedAudio.has(input.audioCodec)))) throw new Error("Invalid media transform profile");
+        const probe = mediaLibrary.probe(scope, input.mediaId);
+        if (!probe.availableModes.includes(input.mode)) throw new Error("Media transform mode is unavailable");
+        return jobs.enqueue(scope, `media.${input.mode}`, { mediaId: input.mediaId, mode: input.mode, ...(input.container === undefined ? {} : { container: input.container }), ...(input.videoCodec === undefined ? {} : { videoCodec: input.videoCodec }), ...(input.audioCodec === undefined ? {} : { audioCodec: input.audioCodec }) });
+      }
       if (request.method === "media.read") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
         const input = request.params as { mediaId?: unknown; sessionId?: unknown; start?: unknown; end?: unknown } | undefined;
