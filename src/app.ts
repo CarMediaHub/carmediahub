@@ -296,6 +296,18 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { entries: catalogService.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) }) };
   });
 
+  app.get("/api/diagnostics/speed/download", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const rawBytes = (request.query as { bytes?: string }).bytes;
+    const bytes = rawBytes === undefined ? 256 * 1024 : Number(rawBytes);
+    if (!Number.isSafeInteger(bytes) || bytes < 64 * 1024 || bytes > 2 * 1024 * 1024) {
+      return reply.code(400).send({ code: "CMH.DIAGNOSTICS.INVALID_SIZE", messageKey: "errors.diagnostics.invalidSize" });
+    }
+    repository.audit(user.id, "diagnostics.speed.download", String(bytes));
+    return reply.header("cache-control", "no-store, max-age=0").header("content-type", "application/octet-stream").header("content-length", String(bytes)).send(Buffer.alloc(bytes, 0));
+  });
+
   app.get("/api/users", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { users: repository.users(user.organizationId) };

@@ -23,6 +23,7 @@ export default defineConfig({
     { path: "/plugins", component: "./Plugins" },
     { path: "/jobs", component: "./Jobs" },
     { path: "/history", component: "./History" },
-    { path: "/catalog", component: "./Catalog" }
+    { path: "/catalog", component: "./Catalog" },
+    { path: "/speed", component: "./Speed" }
   ]
 });

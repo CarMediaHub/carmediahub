@@ -44,6 +44,15 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(preferences.json().user.locale, "ko");
     assert.deepEqual({ timeZone: preferences.json().user.timeZone, theme: preferences.json().user.theme, density: preferences.json().user.density }, { timeZone: "Asia/Shanghai", theme: "dark", density: "compact" });
     assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "fr" } })).statusCode, 400);
+    const unauthenticatedSpeed = await app.inject({ method: "GET", url: "/api/diagnostics/speed/download?bytes=65536" });
+    assert.equal(unauthenticatedSpeed.statusCode, 401);
+    const invalidSpeed = await app.inject({ method: "GET", url: "/api/diagnostics/speed/download?bytes=1", headers: { cookie } });
+    assert.equal(invalidSpeed.statusCode, 400);
+    const speed = await app.inject({ method: "GET", url: "/api/diagnostics/speed/download?bytes=65536", headers: { cookie } });
+    assert.equal(speed.statusCode, 200);
+    assert.equal(speed.headers["cache-control"], "no-store, max-age=0");
+    assert.equal(speed.headers["content-length"], "65536");
+    assert.equal(Buffer.byteLength(speed.rawPayload), 65536);
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");
     assert.ok(management);
