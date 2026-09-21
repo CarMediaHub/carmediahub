@@ -499,7 +499,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/plugins", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
+    return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, capabilities: repository.pluginCapabilities(installation.id), worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
   });
 
   app.get("/api/jobs", async (request, reply) => {

@@ -237,6 +237,15 @@ export class Repository {
     } catch { return false; }
   }
 
+  pluginCapabilities(installationId: string): string[] {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ?").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return [];
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
+      return Array.isArray(manifest.capabilities) ? manifest.capabilities.filter((capability): capability is string => typeof capability === "string") : [];
+    } catch { return []; }
+  }
+
   registerVerifiedPluginPackage(input: Omit<VerifiedPluginPackageRecord, "verifiedAt">): void {
     const validEntry = (entry: string | undefined) => entry !== undefined && /^\.\/[A-Za-z0-9_./-]+$/u.test(entry) && !entry.includes("..");
     if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.packageId) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(input.packageVersion) || !/^[a-f0-9]{64}$/u.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..") || (input.workerEntry === undefined && input.runtimeEntry === undefined) || (input.workerEntry !== undefined && !validEntry(input.workerEntry)) || (input.runtimeEntry !== undefined && !validEntry(input.runtimeEntry)) || (input.workerEntry !== undefined && input.runtimeEntry !== undefined)) throw new Error("Invalid verified plugin package record");
