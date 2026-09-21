@@ -1,4 +1,4 @@
-import { AppstoreOutlined, CloudServerOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons";
 import { ProCard, ProForm, ProFormText, ProLayout } from "@ant-design/pro-components";
 import { Alert, Button, Descriptions, Modal, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
@@ -11,7 +11,7 @@ export default function Security() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
   const refresh = () => { void fetch("/api/auth/totp").then((response) => response.json()).then((data) => setEnabled(Boolean(data.enabled))); };
   useEffect(refresh, []);
-  const navigation = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
+  const navigation = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/media", name: "Media roots", icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
   return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>Sign out</Button>]}> 
     <ProCard title="Account security" style={{ margin: 24, maxWidth: 780 }}>
       <Descriptions items={[{ key: "totp", label: "Authenticator", children: enabled ? "Enabled" : "Not enabled" }]} />

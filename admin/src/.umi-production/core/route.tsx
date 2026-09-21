@@ -4,13 +4,19 @@
 import React from 'react';
 
 export async function getRoutes() {
-  const routes = {"1":{"path":"/login","id":"1"},"2":{"path":"/","redirect":"/overview","id":"2"},"3":{"path":"/overview","id":"3"}} as const;
+  const routes = {"1":{"path":"/login","id":"1"},"2":{"path":"/","redirect":"/overview","id":"2"},"3":{"path":"/overview","id":"3"},"4":{"path":"/components","id":"4"},"5":{"path":"/media","id":"5"},"6":{"path":"/keys","id":"6"},"7":{"path":"/security","id":"7"},"8":{"path":"/users","id":"8"},"9":{"path":"/plugins","id":"9"}} as const;
   return {
     routes,
     routeComponents: {
 '1': React.lazy(() => import(/* webpackChunkName: "p__Login" */'@/pages/Login.tsx')),
 '2': React.lazy(() => import('./EmptyRoute')),
 '3': React.lazy(() => import(/* webpackChunkName: "p__Overview" */'@/pages/Overview.tsx')),
+'4': React.lazy(() => import(/* webpackChunkName: "p__Components" */'@/pages/Components.tsx')),
+'5': React.lazy(() => import(/* webpackChunkName: "p__Media" */'@/pages/Media.tsx')),
+'6': React.lazy(() => import(/* webpackChunkName: "p__Keys" */'@/pages/Keys.tsx')),
+'7': React.lazy(() => import(/* webpackChunkName: "p__Security" */'@/pages/Security.tsx')),
+'8': React.lazy(() => import(/* webpackChunkName: "p__Users" */'@/pages/Users.tsx')),
+'9': React.lazy(() => import(/* webpackChunkName: "p__Plugins" */'@/pages/Plugins.tsx')),
 },
   };
 }
