@@ -13,6 +13,8 @@ import { PluginJobService } from "./job-service.js";
 import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
 import { WorkerSupervisor } from "./worker-supervisor.js";
 import { createTrustedNodeWorkerFactory, type TrustedWorkerPackage } from "./trusted-worker-factory.js";
+import { installStagedPluginPackage } from "./plugin-package-installer.js";
+import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; }
 
@@ -220,6 +222,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       return reply.code(201).send({ installation });
     } catch {
       return reply.code(400).send({ code: "CMH.PLUGIN.INVALID_MANIFEST", messageKey: "errors.plugin.invalidManifest" });
+    }
+  });
+
+  app.post("/api/plugins/packages/install", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
+      const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
+      const installed = installStagedPluginPackage(options.dataDir, { packageId: release.manifest.id, version: release.manifest.version, artifactId: release.artifact.id, digest: release.artifact.digest });
+      repository.audit(user.id, "plugin.package.installed", `${installed.packageId}@${installed.version}`);
+      return reply.code(201).send({ package: installed });
+    } catch {
+      return reply.code(400).send({ code: "CMH.PLUGIN.PACKAGE_INVALID", messageKey: "errors.plugin.packageInvalid" });
     }
   });
 
