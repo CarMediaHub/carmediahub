@@ -273,6 +273,29 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user === undefined ? undefined : { applications: repository.applications() };
   });
 
+  app.get("/api/history", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const query = request.query as { limit?: string; keyword?: string; category?: string; pluginId?: string };
+    return { entries: history.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }), ...(query.pluginId === undefined ? {} : { pluginId: query.pluginId }) }) };
+  });
+
+  app.delete("/api/history", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const input = body<{ category?: string; pluginId?: string }>(request);
+    const cleared = history.clearUser(user.organizationId, user.id, input ?? {});
+    repository.audit(user.id, "history.cleared", String(cleared));
+    return { cleared };
+  });
+
+  app.get("/api/catalog", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const query = request.query as { limit?: string; keyword?: string; category?: string };
+    return { entries: catalogService.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) }) };
+  });
+
   app.get("/api/users", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { users: repository.users(user.organizationId) };

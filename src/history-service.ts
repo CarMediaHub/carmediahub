@@ -18,8 +18,21 @@ export class HistoryService {
     const keyword = options.keyword?.trim().toLocaleLowerCase();
     return rows.map((row) => ({ id: String(row.id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), pluginId: String(row.plugin_id), route: String(row.route), title: String(row.title), ...(row.category === null ? {} : { category: row.category }), visitedAt: String(row.visited_at), sourceDevice: row.source_device as HistoryEntry["sourceDevice"], ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.route}`.toLocaleLowerCase().includes(keyword)));
   }
+  queryUser(organizationId: string, userId: string, options: HistoryQuery = {}): HistoryEntry[] {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const rows = this.db.prepare("SELECT * FROM platform_history WHERE organization_id = ? AND user_id = ? ORDER BY visited_at DESC LIMIT ?").all(organizationId, userId, limit) as Array<Record<string, string | null>>;
+    const keyword = options.keyword?.trim().toLocaleLowerCase();
+    return rows.map((row) => ({ id: String(row.id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), pluginId: String(row.plugin_id), route: String(row.route), title: String(row.title), ...(row.category === null ? {} : { category: row.category }), visitedAt: String(row.visited_at), sourceDevice: row.source_device as HistoryEntry["sourceDevice"], ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.pluginId === undefined || entry.pluginId === options.pluginId) && (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.route}`.toLocaleLowerCase().includes(keyword)));
+  }
   clear(scope: ScopeContext, options: Pick<HistoryQuery, "category"> = {}): number {
     const result = options.category === undefined ? this.db.prepare("DELETE FROM platform_history WHERE organization_id = ? AND user_id = ? AND installation_id = ?").run(scope.organizationId, scope.userId, scope.installationId) : this.db.prepare("DELETE FROM platform_history WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND category = ?").run(scope.organizationId, scope.userId, scope.installationId, options.category);
     return Number(result.changes);
+  }
+  clearUser(organizationId: string, userId: string, options: Pick<HistoryQuery, "category" | "pluginId"> = {}): number {
+    const clauses = ["organization_id = ?", "user_id = ?"];
+    const values: string[] = [organizationId, userId];
+    if (options.category !== undefined) { clauses.push("category = ?"); values.push(options.category); }
+    if (options.pluginId !== undefined) { clauses.push("plugin_id = ?"); values.push(options.pluginId); }
+    return Number(this.db.prepare(`DELETE FROM platform_history WHERE ${clauses.join(" AND ")}`).run(...values).changes);
   }
 }

@@ -18,6 +18,12 @@ export class CatalogService {
     const keyword = options.keyword?.trim().toLocaleLowerCase();
     return rows.map((row) => ({ id: String(row.id), pluginId: String(row.plugin_id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), title: String(row.title), ...(row.description === null ? {} : { description: row.description }), category: String(row.category), route: String(row.route), updatedAt: String(row.updated_at), ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.description ?? ""}`.toLocaleLowerCase().includes(keyword)));
   }
+  queryUser(organizationId: string, userId: string, options: CatalogQuery = {}): CatalogEntry[] {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const rows = this.db.prepare("SELECT * FROM catalog_entries WHERE organization_id = ? AND user_id = ? ORDER BY updated_at DESC LIMIT ?").all(organizationId, userId, limit) as Array<Record<string, string | null>>;
+    const keyword = options.keyword?.trim().toLocaleLowerCase();
+    return rows.map((row) => ({ id: String(row.id), pluginId: String(row.plugin_id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), title: String(row.title), ...(row.description === null ? {} : { description: row.description }), category: String(row.category), route: String(row.route), updatedAt: String(row.updated_at), ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.description ?? ""}`.toLocaleLowerCase().includes(keyword)));
+  }
   remove(scope: ScopeContext, id: string): boolean {
     return Number(this.db.prepare("DELETE FROM catalog_entries WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ?").run(id, scope.organizationId, scope.userId, scope.installationId).changes) === 1;
   }

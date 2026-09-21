@@ -20,6 +20,8 @@ test("persists history inside the current user and installation scope", () => {
     assert.equal(history.query(first, { keyword: "road" }).length, 1);
     assert.equal(history.query(otherUser).length, 0);
     assert.equal(history.query(otherPlugin).length, 0);
+    assert.equal(history.queryUser("org", "a", { keyword: "road" }).length, 1);
+    assert.equal(history.queryUser("org", "b").length, 0);
     assert.equal(history.clear(first, { category: "audio" }), 0);
     assert.equal(history.clear(first, { category: "video" }), 1);
     assert.equal(history.query(first).length, 0);

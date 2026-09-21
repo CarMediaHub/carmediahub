@@ -18,6 +18,8 @@ test("persists catalog entries inside the current user and installation scope", 
     const entry = catalog.register(first, { subjectType: "media", subjectId: "one", title: "Road trip", category: "video", route: "/stream" });
     assert.equal(catalog.query(first, { keyword: "road" })[0]?.id, entry.id);
     assert.deepEqual(catalog.query(otherUser), []);
+    assert.equal(catalog.queryUser("org", "a", { keyword: "road" })[0]?.id, entry.id);
+    assert.deepEqual(catalog.queryUser("org", "b"), []);
     assert.equal(catalog.remove(otherUser, entry.id), false);
     assert.equal(catalog.remove(first, entry.id), true);
   } finally {
