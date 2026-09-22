@@ -31,5 +31,6 @@ export function validateNativeBundle(bundleRoot, options = {}) {
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  console.log(JSON.stringify(validateNativeBundle(root, { allowDependencySymlinks: true })));
+  const bundleRoot = process.argv[2] === undefined ? root : path.resolve(process.argv[2]);
+  console.log(JSON.stringify(validateNativeBundle(bundleRoot, { allowDependencySymlinks: process.argv[2] === undefined })));
 }
