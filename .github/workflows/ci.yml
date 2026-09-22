@@ -58,6 +58,7 @@ jobs:
       - run: pnpm check:native-bundle
       - run: pnpm test:native-service
       - run: pnpm test:native-linux-service
+      - run: pnpm test:native-install-plan
       - name: Build the Docker image from the sibling SDK checkout
         working-directory: ..
         run: docker build --tag carmediahub/core:ci --file carmediahub/Dockerfile .

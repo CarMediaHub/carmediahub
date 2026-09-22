@@ -53,3 +53,11 @@ pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --sn
 ```
 
 预检会校验 Bundle 元数据、数据库 schema 兼容性，以及快照中的数据库是否与当前数据一致。它不会停止 Core、创建快照、安装部署包或执行回滚。
+
+安装器可以在相同检查之后生成平台专用的 dry-run 安装计划：
+
+```powershell
+pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
+```
+
+计划只包含 `sc.exe` 或 systemd 规格，不会注册系统服务，也不会写入部署文件。

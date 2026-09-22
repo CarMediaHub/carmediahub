@@ -53,3 +53,11 @@ pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --sn
 ```
 
 검사는 번들 메타데이터, 데이터베이스 스키마 호환성과 스냅샷 데이터베이스가 현재 데이터와 일치하는지 확인합니다. Core를 중지하거나 스냅샷을 만들거나 번들을 설치하거나 롤백하지는 않습니다.
+
+설치 프로그램은 같은 검사를 통과한 뒤 플랫폼별 dry-run 설치 계획을 만들 수 있습니다.
+
+```powershell
+pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
+```
+
+계획에는 `sc.exe` 또는 systemd 사양만 포함되며 시스템 서비스를 등록하거나 배포 파일을 쓰지 않습니다.

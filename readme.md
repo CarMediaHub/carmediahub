@@ -50,6 +50,14 @@ pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --sn
 
 The check validates bundle metadata, database schema compatibility and that the snapshot database matches the current data. It does not stop Core, create a snapshot, install a bundle or roll back a deployment.
 
+An installer can generate a platform-specific dry-run plan after the same checks:
+
+```powershell
+pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
+```
+
+The plan contains the `sc.exe` or systemd specification but does not register a service or write deployment files.
+
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
 ```powershell
