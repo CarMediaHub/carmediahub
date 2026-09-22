@@ -10,6 +10,7 @@ import { loadComponentCatalog, resolveInstalledExecutable } from "./components.j
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
+import { createPluginDataStore } from "./data-service.js";
 import { PluginJobService } from "./job-service.js";
 import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
 import { WorkerSupervisor } from "./worker-supervisor.js";
@@ -169,6 +170,27 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown } | undefined;
         if (typeof input?.binding !== "string" || typeof input.method !== "string" || typeof input.path !== "string") throw new Error("Invalid network request");
         return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body }, (name) => repository.serviceBindingByName(name, scope.installationId));
+      }
+      if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");
+        const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown } | undefined;
+        if (typeof input?.collection !== "string") throw new Error("Invalid data collection");
+        const store = createPluginDataStore(database.db, scope);
+        if (request.method === "data.get") {
+          if (typeof input.key !== "string") throw new Error("Invalid data key");
+          return { record: await store.get(input.collection, input.key) };
+        }
+        if (request.method === "data.put") {
+          if (typeof input.key !== "string" || !Object.prototype.hasOwnProperty.call(input, "value")) throw new Error("Invalid data record");
+          return { record: await store.put(input.collection, input.key, input.value) };
+        }
+        if (request.method === "data.delete") {
+          if (typeof input.key !== "string") throw new Error("Invalid data key");
+          return { deleted: await store.delete(input.collection, input.key) };
+        }
+        if (input.prefix !== undefined && typeof input.prefix !== "string") throw new Error("Invalid data prefix");
+        if (input.limit !== undefined && typeof input.limit !== "number") throw new Error("Invalid data limit");
+        return { records: await store.list(input.collection, { ...(input.prefix === undefined ? {} : { prefix: input.prefix }), ...(input.limit === undefined ? {} : { limit: input.limit }) }) };
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");

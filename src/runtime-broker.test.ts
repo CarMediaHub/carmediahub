@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { connectWorkerClient, encodeFrame, FrameDecoder, type RpcRequest } from "@carmediahub/sdk";
+import { createPluginDataStore } from "./data-service.js";
+import { openDatabase } from "./database.js";
 import { RuntimeBroker, type RuntimeCredentialScope } from "./runtime-broker.js";
 
 const scope: RuntimeCredentialScope = {
@@ -185,6 +187,41 @@ test("SDK worker client completes the broker handshake and serves a logical rout
     worker.close();
   } finally {
     await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("SDK worker data API is brokered and remains scoped", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-data-"));
+  const database = openDatabase(dataDir);
+  database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep_real', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org_real', 'dep_real', 'Test'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user_real', 'org_real', 'test', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+  const broker = new RuntimeBroker({
+    dataDir,
+    installationEnabled: (id) => id === scope.installationId,
+    onWorkerRequest: async (request, workerScope) => {
+      if (!request.method.startsWith("data.")) return { accepted: true };
+      const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown } | undefined;
+      if (typeof input?.collection !== "string") throw new Error("Invalid data collection");
+      const store = createPluginDataStore(database.db, workerScope);
+      if (request.method === "data.get") return { record: await store.get(input.collection, String(input.key)) };
+      if (request.method === "data.put") return { record: await store.put(input.collection, String(input.key), input.value) };
+      if (request.method === "data.delete") return { deleted: await store.delete(input.collection, String(input.key)) };
+      return { records: await store.list(input.collection, { prefix: typeof input.prefix === "string" ? input.prefix : undefined, limit: typeof input.limit === "number" ? input.limit : undefined }) };
+    }
+  });
+  try {
+    await broker.start();
+    const worker = await connectWorkerClient({ endpoint: broker.endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
+    const record = await worker.database().put("settings", "layout", { compact: true });
+    assert.deepEqual(record.value, { compact: true });
+    assert.deepEqual((await worker.database().list("settings")).map((item) => item.key), ["layout"]);
+    assert.deepEqual((await worker.database().get("settings", "layout"))?.value, { compact: true });
+    assert.equal(await worker.database().delete("settings", "layout"), true);
+    assert.equal(await worker.database().get("settings", "layout"), undefined);
+    worker.close();
+  } finally {
+    await broker.stop();
+    database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
