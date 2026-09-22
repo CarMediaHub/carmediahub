@@ -325,6 +325,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     const reduced = await app.inject({ method: "PATCH", url: `/api/plugins/${installation.id}/capabilities`, headers: { cookie }, payload: { capabilities: ["history"] } });
     assert.equal(reduced.statusCode, 200);
     assert.deepEqual(reduced.json().capabilities, ["history"]);
+    assert.deepEqual((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations[0].worker, { installationId: installation.id, state: "stopped", attempts: 0 });
     assert.equal((await app.inject({ method: "PATCH", url: `/api/plugins/${installation.id}/capabilities`, headers: { cookie }, payload: { capabilities: ["network"] } })).statusCode, 400);
     const scopedJobs = await app.inject({ method: "GET", url: `/api/plugins/${installation.id}/jobs`, headers: { cookie } });
     assert.equal(scopedJobs.statusCode, 200);

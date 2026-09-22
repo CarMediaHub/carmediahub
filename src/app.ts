@@ -630,6 +630,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const input = body<{ capabilities?: unknown }>(request);
     if (!Array.isArray(input?.capabilities) || input.capabilities.some((capability) => typeof capability !== "string")) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
     if (!repository.updatePluginCapabilities(installationId, input.capabilities as never[])) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
+    // Capability revocation must invalidate the Worker credential immediately.
+    await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
     return { installationId, capabilities: repository.pluginCapabilities(installationId) };
   });
