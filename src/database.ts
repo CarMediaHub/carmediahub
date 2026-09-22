@@ -129,6 +129,20 @@ export function openDatabase(dataDir: string): CoreDatabase {
     );
     CREATE INDEX IF NOT EXISTS browser_sessions_scope_index
       ON browser_sessions (organization_id, user_id, installation_id, status, expires_at);
+    CREATE TABLE IF NOT EXISTS browser_tasks (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      session_id TEXT NOT NULL REFERENCES browser_sessions(id),
+      kind TEXT NOT NULL,
+      input_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS browser_tasks_scope_index
+      ON browser_tasks (organization_id, user_id, installation_id, status, created_at);
     CREATE TABLE IF NOT EXISTS entry_keys (
       id TEXT PRIMARY KEY,
       key_hash TEXT NOT NULL UNIQUE,

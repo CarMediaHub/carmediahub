@@ -74,6 +74,10 @@ test("browser sessions are opaque, bounded, persistent, and isolated by user and
     database.db.prepare("UPDATE browser_sessions SET expires_at = ? WHERE id = ?").run(new Date(Date.now() - 1000).toISOString(), active.id);
     assert.equal(repository.browserSessions(firstScope).find((item) => item.id === active.id)?.status, "expired");
     const persisted = repository.createBrowserSession(firstScope, { name: "persisted", purpose: "restart check" });
+    const task = repository.createBrowserTask(firstScope, { sessionId: persisted.id, kind: "navigate-and-capture", input: { target: "fixture", label: "Restart" } });
+    assert.equal(task.status, "queued");
+    assert.equal(repository.browserTasks(secondUserScope).length, 0);
+    assert.equal(repository.cancelBrowserTask(secondUserScope, task.id), undefined);
     database.close();
     const reopened = openDatabase(dataDir);
     try {
@@ -81,8 +85,10 @@ test("browser sessions are opaque, bounded, persistent, and isolated by user and
       const restoredScope = afterRestart.runtimeScope(admin.id, first.id);
       assert.ok(restoredScope);
       assert.equal(afterRestart.browserSessions(restoredScope).some((item) => item.id === persisted.id), true);
+      assert.equal(afterRestart.browserTasks(restoredScope).some((item) => item.id === task.id), true);
       assert.equal(afterRestart.disablePlugin(first.id), true);
       assert.equal(afterRestart.browserSessions(restoredScope).find((item) => item.id === persisted.id)?.status, "revoked");
+      assert.equal(afterRestart.browserTasks(restoredScope).find((item) => item.id === task.id)?.status, "cancelled");
     } finally { reopened.close(); }
   } finally { try { database.close(); } catch {} fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

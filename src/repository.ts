@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { decryptSecret, encryptSecret, generateTotpSecret, hashPassword, keyedHash, randomToken, verifyPassword, verifyTotp } from "./security.js";
-import type { BrowserSession, BrowserSessionRequest, CapabilityName, PluginManifest, ScopeContext } from "@carmediahub/sdk";
+import type { BrowserSession, BrowserSessionRequest, BrowserTask, BrowserTaskKind, BrowserTaskRequest, CapabilityName, PluginManifest, ScopeContext } from "@carmediahub/sdk";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
@@ -178,6 +178,7 @@ export class Repository {
       this.db.prepare("UPDATE users SET revoked_at = ? WHERE id = ?").run(now(), userId);
       this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId);
       this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE organization_id = ? AND user_id = ? AND status = 'active'").run(organizationId, userId);
+      this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE organization_id = ? AND user_id = ? AND status IN ('queued', 'running')").run(now(), organizationId, userId);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");
@@ -212,7 +213,42 @@ export class Repository {
   }
 
   revokeBrowserSessionsForInstallation(installationId: string): number {
-    return Number(this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE installation_id = ? AND status = 'active'").run(installationId).changes);
+    const result = this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE installation_id = ? AND status = 'active'").run(installationId);
+    this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE installation_id = ? AND status IN ('queued', 'running')").run(now(), installationId);
+    return Number(result.changes);
+  }
+
+  createBrowserTask(scope: ScopeContext, input: BrowserTaskRequest): BrowserTask {
+    const kinds: readonly BrowserTaskKind[] = ["navigate-and-capture", "extract-media-reference", "export-authorized-state"];
+    if (!/^browser_[0-9a-f-]{36}$/u.test(input.sessionId) || !kinds.includes(input.kind)) throw new Error("Invalid browser task request");
+    const taskInput = input.input ?? {};
+    const keys = Object.keys(taskInput);
+    if (keys.some((key) => key !== "target" && key !== "label") || (taskInput.target !== undefined && (!/^[a-z][a-z0-9._-]{0,127}$/u.test(taskInput.target))) || (taskInput.label !== undefined && (taskInput.label.trim().length === 0 || taskInput.label.length > 160))) throw new Error("Invalid browser task input");
+    const session = this.db.prepare("SELECT id FROM browser_sessions WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'active' AND expires_at > ?")
+      .get(input.sessionId, scope.organizationId, scope.userId, scope.installationId, now());
+    if (session === undefined) throw new Error("Browser session is unavailable");
+    const timestamp = now();
+    const task: BrowserTask = { id: id("browser_task"), sessionId: input.sessionId, kind: input.kind, status: "queued", input: { ...(taskInput.target === undefined ? {} : { target: taskInput.target }), ...(taskInput.label === undefined ? {} : { label: taskInput.label.trim() }) }, createdAt: timestamp, updatedAt: timestamp };
+    this.db.prepare("INSERT INTO browser_tasks (id, organization_id, user_id, installation_id, session_id, kind, input_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)")
+      .run(task.id, scope.organizationId, scope.userId, scope.installationId, task.sessionId, task.kind, JSON.stringify(task.input), timestamp, timestamp);
+    return task;
+  }
+
+  browserTasks(scope: ScopeContext): BrowserTask[] {
+    return (this.db.prepare("SELECT id, session_id, kind, input_json, status, created_at, updated_at FROM browser_tasks WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC")
+      .all(scope.organizationId, scope.userId, scope.installationId) as Array<Record<string, string>>).map((row) => {
+        let input: BrowserTask["input"] = {};
+        try { const parsed = JSON.parse(row.input_json ?? "{}"); if (parsed !== null && typeof parsed === "object") input = parsed as BrowserTask["input"]; } catch { input = {}; }
+        return { id: row.id ?? "", sessionId: row.session_id ?? "", kind: row.kind as BrowserTaskKind, status: row.status as BrowserTask["status"], input, createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+      });
+  }
+
+  cancelBrowserTask(scope: ScopeContext, taskId: string): BrowserTask | undefined {
+    if (!/^browser_task_[0-9a-f-]{36}$/u.test(taskId)) return undefined;
+    const task = this.browserTasks(scope).find((item) => item.id === taskId);
+    if (task === undefined) return undefined;
+    if (task.status === "queued" || task.status === "running") this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status IN ('queued', 'running')").run(now(), taskId, scope.organizationId, scope.userId, scope.installationId);
+    return this.browserTasks(scope).find((item) => item.id === taskId);
   }
 
   applications(): ApplicationRecord[] {

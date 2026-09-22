@@ -203,6 +203,22 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof id !== "string") throw new Error("Invalid browser session ID");
         return { revoked: repository.revokeBrowserSession(scope, id) };
       }
+      if (request.method === "browser.task.enqueue") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        const input = request.params as { sessionId?: unknown; kind?: unknown; input?: unknown } | undefined;
+        if (typeof input?.sessionId !== "string" || typeof input.kind !== "string" || (input.input !== undefined && (typeof input.input !== "object" || input.input === null || Array.isArray(input.input)))) throw new Error("Invalid browser task request");
+        return repository.createBrowserTask(scope, { sessionId: input.sessionId, kind: input.kind as never, ...(input.input === undefined ? {} : { input: input.input as { target?: string; label?: string } }) });
+      }
+      if (request.method === "browser.task.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        return { tasks: repository.browserTasks(scope) };
+      }
+      if (request.method === "browser.task.cancel") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        const id = (request.params as { id?: unknown } | undefined)?.id;
+        if (typeof id !== "string") throw new Error("Invalid browser task ID");
+        return { task: repository.cancelBrowserTask(scope, id) };
+      }
       if (request.method === "history.record") {
         if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
         const input = request.params as Parameters<HistoryService["record"]>[1] | undefined;
