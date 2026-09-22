@@ -24,7 +24,7 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
-import { registerMediaTransformHandlers } from "./media-transform-service.js";
+import { readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
@@ -140,6 +140,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.mediaId !== "string" || typeof input.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media read request");
         return mediaLibrary.readWithPlayback(scope, input.sessionId, input.mediaId, input.start, input.end);
       }
+      if (request.method === "media.readOutput") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const input = request.params as { outputId?: unknown; start?: unknown; end?: unknown } | undefined;
+        if (typeof input?.outputId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid transform output request");
+        return readTransformOutput(database.db, options.dataDir, scope, input.outputId, input.start, input.end);
+      }
       if (request.method === "network.request") {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
         const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown } | undefined;
@@ -246,7 +252,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const ffmpeg = repository.componentById("ffmpeg");
   if (ffmpeg !== undefined && ffmpeg.health === "healthy") {
     mediaLibrary.enableTransforms();
-    registerMediaTransformHandlers({ executor: jobExecutor, jobs, media: mediaLibrary, dataDir: options.dataDir, ffmpeg });
+    registerMediaTransformHandlers({ executor: jobExecutor, jobs, media: mediaLibrary, dataDir: options.dataDir, ffmpeg, database: database.db });
   }
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, payload, done) => {

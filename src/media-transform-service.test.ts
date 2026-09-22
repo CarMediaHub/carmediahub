@@ -9,7 +9,7 @@ import { openDatabase } from "./database.js";
 import { JobExecutor } from "./job-executor.js";
 import { PluginJobService } from "./job-service.js";
 import { MediaLibraryService } from "./media-library-service.js";
-import { registerMediaTransformHandlers } from "./media-transform-service.js";
+import { readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
 
 const ffmpegCandidates = process.platform === "win32"
   ? ["F:/dev_env/bin/ffmpeg.exe"]
@@ -33,13 +33,18 @@ test("runs a verified FFmpeg remux through the scoped media job", { skip: ffmpeg
     const item = media.list("org", "plugin", root.id)[0]!;
     const jobs = new PluginJobService(database.db);
     const executor = new JobExecutor(jobs);
-    registerMediaTransformHandlers({ executor, jobs, media, dataDir, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum } });
+    registerMediaTransformHandlers({ executor, jobs, media, dataDir, database: database.db, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum } });
     const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" };
     const job = jobs.enqueueMediaTransform(scope, "media.remux", { mediaId: item.id, mode: "remux", container: "mp4" });
-    assert.equal((await executor.runOnce(scope))?.status, "succeeded");
-    const output = fs.readdirSync(path.join(dataDir, "media-transforms"));
-    assert.equal(output.length, 1);
-    assert.ok(fs.statSync(path.join(dataDir, "media-transforms", output[0]!)).size > 0);
+    const completed = await executor.runOnce(scope);
+    assert.equal(completed?.status, "succeeded");
+    const outputId = (completed?.result as { outputId: string }).outputId;
+    const output = readTransformOutput(database.db, dataDir, scope, outputId, 0, 1023);
+    assert.equal(output.contentType, "video/mp4");
+    assert.ok(Buffer.from(output.data, "base64").byteLength > 0);
+    const files = fs.readdirSync(path.join(dataDir, "media-transforms"));
+    assert.equal(files.length, 1);
+    assert.ok(fs.statSync(path.join(dataDir, "media-transforms", files[0]!)).size > 0);
     assert.equal(jobs.list(scope)[0]?.id, job.id);
   } finally {
     database.close();
