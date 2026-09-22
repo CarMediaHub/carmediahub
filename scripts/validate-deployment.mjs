@@ -9,6 +9,7 @@ export function validateDeployment(compose, dockerfile) {
   if (/^\s{2,}(postgres|postgresql|broker|plugin|worker)\s*:/mu.test(compose)) fail("Compose must not publish auxiliary services before their runtime contract is wired");
   if (!/127\.0\.0\.1:8787:8787/u.test(compose)) fail("Core port must bind to loopback by default");
   if (!/read_only:\s*true/u.test(compose) || !/no-new-privileges:true/u.test(compose)) fail("Compose hardening defaults are missing");
+  if (!/healthcheck:\s*\r?\n\s+test:\s*\["CMD",\s*"node",/u.test(compose)) fail("Compose must define a Core liveness healthcheck");
   const portSection = compose.match(/\n\s+ports:\s*\r?\n((?:\s+-.*\r?\n)*)/u)?.[1] ?? "";
   const portLines = portSection.split(/\r?\n/u).filter((line) => line.trim().length > 0);
   if (portLines.some((line) => !line.includes("127.0.0.1:8787:8787"))) fail("A non-Core host port is exposed");

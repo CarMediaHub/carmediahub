@@ -61,6 +61,10 @@ jobs:
           trap 'docker logs carmediahub-core-ci || true; docker stop carmediahub-core-ci || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8787/health/live >/dev/null; then
+              curl --fail --silent --request POST \
+                --header 'content-type: application/json' \
+                --data '{"username":"ci-admin","password":"correct horse battery staple","locale":"en"}' \
+                http://127.0.0.1:8787/api/bootstrap >/dev/null
               curl --fail --silent http://127.0.0.1:8787/health/ready >/dev/null
               exit 0
             fi

@@ -13,6 +13,11 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health/live').then((response) => { if (!response.ok) process.exit(1); })"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
 volumes:
   carmediahub-data:
