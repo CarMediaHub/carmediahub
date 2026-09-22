@@ -4,6 +4,12 @@ import path from "node:path";
 
 export const CORE_SCHEMA_VERSION = 1;
 
+export interface SchemaMigrationRecord {
+  version: number;
+  name: string;
+  appliedAt: string;
+}
+
 export interface CoreDatabase {
   db: DatabaseSync;
   close(): void;
@@ -19,6 +25,11 @@ export function openDatabase(dataDir: string): CoreDatabase {
     throw new Error(`Unsupported Core database schema version: ${currentVersion}`);
   }
   db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS deployments (
       id TEXT PRIMARY KEY,
       created_at TEXT NOT NULL,
@@ -263,6 +274,18 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!userColumns.some((column) => column.name === "time_zone")) db.exec("ALTER TABLE users ADD COLUMN time_zone TEXT NOT NULL DEFAULT 'UTC'");
   if (!userColumns.some((column) => column.name === "theme")) db.exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'");
   if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
+  const migration = db.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(CORE_SCHEMA_VERSION) as { version?: number } | undefined;
+  if (migration?.version !== CORE_SCHEMA_VERSION) {
+    db.prepare("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      CORE_SCHEMA_VERSION,
+      "core-schema-v1",
+      new Date().toISOString(),
+    );
+  }
   db.exec(`PRAGMA user_version = ${CORE_SCHEMA_VERSION}`);
   return { db, close: () => db.close() };
+}
+
+export function listSchemaMigrations(database: CoreDatabase): SchemaMigrationRecord[] {
+  return database.db.prepare("SELECT version, name, applied_at AS appliedAt FROM schema_migrations ORDER BY version").all() as unknown as SchemaMigrationRecord[];
 }

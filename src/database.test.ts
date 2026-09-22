@@ -4,13 +4,31 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { CORE_SCHEMA_VERSION, openDatabase } from "./database.js";
+import { CORE_SCHEMA_VERSION, listSchemaMigrations, openDatabase } from "./database.js";
 
 test("records the current Core schema version after initialization", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-schema-version-"));
   const database = openDatabase(dataDir);
   assert.equal((database.db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, CORE_SCHEMA_VERSION);
   database.close();
+});
+
+test("records a versioned migration ledger entry only after initialization", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-schema-ledger-"));
+  const database = openDatabase(dataDir);
+  assert.deepEqual(listSchemaMigrations(database).map(({ version, name }) => ({ version, name })), [
+    { version: CORE_SCHEMA_VERSION, name: "core-schema-v1" },
+  ]);
+  database.close();
+});
+
+test("reopening a migrated database is idempotent", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-schema-retry-"));
+  const first = openDatabase(dataDir);
+  first.close();
+  const second = openDatabase(dataDir);
+  assert.equal(listSchemaMigrations(second).length, 1);
+  second.close();
 });
 
 test("rejects a database created by a newer Core", () => {
