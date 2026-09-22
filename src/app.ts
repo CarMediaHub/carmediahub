@@ -266,8 +266,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     else if (verified.runtimeEntry !== undefined) supervisor.register(createTrustedSharedAdapterFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), runtimeEntry: verified.runtimeEntry }));
   };
   for (const verified of repository.verifiedPluginPackages()) registerVerifiedPluginRuntime(verified);
-  for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
-  for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
+  for (const workerPackage of options.trustedWorkerPackages ?? []) {
+    if (!supervisor.hasFactory(workerPackage.packageId)) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
+  }
+  for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) {
+    if (!supervisor.hasFactory(adapterPackage.packageId)) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
+  }
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   const ffmpeg = repository.componentById("ffmpeg");
   if (ffmpeg !== undefined && ffmpeg.health === "healthy") {

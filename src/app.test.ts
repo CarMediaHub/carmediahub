@@ -481,7 +481,7 @@ test("administrator installs only a signed staged plugin package", async () => {
     assert.equal(duplicate.statusCode, 409);
     assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie: login.headers["set-cookie"] } })).json().installations.length, 1);
     await app.close();
-    const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+    const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey], trustedWorkerPackages: [{ packageId: "wdr-media", packageRoot: source, workerEntry: "./worker.js" }] });
     const restartedLogin = await restarted.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     assert.equal((await restarted.inject({ method: "GET", url: "/api/plugins", headers: { cookie: restartedLogin.headers["set-cookie"] } })).json().installations.length, 1);
     await restarted.close();
