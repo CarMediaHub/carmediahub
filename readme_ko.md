@@ -31,6 +31,8 @@ pnpm start -- --data-dir .\data --public-url https://hub.example.com
 docker compose -f carmediahub/compose.yaml up --build
 ```
 
+현재 Compose 프로필은 Core와 관리되는 SQLite 데이터 볼륨만 실행합니다. PostgreSQL은 명시적 Core adapter로 개발 중이며 아직 이 Compose 파일에서 시작하거나 요구하지 않습니다.
+
 Compose 포트는 의도적으로 `127.0.0.1`에만 바인딩되며 Core 명령은 Secure Cookie를 요구합니다. 운영자가 관리하는 리버스 프록시에서 TLS를 종료하고 공개 주소를 노출하세요. 다른 프로덕션 실행 방식에서는 `--public-url https://hub.example.com` 또는 `--cookie-secure`를 전달합니다.
 
 오프라인 백업과 복구는 명시적인 명령으로 실행합니다. 스냅샷을 만들기 전에 Core를 중지하고, 복구는 새로운 빈 디렉터리에만 수행합니다.
