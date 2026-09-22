@@ -60,4 +60,4 @@ pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --sn
 pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
 ```
 
-计划只包含 `sc.exe` 或 systemd 规格，不会注册系统服务，也不会写入部署文件。
+计划包含 `sc.exe` 或 systemd 规格，以及 Bundle、配置和数据目录的明确 ACL 意图。默认使用非管理员服务身份（Windows 为 `LocalService`，Linux 为 `carmediahub`），但不会创建账号、注册系统服务或写入部署文件。

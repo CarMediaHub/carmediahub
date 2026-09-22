@@ -60,4 +60,4 @@ pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --sn
 pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
 ```
 
-계획에는 `sc.exe` 또는 systemd 사양만 포함되며 시스템 서비스를 등록하거나 배포 파일을 쓰지 않습니다.
+계획에는 `sc.exe` 또는 systemd 사양과 번들/구성/데이터 디렉터리의 명시적 ACL 의도가 포함됩니다. 기본값은 관리자 권한이 아닌 서비스 계정(Windows `LocalService`, Linux `carmediahub`)이지만 계정을 만들거나 시스템 서비스를 등록하거나 배포 파일을 쓰지는 않습니다.

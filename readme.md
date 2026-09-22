@@ -56,7 +56,7 @@ An installer can generate a platform-specific dry-run plan after the same checks
 pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-root> --config <config-path> --data-dir <data-dir> --node <runtime-path> --service-name <service-name> --description <description> --required-free-bytes <bytes>
 ```
 
-The plan contains the `sc.exe` or systemd specification but does not register a service or write deployment files.
+The plan contains the `sc.exe` or systemd specification plus explicit Bundle/config/data ACL intents. It defaults to a non-administrator service identity (`LocalService` on Windows and `carmediahub` on Linux), but does not create the identity, register a service or write deployment files.
 
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
