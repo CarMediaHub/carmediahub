@@ -27,12 +27,17 @@ export interface MediaProbe { mediaId: string; contentType: string; size: number
 export interface MediaRead { data: string; completed: boolean; }
 export interface PlaybackScope { organizationId: string; userId: string; deviceId: string; installationId: string; }
 export interface PlaybackSession { sessionId: string; mediaId: string; expiresAt: string; }
+export interface MediaSourceLocation { mediaId: string; path: string; size: number; contentType: string; }
 
 interface IndexedMediaItem extends MediaItem { relativePath: string; }
 
 /** Core-owned media root registry. Plugins receive no filesystem path or root handle. */
 export class MediaLibraryService {
+  private transformsEnabled = false;
+
   constructor(private readonly db: DatabaseSync, private readonly key: Buffer) {}
+
+  enableTransforms(): void { this.transformsEnabled = true; }
 
   addRoot(organizationId: string, installationId: string, name: string, selectedPath: string): MediaRoot {
     if (!/^[A-Za-z0-9_-]{3,128}$/u.test(installationId)) throw new Error("Media root installation is invalid");
@@ -84,7 +89,7 @@ export class MediaLibraryService {
       updatedAt: item.updatedAt,
       ...(extension.length === 0 ? {} : { container: extension }),
       seekable: item.contentType.startsWith("video/") || item.contentType.startsWith("audio/"),
-      availableModes: ["direct-range"],
+      availableModes: this.transformsEnabled ? ["direct-range", "remux", "transcode"] : ["direct-range"],
       recommendedMode: "direct-range"
     };
   }
@@ -116,6 +121,20 @@ export class MediaLibraryService {
     const row = this.db.prepare("SELECT media_id FROM playback_sessions WHERE token_hash = ? AND organization_id = ? AND user_id = ? AND device_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(keyedHash(sessionId, this.key), scope.organizationId, scope.userId, scope.deviceId, scope.installationId, now()) as { media_id?: string } | undefined;
     if (row?.media_id !== mediaId) throw new Error("Playback session is unavailable");
     return this.read(scope.organizationId, scope.installationId, mediaId, start, end);
+  }
+
+  /** Core-only source resolution for a registered media processor; never part of the SDK. */
+  sourceLocation(scope: PlaybackScope, mediaId: string): MediaSourceLocation {
+    if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId)) throw new Error("Media item is unavailable");
+    for (const root of this.roots(scope.organizationId, scope.installationId)) {
+      const rootPath = this.rootPath(scope.organizationId, scope.installationId, root.id);
+      const item = this.index(rootPath, root.id, 1000).find((candidate) => candidate.id === mediaId);
+      if (item === undefined) continue;
+      const location = path.resolve(rootPath, item.relativePath);
+      if (!location.startsWith(rootPath + path.sep) || fs.lstatSync(location).isSymbolicLink()) throw new Error("Media item is unavailable");
+      return { mediaId: item.id, path: location, size: item.size, contentType: item.contentType };
+    }
+    throw new Error("Media item is unavailable");
   }
 
   private index(root: string, rootId: string, limit: number): IndexedMediaItem[] {

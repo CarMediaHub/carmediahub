@@ -41,6 +41,8 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
       availableModes: ["direct-range"],
       recommendedMode: "direct-range"
     });
+    service.enableTransforms();
+    assert.deepEqual(service.probe(scope, items[0]!.id).availableModes, ["direct-range", "remux", "transcode"]);
     assert.equal(Buffer.from(service.readWithPlayback(scope, playback.sessionId, items[0]!.id, 0, 4).data, "base64").toString(), "video");
     assert.throws(() => service.readWithPlayback({ ...scope, deviceId: "vehicle-b" }, playback.sessionId, items[0]!.id, 0, 4), /unavailable/);
     service.revokePlaybackForUser("user");

@@ -331,6 +331,8 @@ test("admin task center exposes redacted organization jobs and cancels only its 
     assert.equal(listed.json().jobs[0].id, "job_admin_test");
     assert.equal("payload" in listed.json().jobs[0], false);
     assert.equal((await app.inject({ method: "POST", url: "/api/jobs/job_admin_test/cancel", headers: { cookie } })).json().job.status, "cancelled");
+    assert.deepEqual((await app.inject({ method: "POST", url: "/api/jobs/run", headers: { cookie }, payload: { limit: 10 } })).json().jobs, []);
+    assert.equal((await app.inject({ method: "POST", url: "/api/jobs/run", headers: { cookie }, payload: { limit: 0 } })).statusCode, 400);
     assert.equal((await app.inject({ method: "GET", url: "/api/jobs", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

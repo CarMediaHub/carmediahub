@@ -24,6 +24,8 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
+import { registerMediaTransformHandlers } from "./media-transform-service.js";
+import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
 
@@ -241,6 +243,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
+  const ffmpeg = repository.componentById("ffmpeg");
+  if (ffmpeg !== undefined && ffmpeg.health === "healthy") {
+    mediaLibrary.enableTransforms();
+    registerMediaTransformHandlers({ executor: jobExecutor, jobs, media: mediaLibrary, dataDir: options.dataDir, ffmpeg });
+  }
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, payload, done) => {
     done(null, payload);
@@ -559,6 +566,27 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const query = request.query as { limit?: string };
     return { jobs: jobs.listOrganization(user.organizationId, query.limit === undefined ? 200 : Number(query.limit)).map(({ payload: _payload, result: _result, ...metadata }) => metadata) };
+  });
+
+  app.post("/api/jobs/run", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const limitValue = (body<{ limit?: unknown }>(request) ?? {}).limit;
+    const limit = limitValue === undefined ? 10 : Number(limitValue);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) return reply.code(400).send({ code: "CMH.JOBS.LIMIT_INVALID", messageKey: "errors.jobs.limitInvalid" });
+    const pending = jobs.listOrganization(user.organizationId, 500).filter((job) => job.status === "queued");
+    const scopes = new Map<string, ScopeContext>();
+    for (const job of pending) {
+      const scope = repository.runtimeScope(job.userId, job.installationId, "admin-job", "admin-job");
+      if (scope !== undefined) scopes.set(`${job.userId}\0${job.installationId}`, scope);
+    }
+    const completed: PluginJob[] = [];
+    for (const scope of scopes.values()) {
+      if (completed.length >= limit) break;
+      completed.push(...await jobExecutor.runUntilIdle(scope, Math.min(limit - completed.length, 100)));
+    }
+    repository.audit(user.id, "jobs.run", String(completed.length));
+    return { jobs: completed.map(({ payload: _payload, result: _result, ...metadata }) => metadata) };
   });
 
   app.post("/api/jobs/:id/cancel", async (request, reply) => {
