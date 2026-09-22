@@ -17,6 +17,8 @@ jobs:
         with:
           repository: CarMediaHub/carmediahub-sdk
           path: carmediahub-sdk
+      - name: Place SDK beside Core checkout
+        run: mv carmediahub-sdk ../carmediahub-sdk
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -24,9 +26,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - run: pnpm --dir ../carmediahub-sdk install --frozen-lockfile
+      - run: pnpm --dir ../carmediahub-sdk check
+      - run: pnpm --dir ../carmediahub-sdk build
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir carmediahub-sdk install --frozen-lockfile
-      - run: pnpm --dir carmediahub-sdk check
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
