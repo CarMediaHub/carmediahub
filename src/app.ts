@@ -549,7 +549,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
-  app.get("/api/media/outputs/:id", async (request, reply) => {
+  const transformOutputHandler = async (request: FastifyRequest, reply: { code(status: number): typeof reply; send(body?: unknown): unknown; header(name: string, value: string): typeof reply; type(value: string): typeof reply }) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
     const outputId = (request.params as { id: string }).id;
@@ -565,11 +565,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       const bytes = Buffer.from(result.data, "base64");
       const end = start + bytes.byteLength - 1;
       reply.header("accept-ranges", "bytes").header("content-length", String(bytes.byteLength)).header("content-range", `bytes ${start}-${end}/${result.size}`).type(result.contentType);
-      return request.method === "HEAD" ? reply.code(206).send() : reply.code(206).send(bytes);
+      return reply.code(206).send(bytes);
     } catch {
       return reply.code(404).send({ code: "CMH.MEDIA.OUTPUT_NOT_FOUND", messageKey: "errors.media.outputNotFound" });
     }
-  });
+  };
+  app.get("/api/media/outputs/:id", transformOutputHandler);
 
   app.get("/api/components", async (request, reply) => {
     const user = await requireAdmin(request, reply);

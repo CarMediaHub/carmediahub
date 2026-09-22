@@ -491,6 +491,10 @@ test("authenticated transform playback route enforces Range and expiry", async (
     assert.equal(response.statusCode, 206);
     assert.equal(response.body, "2345");
     assert.equal(response.headers["content-range"], "bytes 2-5/10");
+    const head = await app.inject({ method: "HEAD", url: `/api/media/outputs/${outputId}`, headers: { cookie, range: "bytes=2-5" } });
+    assert.equal(head.statusCode, 206);
+    assert.equal(head.body, "");
+    assert.equal(head.headers["content-length"], "4");
     const expired = openDatabase(dataDir);
     expired.db.prepare("UPDATE media_transform_outputs SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", outputId);
     expired.close();
