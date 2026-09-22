@@ -21,8 +21,13 @@ function existingParent(location) {
     if (parent === current) fail("dataDir has no existing parent");
     current = parent;
   }
-  if (!fs.statSync(current).isDirectory()) fail("dataDir parent is unavailable");
+  if (fs.lstatSync(current).isSymbolicLink() || !fs.statSync(current).isDirectory()) fail("dataDir parent is unavailable or symbolic");
   return current;
+}
+
+function regular(location, label) {
+  if (fs.lstatSync(location).isSymbolicLink()) fail(`${label} cannot be a symbolic link`);
+  return fs.statSync(location);
 }
 
 export function checkDeploymentResources(input, dependencies = { statfs: fs.statfsSync }) {
@@ -30,8 +35,8 @@ export function checkDeploymentResources(input, dependencies = { statfs: fs.stat
   const configPath = absolute(input.configPath, "configPath");
   const dataDir = absolute(input.dataDir, "dataDir");
   const requiredFreeBytes = requiredBytes(input.requiredFreeBytes);
-  if (!fs.existsSync(bundleRoot) || !fs.statSync(bundleRoot).isDirectory()) fail("bundleRoot is unavailable");
-  if (!fs.existsSync(configPath) || !fs.statSync(configPath).isFile()) fail("configPath is unavailable");
+  if (!fs.existsSync(bundleRoot) || !regular(bundleRoot, "bundleRoot").isDirectory()) fail("bundleRoot is unavailable");
+  if (!fs.existsSync(configPath) || !regular(configPath, "configPath").isFile()) fail("configPath is unavailable");
   const dataParent = existingParent(dataDir);
   const stats = dependencies.statfs(dataParent);
   const freeBytes = Number(stats.bavail) * Number(stats.bsize);
