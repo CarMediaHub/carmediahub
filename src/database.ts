@@ -128,6 +128,17 @@ export function openDatabase(dataDir: string): CoreDatabase {
       revoked_at TEXT
     );
     CREATE INDEX IF NOT EXISTS media_transform_outputs_scope_index ON media_transform_outputs (organization_id, user_id, installation_id, expires_at);
+    CREATE TABLE IF NOT EXISTS media_hls_sessions (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      directory_name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS media_hls_sessions_scope_index ON media_hls_sessions (organization_id, user_id, installation_id, expires_at);
     CREATE TABLE IF NOT EXISTS service_bindings (
       id TEXT PRIMARY KEY,
       component_id TEXT NOT NULL REFERENCES managed_components(id),

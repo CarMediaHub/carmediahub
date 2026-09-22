@@ -24,7 +24,7 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
-import { cleanupExpiredTransformOutputs, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
@@ -148,6 +148,21 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { outputId?: unknown; start?: unknown; end?: unknown } | undefined;
         if (typeof input?.outputId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid transform output request");
         return readTransformOutput(database.db, options.dataDir, scope, input.outputId, input.start, input.end);
+      }
+      if (request.method === "media.hls") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const input = request.params as { mediaId?: unknown; segmentDurationSeconds?: unknown } | undefined;
+        if (typeof input?.mediaId !== "string" || (input.segmentDurationSeconds !== undefined && ![2, 4, 6].includes(input.segmentDurationSeconds as number))) throw new Error("Invalid HLS request");
+        mediaLibrary.probe(scope, input.mediaId);
+        const job = jobs.enqueueHls(scope, { mediaId: input.mediaId, ...(input.segmentDurationSeconds === undefined ? {} : { segmentDurationSeconds: input.segmentDurationSeconds }) });
+        void jobExecutor.runOnce(scope).catch(() => undefined);
+        return job;
+      }
+      if (request.method === "media.readHlsAsset") {
+        if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
+        const input = request.params as { sessionId?: unknown; asset?: unknown; start?: unknown; end?: unknown } | undefined;
+        if (typeof input?.sessionId !== "string" || typeof input.asset !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid HLS asset request");
+        return readHlsAsset(database.db, options.dataDir, scope, input.sessionId, input.asset, input.start, input.end);
       }
       if (request.method === "network.request") {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");

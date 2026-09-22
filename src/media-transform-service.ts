@@ -9,6 +9,7 @@ import { PluginJobService, type PluginJob } from "./job-service.js";
 import { JobExecutor } from "./job-executor.js";
 
 type TransformPayload = { mediaId: string; mode: "remux" | "transcode"; container?: "mp4" | "fmp4" | "ts"; videoCodec?: "copy" | "h264" | "h265"; audioCodec?: "copy" | "aac" | "opus" };
+type HlsPayload = { mediaId: string; segmentDurationSeconds?: 2 | 4 | 6 };
 
 const safeToken = /^[A-Za-z0-9_-]{20,128}$/u;
 
@@ -52,8 +53,31 @@ export function registerMediaTransformHandlers(input: {
       throw error;
     }
   };
+  const hlsHandler = async (job: PluginJob, scope: ScopeContext, signal: AbortSignal): Promise<unknown> => {
+    if (job.type !== "media.hls") throw new Error("Unsupported HLS transform");
+    const payload = job.payload as Partial<HlsPayload>;
+    if (payload.mediaId === undefined || !safeToken.test(payload.mediaId)) throw new Error("Invalid HLS media");
+    const duration = payload.segmentDurationSeconds === 2 || payload.segmentDurationSeconds === 6 ? payload.segmentDurationSeconds : 4;
+    const source = input.media.sourceLocation(scope, payload.mediaId);
+    const sessionId = `hls_${crypto.randomUUID()}`;
+    const directory = path.join(input.dataDir, "media-hls", sessionId);
+    const playlist = path.join(directory, "playlist.m3u8");
+    fs.mkdirSync(directory, { recursive: true });
+    const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", source.path, "-map", "0:v:0?", "-map", "0:a:0?", "-c:v", "libx264", "-c:a", "aac", "-f", "hls", "-hls_time", String(duration), "-hls_playlist_type", "vod", "-hls_segment_filename", path.join(directory, "segment_%05d.ts"), playlist];
+    try {
+      const result = await runManagedComponent(input.dataDir, input.ffmpeg, { args, timeoutMs: 10 * 60 * 1000, maxOutputBytes: 256 * 1024, signal });
+      if (result.exitCode !== 0 || !fs.existsSync(playlist)) throw new Error("FFmpeg HLS failed");
+      const createdAt = new Date().toISOString();
+      input.database.prepare("INSERT INTO media_hls_sessions (id, organization_id, user_id, installation_id, directory_name, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(sessionId, scope.organizationId, scope.userId, scope.installationId, sessionId, createdAt, new Date(Date.now() + 60 * 60 * 1000).toISOString());
+      return { sessionId, playlistAsset: "playlist.m3u8", contentType: "application/vnd.apple.mpegurl" };
+    } catch (error) {
+      try { fs.rmSync(directory, { recursive: true, force: true }); } catch { /* best effort cleanup */ }
+      throw error;
+    }
+  };
   input.executor.register("media.remux", handler);
   input.executor.register("media.transcode", handler);
+  input.executor.register("media.hls", hlsHandler);
 }
 
 export interface TransformOutputRead { data: string; completed: boolean; contentType: string; size: number; }
@@ -66,7 +90,14 @@ export function cleanupExpiredTransformOutputs(db: DatabaseSync, dataDir: string
     if (location.startsWith(root + path.sep) && fs.existsSync(location) && !fs.lstatSync(location).isSymbolicLink()) fs.rmSync(location, { force: true });
     db.prepare("DELETE FROM media_transform_outputs WHERE id = ?").run(row.id);
   }
-  return rows.length;
+  const hlsRows = db.prepare("SELECT id, directory_name FROM media_hls_sessions WHERE expires_at <= ? OR revoked_at IS NOT NULL").all(nowIso) as Array<{ id: string; directory_name: string }>;
+  const hlsRoot = path.resolve(dataDir, "media-hls");
+  for (const row of hlsRows) {
+    const location = path.resolve(hlsRoot, row.directory_name);
+    if (location.startsWith(hlsRoot + path.sep) && fs.existsSync(location) && !fs.lstatSync(location).isSymbolicLink()) fs.rmSync(location, { recursive: true, force: true });
+    db.prepare("DELETE FROM media_hls_sessions WHERE id = ?").run(row.id);
+  }
+  return rows.length + hlsRows.length;
 }
 
 export function readTransformOutput(db: DatabaseSync, dataDir: string, scope: ScopeContext, outputId: string, start: number, end: number): TransformOutputRead {
@@ -85,4 +116,18 @@ export function readTransformOutputForUser(db: DatabaseSync, dataDir: string, or
   if (row?.installation_id === undefined) throw new Error("Transform output is unavailable");
   const scope = { deploymentId: "output", organizationId, userId, deviceId: "output", sessionId: "output", installationId: row.installation_id };
   return readTransformOutput(db, dataDir, scope, outputId, start, end);
+}
+
+export function readHlsAsset(db: DatabaseSync, dataDir: string, scope: ScopeContext, sessionId: string, asset: string, start: number, end: number): TransformOutputRead {
+  if (!/^hls_[A-Za-z0-9-]{20,80}$/u.test(sessionId) || !/^(?:playlist\.m3u8|segment_[0-9]{5}\.ts)$/u.test(asset) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("HLS asset request is invalid");
+  const row = db.prepare("SELECT directory_name FROM media_hls_sessions WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(sessionId, scope.organizationId, scope.userId, scope.installationId, new Date().toISOString()) as { directory_name?: string } | undefined;
+  if (row?.directory_name === undefined) throw new Error("HLS session is unavailable");
+  const root = path.resolve(dataDir, "media-hls");
+  const directory = path.resolve(root, row.directory_name);
+  const location = path.resolve(directory, asset);
+  if (!directory.startsWith(root + path.sep) || !location.startsWith(directory + path.sep) || !fs.existsSync(location) || fs.lstatSync(location).isSymbolicLink()) throw new Error("HLS asset is unavailable");
+  const stat = fs.statSync(location); const size = stat.size;
+  if (start >= size) throw new Error("HLS asset range is unavailable");
+  const count = Math.min(end, size - 1) - start + 1; const handle = fs.openSync(location, "r");
+  try { const bytes = Buffer.allocUnsafe(count); fs.readSync(handle, bytes, 0, count, start); return { data: bytes.toString("base64"), completed: start + count >= size, contentType: asset === "playlist.m3u8" ? "application/vnd.apple.mpegurl" : "video/mp2t", size }; } finally { fs.closeSync(handle); }
 }

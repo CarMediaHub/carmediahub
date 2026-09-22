@@ -66,6 +66,13 @@ export class PluginJobService {
     return this.enqueue(scope, type, payload);
   }
 
+  enqueueHls(scope: ScopeContext, payload: unknown): PluginJob {
+    const [organizationId, userId, installationId] = scopeValues(scope);
+    const active = this.db.prepare("SELECT COUNT(*) AS count FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND type = 'media.hls' AND status IN ('queued', 'running')").get(organizationId, userId, installationId) as { count: number };
+    if (Number(active.count) >= MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION) throw new CmhError({ code: "CMH.MEDIA.QUOTA_EXCEEDED", messageKey: "errors.media.quotaExceeded", retryable: true, diagnosticId: "diag_media_hls_quota", details: { limit: MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION } });
+    return this.enqueue(scope, "media.hls", payload);
+  }
+
   /** Atomically claims the oldest queued job for a Core-registered handler. */
   claimNext(scope: ScopeContext, types: readonly string[]): PluginJob | undefined {
     const [organizationId, userId, installationId] = scopeValues(scope);
