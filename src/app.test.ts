@@ -460,8 +460,14 @@ test("administrator installs only a signed staged plugin package", async () => {
     const response = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(response.statusCode, 201);
     assert.match(response.json().package.location, /^plugins\/wdr-media\/0\.1\.0\//);
+    const installation = response.json().installation as { id: string };
+    assert.ok(installation.id.startsWith("plugin_"));
+    assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie: login.headers["set-cookie"] } })).json().installations.length, 1);
+    assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie: login.headers["set-cookie"] } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
     await app.close();
     const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
+    const restartedLogin = await restarted.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    assert.equal((await restarted.inject({ method: "GET", url: "/api/plugins", headers: { cookie: restartedLogin.headers["set-cookie"] } })).json().installations.length, 1);
     await restarted.close();
   } finally {
     if (app.server.listening) await app.close();
@@ -486,7 +492,9 @@ test("persists a verified shared adapter entry across Core restart", async () =>
     const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
     const unsigned = { keyId, manifest, artifact: { id: "shared-build", digest: pluginPackageDigest(source) } };
     const release = { ...unsigned, signature: crypto.sign(null, canonicalPluginPackageRelease(unsigned), pair.privateKey).toString("base64") };
-    assert.equal((await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release })).statusCode, 201);
+    const installed = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
+    assert.equal(installed.statusCode, 201);
+    assert.ok(installed.json().installation.id.startsWith("plugin_"));
     await app.close();
     const restarted = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
     await restarted.close();

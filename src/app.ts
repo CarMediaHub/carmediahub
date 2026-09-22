@@ -732,8 +732,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, runtimeEntry });
         supervisor.register(createTrustedSharedAdapterFactory({ packageId: installed.packageId, packageRoot: path.resolve(options.dataDir, installed.location), runtimeEntry }));
       }
+      const installation = repository.installPlugin(release.manifest);
       repository.audit(user.id, "plugin.package.installed", `${installed.packageId}@${installed.version}`);
-      return reply.code(201).send({ package: installed });
+      return reply.code(201).send({ package: installed, installation });
     } catch {
       return reply.code(400).send({ code: "CMH.PLUGIN.PACKAGE_INVALID", messageKey: "errors.plugin.packageInvalid" });
     }
