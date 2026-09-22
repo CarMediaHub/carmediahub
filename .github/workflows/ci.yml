@@ -39,3 +39,4 @@ jobs:
       - run: pnpm build:admin
       - run: pnpm test:native-bundle
       - run: pnpm check:native-bundle
+      - run: pnpm test:native-service
