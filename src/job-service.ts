@@ -66,6 +66,21 @@ export class PluginJobService {
     return this.enqueue(scope, type, payload);
   }
 
+  /** Atomically claims the oldest queued job for a Core-registered handler. */
+  claimNext(scope: ScopeContext, types: readonly string[]): PluginJob | undefined {
+    const [organizationId, userId, installationId] = scopeValues(scope);
+    const allowedTypes = [...new Set(types)];
+    allowedTypes.forEach((type) => assertIdentifier(type, "type"));
+    if (allowedTypes.length === 0) return undefined;
+    const placeholders = allowedTypes.map(() => "?").join(", ");
+    const timestamp = now();
+    const result = this.db.prepare(`UPDATE plugin_jobs SET status = 'running', updated_at = ?
+      WHERE id = (SELECT id FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'queued' AND type IN (${placeholders}) ORDER BY created_at ASC LIMIT 1)
+      AND status = 'queued'`).run(timestamp, organizationId, userId, installationId, ...allowedTypes);
+    if (Number(result.changes) !== 1) return undefined;
+    return jobFromRow(this.db.prepare("SELECT * FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'running' AND updated_at = ? ORDER BY updated_at DESC LIMIT 1").get(organizationId, userId, installationId, timestamp) as Record<string, string | number | null>);
+  }
+
   list(scope: ScopeContext, limit = 100): PluginJob[] {
     const [organizationId, userId, installationId] = scopeValues(scope);
     return (this.db.prepare(`SELECT * FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC LIMIT ?`)

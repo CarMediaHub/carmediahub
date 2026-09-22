@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
+import { JobExecutor } from "./job-executor.js";
 import { INTERRUPTED_JOB_ERROR, MAX_ACTIVE_JOBS_PER_SCOPE, MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
 
 test("plugin jobs are persisted and isolated by user and installation", () => {
@@ -116,6 +117,35 @@ test("startup recovery closes interrupted jobs without consuming the queue", () 
     assert.equal(jobs.list({ ...scope, installationId: "other" })[0]?.id, queued.id);
     assert.equal(jobs.list({ ...scope, installationId: "other" })[0]?.status, "queued");
     assert.equal(jobs.recoverInterrupted(), 0);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("job executor claims only registered types and records bounded outcomes", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-executor-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const unhandled = jobs.enqueue(scope, "media.transcode", { source: "unhandled" });
+    assert.equal(await executor.runOnce(scope), undefined);
+    assert.equal(jobs.list(scope)[0]?.status, "queued");
+    executor.register("media.transcode", async (job) => ({ mediaId: job.payload && typeof job.payload === "object" ? "opaque" : "unknown" }));
+    const completed = await executor.runOnce(scope);
+    assert.equal(completed?.id, unhandled.id);
+    assert.equal(completed?.status, "succeeded");
+    assert.deepEqual(completed?.result, { mediaId: "opaque" });
+    jobs.enqueue(scope, "media.transcode", { source: "failure" });
+    const failing = new JobExecutor(jobs);
+    failing.register("media.transcode", () => { throw new Error("secret path"); });
+    const failed = await failing.runOnce(scope);
+    assert.equal(failed?.status, "failed");
+    assert.equal(failed?.errorCode, "CMH.JOBS.EXECUTION_FAILED");
+    assert.equal(failed?.result, undefined);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
