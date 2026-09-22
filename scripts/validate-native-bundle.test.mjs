@@ -7,7 +7,7 @@ import { validateNativeBundle } from "./validate-native-bundle.mjs";
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-bundle-"));
-  for (const relative of ["dist/cli.js", "public/admin/index.html", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json"]) {
+  for (const relative of ["dist/cli.js", "public/admin/index.html", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0" }));
@@ -15,7 +15,7 @@ function fixture() {
 }
 
 test("accepts a complete native bundle without instance configuration", () => {
-  assert.deepEqual(validateNativeBundle(fixture()), { files: 7, packageVersion: "0.1.0" });
+  assert.deepEqual(validateNativeBundle(fixture()), { files: 11, packageVersion: "0.1.0" });
 });
 
 test("rejects missing runtime assets and instance secrets", () => {
@@ -25,6 +25,12 @@ test("rejects missing runtime assets and instance secrets", () => {
   fs.writeFileSync(path.join(root, "dist/cli.js"), "// cli\n");
   fs.writeFileSync(path.join(root, "config/core.json"), "{}\n");
   assert.throws(() => validateNativeBundle(root), /instance secret/);
+});
+
+test("rejects a bundle with missing runtime dependencies", () => {
+  const root = fixture();
+  fs.rmSync(path.join(root, "node_modules/pg/package.json"));
+  assert.throws(() => validateNativeBundle(root), /node_modules[\\/]pg[\\/]package\.json/);
 });
 
 test("rejects a symlinked release asset", (t) => {
