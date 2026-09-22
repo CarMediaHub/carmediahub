@@ -38,8 +38,19 @@ export function resolveInstalledExecutable(dataDir: string, installed: { id: str
   if (installed.executable.includes("\\") || path.isAbsolute(installed.executable) || installed.executable.includes("..") || !installed.executable.startsWith(`${installed.id}/${installed.version}/`)) throw new Error("Invalid installed component executable");
   const root = path.resolve(dataDir, "components");
   const resolved = path.resolve(root, ...installed.executable.split("/"));
-  if (!resolved.startsWith(root + path.sep) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) throw new Error("Installed component executable is unavailable");
+  if (!resolved.startsWith(root + path.sep) || !isRegularPathWithoutLinks(root, resolved)) throw new Error("Installed component executable is unavailable");
   return resolved;
+}
+
+function isRegularPathWithoutLinks(root: string, resolved: string): boolean {
+  if (!fs.existsSync(root) || fs.lstatSync(root).isSymbolicLink()) return false;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    if (!fs.existsSync(current) || fs.lstatSync(current).isSymbolicLink()) return false;
+  }
+  return fs.lstatSync(resolved).isFile();
 }
 
 export function currentPlatformKey(): string {

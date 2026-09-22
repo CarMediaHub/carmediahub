@@ -30,3 +30,25 @@ test("resolves only an existing verified component installation", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("rejects executable and parent directory symlinks", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-links-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-outside-"));
+  try {
+    const location = path.join(dataDir, "components", "ffmpeg", "7.0.0");
+    fs.mkdirSync(location, { recursive: true });
+    const executable = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+    const target = path.join(outside, executable);
+    fs.writeFileSync(target, "outside");
+    const record = { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${executable}` };
+    fs.symlinkSync(target, path.join(location, executable), "file");
+    assert.throws(() => resolveInstalledExecutable(dataDir, record), /unavailable/);
+    fs.unlinkSync(path.join(location, executable));
+    fs.rmSync(path.join(dataDir, "components", "ffmpeg"), { recursive: true, force: true });
+    fs.symlinkSync(path.join(outside, "missing-parent"), path.join(dataDir, "components", "ffmpeg"), "junction");
+    assert.throws(() => resolveInstalledExecutable(dataDir, record), /unavailable/);
+  } finally {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
