@@ -33,6 +33,20 @@ test("rejects a bundle with missing runtime dependencies", () => {
   assert.throws(() => validateNativeBundle(root), /node_modules[\\/]pg[\\/]package\.json/);
 });
 
+test("rejects a symlinked runtime dependency in strict bundle mode", (t) => {
+  const root = fixture();
+  const target = path.join(root, "outside-sdk");
+  fs.mkdirSync(target, { recursive: true });
+  fs.rmSync(path.join(root, "node_modules/@carmediahub/sdk"), { recursive: true, force: true });
+  try {
+    fs.symlinkSync(target, path.join(root, "node_modules/@carmediahub/sdk"), "junction");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && (error.code === "EPERM" || error.code === "EACCES")) { t.skip("junctions are unavailable in this environment"); return; }
+    throw error;
+  }
+  assert.throws(() => validateNativeBundle(root), /symbolic link/);
+});
+
 test("rejects a symlinked release asset", (t) => {
   const root = fixture();
   const target = path.join(root, "outside.json");
