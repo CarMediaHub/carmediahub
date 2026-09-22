@@ -120,6 +120,19 @@ export class RuntimeBroker {
     return credential;
   }
 
+  /** Invalidates credentials issued to workers that have not completed handshake. */
+  revokeInstallationCredentials(installationId: string): void {
+    for (const [credential, record] of this.credentials) {
+      if (record.scope.installationId === installationId) this.credentials.delete(credential);
+    }
+  }
+
+  revokeUserCredentials(userId: string): void {
+    for (const [credential, record] of this.credentials) {
+      if (record.scope.userId === userId) this.credentials.delete(credential);
+    }
+  }
+
   /** Broadcasts persisted user preference changes to matching authenticated Workers. */
   broadcastContext(userId: string, update: ContextUpdate): void {
     for (const connection of this.connections()) {

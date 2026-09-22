@@ -541,6 +541,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (result === "not_found") return reply.code(404).send({ code: "CMH.USER.NOT_FOUND", messageKey: "errors.user.notFound" });
     mediaLibrary.revokePlaybackForUser((request.params as { id: string }).id);
     revokeHlsForUser(database.db, (request.params as { id: string }).id);
+    runtimeBroker.revokeUserCredentials((request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
   });
@@ -631,6 +632,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!Array.isArray(input?.capabilities) || input.capabilities.some((capability) => typeof capability !== "string")) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
     if (!repository.updatePluginCapabilities(installationId, input.capabilities as never[])) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
     // Capability revocation must invalidate the Worker credential immediately.
+    runtimeBroker.revokeInstallationCredentials(installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
     return { installationId, capabilities: repository.pluginCapabilities(installationId) };
@@ -742,6 +744,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!repository.disablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
     mediaLibrary.revokePlaybackForInstallation(installationId);
     revokeHlsForInstallation(database.db, installationId);
+    runtimeBroker.revokeInstallationCredentials(installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();

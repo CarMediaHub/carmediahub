@@ -65,6 +65,24 @@ test("Broker injects credential scope and rejects forged scope metadata", async 
   }
 });
 
+test("Broker rejects a credential revoked before worker handshake", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const credential = broker.issueCredential(scope);
+    broker.revokeInstallationCredentials(scope.installationId);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello-revoked", "broker.hello"));
+    const denied = await send(client.socket, client.decoder, request("prove-revoked", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    assert.equal((denied.error as { code?: string }).code, "CMH.PROTOCOL.HANDSHAKE_DENIED");
+    client.socket.destroy();
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("Broker waits for a matching Worker to finish its authenticated handshake", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
   const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
