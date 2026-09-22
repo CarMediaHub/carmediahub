@@ -13,16 +13,27 @@ export class CatalogService {
     return entry;
   }
   query(scope: ScopeContext, options: CatalogQuery = {}): CatalogEntry[] {
+    return this.queryPage(["organization_id = ?", "user_id = ?", "installation_id = ?"], [scope.organizationId, scope.userId, scope.installationId], options).entries;
+  }
+
+  queryPage(where: string[], values: string[], options: CatalogQuery = {}): { entries: CatalogEntry[]; total: number } {
+    const clauses = [...where];
+    const parameters = [...values];
+    if (options.category !== undefined) { clauses.push("category = ?"); parameters.push(options.category); }
+    if (options.keyword?.trim() !== undefined && options.keyword.trim() !== "") { clauses.push("LOWER(title || ' ' || COALESCE(description, '')) LIKE ?"); parameters.push(`%${options.keyword.trim().toLocaleLowerCase()}%`); }
+    const predicate = clauses.join(" AND ");
+    const total = Number((this.db.prepare(`SELECT COUNT(*) AS count FROM catalog_entries WHERE ${predicate}`).get(...parameters) as { count: number | bigint }).count);
     const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
-    const rows = this.db.prepare("SELECT * FROM catalog_entries WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY updated_at DESC LIMIT ?").all(scope.organizationId, scope.userId, scope.installationId, limit) as Array<Record<string, string | null>>;
-    const keyword = options.keyword?.trim().toLocaleLowerCase();
-    return rows.map((row) => ({ id: String(row.id), pluginId: String(row.plugin_id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), title: String(row.title), ...(row.description === null ? {} : { description: row.description }), category: String(row.category), route: String(row.route), updatedAt: String(row.updated_at), ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.description ?? ""}`.toLocaleLowerCase().includes(keyword)));
+    const offset = Math.max(options.offset ?? 0, 0);
+    const rows = this.db.prepare(`SELECT * FROM catalog_entries WHERE ${predicate} ORDER BY updated_at DESC LIMIT ? OFFSET ?`).all(...parameters, limit, offset) as Array<Record<string, string | null>>;
+    return { total, entries: rows.map((row) => ({ id: String(row.id), pluginId: String(row.plugin_id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), title: String(row.title), ...(row.description === null ? {} : { description: row.description }), category: String(row.category), route: String(row.route), updatedAt: String(row.updated_at), ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })) };
   }
   queryUser(organizationId: string, userId: string, options: CatalogQuery = {}): CatalogEntry[] {
-    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
-    const rows = this.db.prepare("SELECT * FROM catalog_entries WHERE organization_id = ? AND user_id = ? ORDER BY updated_at DESC LIMIT ?").all(organizationId, userId, limit) as Array<Record<string, string | null>>;
-    const keyword = options.keyword?.trim().toLocaleLowerCase();
-    return rows.map((row) => ({ id: String(row.id), pluginId: String(row.plugin_id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), title: String(row.title), ...(row.description === null ? {} : { description: row.description }), category: String(row.category), route: String(row.route), updatedAt: String(row.updated_at), ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })).filter((entry) => (options.category === undefined || entry.category === options.category) && (keyword === undefined || `${entry.title} ${entry.description ?? ""}`.toLocaleLowerCase().includes(keyword)));
+    return this.queryPage(["organization_id = ?", "user_id = ?"], [organizationId, userId], options).entries;
+  }
+
+  queryUserPage(organizationId: string, userId: string, options: CatalogQuery = {}): { entries: CatalogEntry[]; total: number } {
+    return this.queryPage(["organization_id = ?", "user_id = ?"], [organizationId, userId], options);
   }
   remove(scope: ScopeContext, id: string): boolean {
     return Number(this.db.prepare("DELETE FROM catalog_entries WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ?").run(id, scope.organizationId, scope.userId, scope.installationId).changes) === 1;

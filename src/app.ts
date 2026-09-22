@@ -351,8 +351,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/history", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
-    const query = request.query as { limit?: string; keyword?: string; category?: string; pluginId?: string };
-    return { entries: history.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }), ...(query.pluginId === undefined ? {} : { pluginId: query.pluginId }) }) };
+    const query = request.query as { limit?: string; offset?: string; keyword?: string; category?: string; pluginId?: string };
+    return history.queryUserPage(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), offset: query.offset === undefined ? 0 : Number(query.offset), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }), ...(query.pluginId === undefined ? {} : { pluginId: query.pluginId }) });
   });
 
   app.delete("/api/history", async (request, reply) => {
@@ -367,8 +367,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/catalog", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
-    const query = request.query as { limit?: string; keyword?: string; category?: string };
-    return { entries: catalogService.queryUser(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) }) };
+    const query = request.query as { limit?: string; offset?: string; keyword?: string; category?: string };
+    return catalogService.queryUserPage(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), offset: query.offset === undefined ? 0 : Number(query.offset), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) });
   });
 
   app.get("/api/notifications", async (request, reply) => {

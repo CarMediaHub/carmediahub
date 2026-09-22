@@ -22,8 +22,13 @@ test("persists history inside the current user and installation scope", () => {
     assert.equal(history.query(otherPlugin).length, 0);
     assert.equal(history.queryUser("org", "a", { keyword: "road" }).length, 1);
     assert.equal(history.queryUser("org", "b").length, 0);
+    history.record(first, { subjectType: "media", subjectId: "two", route: "/other", title: "Unrelated", category: "video", sourceDevice: "desktop" });
+    history.record(first, { subjectType: "media", subjectId: "three", route: "/road-two", title: "Road second", category: "video", sourceDevice: "desktop" });
+    assert.equal(history.query(first, { keyword: "road", limit: 1 }).length, 1);
+    assert.equal(history.queryUserPage("org", "a", { keyword: "road", limit: 1, offset: 1 }).total, 2);
+    assert.equal(history.queryUserPage("org", "a", { keyword: "road", limit: 1, offset: 1 }).entries.length, 1);
     assert.equal(history.clear(first, { category: "audio" }), 0);
-    assert.equal(history.clear(first, { category: "video" }), 1);
+    assert.equal(history.clear(first, { category: "video" }), 3);
     assert.equal(history.query(first).length, 0);
   } finally {
     database.close();
