@@ -200,9 +200,15 @@ test("SDK worker data API is brokered and remains scoped", async () => {
     installationEnabled: (id) => id === scope.installationId,
     onWorkerRequest: async (request, workerScope) => {
       if (!request.method.startsWith("data.")) return { accepted: true };
-      const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown } | undefined;
-      if (typeof input?.collection !== "string") throw new Error("Invalid data collection");
+      const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown; version?: unknown; name?: unknown } | undefined;
       const store = createPluginDataStore(database.db, workerScope);
+      if (request.method === "data.migrations") return { migrations: await store.migrations() };
+      if (input === undefined) throw new Error("Invalid data request");
+      if (request.method === "data.migrate") {
+        try { return { migration: await store.migrate({ version: input.version as number, name: input.name as string }) }; }
+        catch (error) { console.error("migration-test-error", error); throw error; }
+      }
+      if (typeof input.collection !== "string") throw new Error("Invalid data collection");
       if (request.method === "data.get") return { record: await store.get(input.collection, String(input.key)) };
       if (request.method === "data.put") return { record: await store.put(input.collection, String(input.key), input.value) };
       if (request.method === "data.delete") return { deleted: await store.delete(input.collection, String(input.key)) };
@@ -212,6 +218,8 @@ test("SDK worker data API is brokered and remains scoped", async () => {
   try {
     await broker.start();
     const worker = await connectWorkerClient({ endpoint: broker.endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
+    const migration = await worker.database().migrate({ version: 1, name: "initial-settings" });
+    assert.deepEqual(await worker.database().migrations(), [migration]);
     const record = await worker.database().put("settings", "layout", { compact: true });
     assert.deepEqual(record.value, { compact: true });
     assert.deepEqual((await worker.database().list("settings")).map((item) => item.key), ["layout"]);

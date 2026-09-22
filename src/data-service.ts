@@ -1,7 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { DataRecord, PluginDataStore, ScopeContext } from "@carmediahub/sdk";
+import type { DataRecord, PluginDataMigration, PluginDataStore, ScopeContext } from "@carmediahub/sdk";
 
 const identifier = /^[a-z][a-z0-9_-]{0,63}$/u;
+const migrationName = /^[a-z][a-z0-9_.-]{0,127}$/u;
 
 function assertIdentifier(value: string, field: string): void {
   if (!identifier.test(value)) throw new Error(`${field} must be a lowercase identifier`);
@@ -55,6 +56,21 @@ export function createPluginDataStore(db: DatabaseSync, scope: ScopeContext): Pl
         WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND collection = ? AND record_key LIKE ?
         ORDER BY record_key LIMIT ?`).all(organizationId, userId, installationId, collection, `${prefix}%`, limit) as Array<{ record_key: string; value_json: string; updated_at: string }>)
         .map((row) => ({ key: row.record_key, value: JSON.parse(row.value_json) as T, updatedAt: row.updated_at }));
+    },
+    async migrate(input: { version: number; name: string }): Promise<PluginDataMigration> {
+      if (!Number.isSafeInteger(input.version) || input.version < 1 || !migrationName.test(input.name)) throw new Error("Invalid plugin data migration");
+      const existing = db.prepare("SELECT version, name, applied_at FROM plugin_data_migrations WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND version = ?")
+        .get(organizationId, userId, installationId, input.version) as { version: number; name: string; applied_at: string } | undefined;
+      if (existing !== undefined) {
+        if (existing.name !== input.name) throw new Error("Plugin data migration version conflict");
+        return { version: existing.version, name: existing.name, appliedAt: existing.applied_at };
+      }
+      const appliedAt = new Date().toISOString();
+      db.prepare("INSERT INTO plugin_data_migrations (organization_id, user_id, installation_id, version, name, applied_at) VALUES (?, ?, ?, ?, ?, ?)").run(organizationId, userId, installationId, input.version, input.name, appliedAt);
+      return { version: input.version, name: input.name, appliedAt };
+    },
+    async migrations(): Promise<readonly PluginDataMigration[]> {
+      return (db.prepare("SELECT version, name, applied_at FROM plugin_data_migrations WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY version").all(organizationId, userId, installationId) as Array<{ version: number; name: string; applied_at: string }>).map((row) => ({ version: row.version, name: row.name, appliedAt: row.applied_at }));
     }
   };
 }

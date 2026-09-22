@@ -17,6 +17,8 @@ pnpm start -- --data-dir .\data
 
 Core는 명시적 데이터 디렉터리를 사용하며 런타임 환경 변수나 시스템 `PATH`로 암시적으로 컴포넌트를 찾지 않습니다.
 
+플러그인 데이터는 SDK의 범위가 지정된 논리 API와 버전별 마이그레이션 원장을 통해서만 접근합니다. 물리적 SQLite/PostgreSQL 구조는 Core가 관리하며 플러그인에는 데이터베이스 연결, DSN, Schema 이름 또는 SQL 채널을 제공하지 않습니다.
+
 배포 상태 probe는 `/health/live`, `/health/ready`, `/health/diagnostic`에서 제공합니다. 경로, URL, 자격 증명 또는 사용자 콘텐츠를 노출하지 않고 제한된 상태와 집계 수만 반환합니다. 로컬 배포가 초기화되기 전에는 readiness가 HTTP 503을 반환합니다.
 
 HTTPS 리버스 프록시 배포에서는 공개 주소를 명시적으로 전달하여 세션과 진입 Cookie에 `Secure` 속성을 설정합니다.

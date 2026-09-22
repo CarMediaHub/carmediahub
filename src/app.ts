@@ -171,26 +171,33 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.binding !== "string" || typeof input.method !== "string" || typeof input.path !== "string") throw new Error("Invalid network request");
         return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body }, (name) => repository.serviceBindingByName(name, scope.installationId));
       }
-      if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list") {
+      if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list" || request.method === "data.migrate" || request.method === "data.migrations") {
         if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");
-        const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown } | undefined;
-        if (typeof input?.collection !== "string") throw new Error("Invalid data collection");
+        const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown; version?: unknown; name?: unknown } | undefined;
+        if (input === undefined && request.method !== "data.migrations") throw new Error("Invalid data request");
         const store = createPluginDataStore(database.db, scope);
+        if (request.method === "data.migrations") return { migrations: await store.migrations() };
+        if (input === undefined) throw new Error("Invalid data request");
+        if (request.method !== "data.migrate" && typeof input.collection !== "string") throw new Error("Invalid data collection");
         if (request.method === "data.get") {
           if (typeof input.key !== "string") throw new Error("Invalid data key");
-          return { record: await store.get(input.collection, input.key) };
+          return { record: await store.get(input.collection as string, input.key) };
         }
         if (request.method === "data.put") {
           if (typeof input.key !== "string" || !Object.prototype.hasOwnProperty.call(input, "value")) throw new Error("Invalid data record");
-          return { record: await store.put(input.collection, input.key, input.value) };
+          return { record: await store.put(input.collection as string, input.key, input.value) };
         }
         if (request.method === "data.delete") {
           if (typeof input.key !== "string") throw new Error("Invalid data key");
-          return { deleted: await store.delete(input.collection, input.key) };
+          return { deleted: await store.delete(input.collection as string, input.key) };
+        }
+        if (request.method === "data.migrate") {
+          if (typeof input.version !== "number" || !Number.isSafeInteger(input.version) || typeof input.name !== "string") throw new Error("Invalid data migration");
+          return { migration: await store.migrate({ version: input.version, name: input.name }) };
         }
         if (input.prefix !== undefined && typeof input.prefix !== "string") throw new Error("Invalid data prefix");
         if (input.limit !== undefined && typeof input.limit !== "number") throw new Error("Invalid data limit");
-        return { records: await store.list(input.collection, { ...(input.prefix === undefined ? {} : { prefix: input.prefix }), ...(input.limit === undefined ? {} : { limit: input.limit }) }) };
+        return { records: await store.list(input.collection as string, { ...(input.prefix === undefined ? {} : { prefix: input.prefix }), ...(input.limit === undefined ? {} : { limit: input.limit }) }) };
       }
       if (request.method === "jobs.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "jobs")) throw new Error("Plugin jobs capability is not granted");

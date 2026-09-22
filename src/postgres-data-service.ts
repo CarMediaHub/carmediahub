@@ -1,7 +1,8 @@
 import { Pool, type PoolConfig, type QueryResultRow } from "pg";
-import type { DataRecord, PluginDataStore, ScopeContext } from "@carmediahub/sdk";
+import type { DataRecord, PluginDataMigration, PluginDataStore, ScopeContext } from "@carmediahub/sdk";
 
 const identifier = /^[a-z][a-z0-9_-]{0,63}$/u;
+const migrationName = /^[a-z][a-z0-9_.-]{0,127}$/u;
 
 function assertIdentifier(value: string, field: string): void {
   if (!identifier.test(value)) throw new Error(`${field} must be a lowercase identifier`);
@@ -32,7 +33,16 @@ CREATE TABLE IF NOT EXISTS carmediahub_plugin_data (
   record_key TEXT NOT NULL,
   value_json JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (organization_id, user_id, installation_id, collection, record_key)
+PRIMARY KEY (organization_id, user_id, installation_id, collection, record_key)
+);
+CREATE TABLE IF NOT EXISTS carmediahub_plugin_data_migrations (
+  organization_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  installation_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  applied_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (organization_id, user_id, installation_id, version)
 )`;
 
 export async function ensurePostgresPluginDataSchema(client: PostgresQueryClient): Promise<void> {
@@ -89,6 +99,22 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
         [organizationId, userId, installationId, collection, `${prefix}%`, limit]
       );
       return result.rows.map((row) => ({ key: row.record_key, value: row.value_json, updatedAt: row.updated_at }));
+    },
+    async migrate(input: { version: number; name: string }): Promise<PluginDataMigration> {
+      if (!Number.isSafeInteger(input.version) || input.version < 1 || !migrationName.test(input.name)) throw new Error("Invalid plugin data migration");
+      const existing = await client.query<{ version: number; name: string; applied_at: string }>("SELECT version, name, applied_at FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 AND version = $4", [organizationId, userId, installationId, input.version]);
+      const row = existing.rows[0];
+      if (row !== undefined) {
+        if (row.name !== input.name) throw new Error("Plugin data migration version conflict");
+        return { version: row.version, name: row.name, appliedAt: row.applied_at };
+      }
+      const appliedAt = new Date().toISOString();
+      await client.query("INSERT INTO carmediahub_plugin_data_migrations (organization_id, user_id, installation_id, version, name, applied_at) VALUES ($1, $2, $3, $4, $5, $6)", [organizationId, userId, installationId, input.version, input.name, appliedAt]);
+      return { version: input.version, name: input.name, appliedAt };
+    },
+    async migrations(): Promise<readonly PluginDataMigration[]> {
+      const result = await client.query<{ version: number; name: string; applied_at: string }>("SELECT version, name, applied_at FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 ORDER BY version", [organizationId, userId, installationId]);
+      return result.rows.map((row) => ({ version: row.version, name: row.name, appliedAt: row.applied_at }));
     }
   };
 }

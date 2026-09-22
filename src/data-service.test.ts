@@ -16,6 +16,10 @@ test("persistent plugin data is isolated by user and installation", async () => 
     const otherUser = createPluginDataStore(database.db, { ...base, userId: "user-b", installationId: "wdr" });
     const otherInstallation = createPluginDataStore(database.db, { ...base, userId: "user-a", installationId: "other" });
     await first.put("history", "road-trip", { position: 42 });
+    const migration = await first.migrate({ version: 1, name: "initial-history" });
+    assert.deepEqual(await first.migrations(), [migration]);
+    assert.deepEqual(await first.migrate({ version: 1, name: "initial-history" }), migration);
+    await assert.rejects(() => first.migrate({ version: 1, name: "other" }));
     assert.deepEqual((await first.get("history", "road-trip"))?.value, { position: 42 });
     assert.equal(await otherUser.get("history", "road-trip"), undefined);
     assert.equal(await otherInstallation.get("history", "road-trip"), undefined);
