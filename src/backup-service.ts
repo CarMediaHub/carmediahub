@@ -59,6 +59,16 @@ function copyFile(source: string, destination: string): void {
   fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
 }
 
+function assertNoSymlinkPath(root: string, relative: string): string {
+  if (fs.lstatSync(root).isSymbolicLink()) throw new Error("Backup path cannot be a symbolic link");
+  let current = root;
+  for (const part of relative.split("/")) {
+    current = path.join(current, part);
+    if (!fs.existsSync(current) || fs.lstatSync(current).isSymbolicLink()) throw new Error("Backup path cannot be a symbolic link");
+  }
+  return current;
+}
+
 function isManagedBackupPath(relative: string): boolean {
   return managedFiles.includes(relative as typeof managedFiles[number]) || managedDirectories.some((directory) => relative.startsWith(`${directory}/`) && relative.length > directory.length + 1);
 }
@@ -99,8 +109,8 @@ export function verifyBackupSnapshot(snapshot: string): BackupManifest {
   for (const entry of manifest.files) {
     if (typeof entry.path !== "string" || entry.path.length === 0 || entry.path.includes("..") || path.isAbsolute(entry.path) || !isManagedBackupPath(entry.path) || seen.has(entry.path) || !/^[a-f0-9]{64}$/u.test(entry.sha256) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) throw new Error("Backup manifest file entry is invalid");
     seen.add(entry.path);
-    const location = path.resolve(snapshot, ...entry.path.split("/"));
-    if (!location.startsWith(path.resolve(snapshot) + path.sep) || !fs.existsSync(location) || fs.lstatSync(location).isSymbolicLink()) throw new Error("Backup file is unavailable");
+    const location = assertNoSymlinkPath(snapshot, entry.path);
+    if (!location.startsWith(path.resolve(snapshot) + path.sep) || !fs.statSync(location).isFile()) throw new Error("Backup file is unavailable");
     const actual = digest(location);
     if (actual.bytes !== entry.bytes || actual.sha256 !== entry.sha256) throw new Error("Backup file digest mismatch");
   }
@@ -118,7 +128,7 @@ export function restoreBackupSnapshot(snapshot: string, targetDataDir: string): 
   const temporary = `${target}.restore-${crypto.randomUUID()}`;
   fs.mkdirSync(temporary, { recursive: true });
   try {
-    for (const entry of manifest.files) copyFile(path.join(snapshot, ...entry.path.split("/")), path.join(temporary, ...entry.path.split("/")));
+    for (const entry of manifest.files) copyFile(assertNoSymlinkPath(snapshot, entry.path), path.join(temporary, ...entry.path.split("/")));
     fs.renameSync(temporary, target);
     return manifest;
   } catch (error) {

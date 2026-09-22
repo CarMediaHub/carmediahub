@@ -62,6 +62,18 @@ test("rejects manifest paths outside the managed state allowlist", () => {
   assert.throws(() => verifyBackupSnapshot(snapshot), /manifest file entry is invalid/);
 });
 
+test("rejects symlinked parent directories inside a snapshot", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-backup-"));
+  const snapshot = path.join(root, "snapshot");
+  const outside = path.join(root, "outside");
+  fs.mkdirSync(snapshot, { recursive: true });
+  fs.mkdirSync(outside, { recursive: true });
+  fs.writeFileSync(path.join(outside, "manifest.json"), "outside");
+  fs.symlinkSync(outside, path.join(snapshot, "plugins"), "junction");
+  fs.writeFileSync(path.join(snapshot, "backup-manifest.json"), JSON.stringify({ schemaVersion: 1, product: "carmediahub-core", source: "offline-snapshot", createdAt: new Date().toISOString(), files: [{ path: "plugins/manifest.json", bytes: 7, sha256: "0".repeat(64) }] }));
+  assert.throws(() => verifyBackupSnapshot(snapshot), /symbolic link/);
+});
+
 test("rejects symbolic links in managed backup directories", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-backup-"));
   const dataDir = path.join(root, "data");
