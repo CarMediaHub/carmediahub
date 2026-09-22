@@ -14,6 +14,8 @@
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
     "test:deployment": "node --test scripts/validate-deployment.test.mjs",
+    "check:native-bundle": "node scripts/validate-native-bundle.mjs",
+    "test:native-bundle": "node --test scripts/validate-native-bundle.test.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "tsx --test src/**/*.test.ts",
     "test:coverage": "tsx --test --experimental-test-coverage src/**/*.test.ts"
