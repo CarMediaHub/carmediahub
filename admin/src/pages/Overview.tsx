@@ -4,7 +4,7 @@ import { Button, Space, Statistic, Tag } from "antd";
 import { useEffect, useState } from "react";
 
 type Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };
-type Component = { id: string; displayName: string; kind: string; version: string; status: string; executablePath: string };
+type Component = { id: string; displayName: string; kind: string; version: string; status: string; executable: string };
 
 export default function Overview() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -14,7 +14,7 @@ export default function Overview() {
     <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}><Button href="/admin/audit" icon={<AuditOutlined />}>Audit events</Button>
       <ProCard split="vertical"><Statistic title="Applications" value={applications.length} /><Statistic title="Managed components" value={components.length} /><Statistic title="Gateway" value="Healthy" /></ProCard>
       <ProCard title="Applications"><ProTable<Application> rowKey="id" search={false} options={false} dataSource={applications} columns={[{ title: "Name", dataIndex: "name" }, { title: "Category", dataIndex: "category" }, { title: "Route", dataIndex: "route" }, { title: "Vehicle", dataIndex: "vehicleSupported", render: (_, row) => row.vehicleSupported ? <Tag color="green">Supported</Tag> : <Tag>Desktop</Tag> }]} /></ProCard>
-      <ProCard title="Managed component catalog"><ProTable<Component> rowKey="id" search={false} options={false} dataSource={components} columns={[{ title: "Component", dataIndex: "displayName" }, { title: "Kind", dataIndex: "kind" }, { title: "Version", dataIndex: "version" }, { title: "Status", dataIndex: "status" }, { title: "Path", dataIndex: "executablePath" }]} /></ProCard>
+      <ProCard title="Managed component catalog"><ProTable<Component> rowKey="id" search={false} options={false} dataSource={components} columns={[{ title: "Component", dataIndex: "displayName" }, { title: "Kind", dataIndex: "kind" }, { title: "Version", dataIndex: "version" }, { title: "Status", dataIndex: "status" }, { title: "Executable identifier", dataIndex: "executable" }]} /></ProCard>
     </Space>
   </ProLayout>;
 }
