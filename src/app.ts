@@ -4,7 +4,7 @@ import path from "node:path";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
-import { Repository, type UserRecord } from "./repository.js";
+import { Repository, type UserRecord, type VerifiedPluginPackageRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 import { loadComponentCatalog, resolveInstalledExecutable } from "./components.js";
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
@@ -260,10 +260,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       return installation === undefined ? undefined : { packageId: installation.packageId, status: installation.status };
     }
   });
-  for (const verified of repository.verifiedPluginPackages()) {
+  const registerVerifiedPluginRuntime = (verified: VerifiedPluginPackageRecord): void => {
+    if (supervisor.hasFactory(verified.packageId)) return;
     if (verified.workerEntry !== undefined) supervisor.register(createTrustedNodeWorkerFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), workerEntry: verified.workerEntry }));
     else if (verified.runtimeEntry !== undefined) supervisor.register(createTrustedSharedAdapterFactory({ packageId: verified.packageId, packageRoot: path.resolve(options.dataDir, verified.location), runtimeEntry: verified.runtimeEntry }));
-  }
+  };
+  for (const verified of repository.verifiedPluginPackages()) registerVerifiedPluginRuntime(verified);
   for (const workerPackage of options.trustedWorkerPackages ?? []) supervisor.register(createTrustedNodeWorkerFactory(workerPackage));
   for (const adapterPackage of options.trustedSharedAdapterPackages ?? []) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
@@ -724,6 +726,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (repository.pluginInstallationByPackage(release.manifest.id, release.manifest.version) !== undefined) return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
       const verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
       if (verified !== undefined) {
+        registerVerifiedPluginRuntime(verified);
         const installation = repository.installPlugin(release.manifest);
         repository.audit(user.id, "plugin.package.recovered", `${verified.packageId}@${verified.packageVersion}`);
         return reply.code(201).send({ package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location }, installation });

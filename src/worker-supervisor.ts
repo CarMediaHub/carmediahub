@@ -60,6 +60,10 @@ export class WorkerSupervisor {
     this.factories.set(factory.packageId, factory);
   }
 
+  hasFactory(packageId: string): boolean {
+    return this.factories.has(packageId);
+  }
+
   status(installationId: string): WorkerStatus {
     const worker = this.workers.get(installationId);
     const installation = this.options.installation(installationId);
