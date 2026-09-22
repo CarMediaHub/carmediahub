@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -488,6 +489,47 @@ test("runs the browser contract Worker through Core Broker and enforces capabili
     afterDenied.close();
   } finally {
     await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("routes the Mihomo Web Bridge through a scoped Core service binding", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-mihomo-bridge-"));
+  const upstream = http.createServer((request, response) => {
+    if (request.url !== "/configs") { response.writeHead(404); response.end(); return; }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ mode: "rule", source: "local-fixture" }));
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const address = upstream.address();
+  assert.ok(address !== null && typeof address !== "string");
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const packageRoot = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "adapters", "mihomo-web-bridge", "src");
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages: [{ packageId: "mihomo-web-bridge", packageRoot, workerEntry: "./worker.js" }] });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const manifest = { id: "mihomo-web-bridge", version: "0.1.0", sdk: "^0.1.0", name: { en: "Mihomo Web Bridge", "zh-CN": "Mihomo Web 兼容桥", ko: "Mihomo Web 브리지" }, description: { en: "Bounded bridge", "zh-CN": "受限桥接", ko: "제한된 브리지" }, category: "adapter", runtime: "isolated-worker", capabilities: ["gateway", "network"], routes: [{ path: "/", methods: ["GET", "HEAD"] }, { path: "/health", methods: ["GET", "HEAD"] }, { path: "/proxy", methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const keyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
+    const release = { keyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
+    const installed = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
+    assert.equal(installed.statusCode, 201);
+    const installationId = (installed.json() as { installation: { id: string } }).installation.id;
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "mihomo", version: "1.0.0", executable: "mihomo/mihomo", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "mihomo", name: "mihomo-web", endpoint: `http://127.0.0.1:${address.port}`, installationId } })).statusCode, 201);
+    const response = await app.inject({ method: "GET", url: `/apps/mihomo-web-bridge/${installationId}/proxy?path=%2Fconfigs`, headers: { cookie, accept: "application/json", authorization: "must-not-forward" } });
+    assert.equal(response.statusCode, 200);
+    const encodedPayload = JSON.parse(response.rawPayload.toString("utf8")) as { type?: string; data?: number[] };
+    assert.equal(encodedPayload.type, "Buffer");
+    assert.deepEqual(JSON.parse(Buffer.from(encodedPayload.data ?? []).toString("utf8")), { mode: "rule", source: "local-fixture" });
+    const denied = await app.inject({ method: "GET", url: `/apps/mihomo-web-bridge/${installationId}/proxy?path=%2Ftraffic`, headers: { cookie } });
+    assert.equal(denied.statusCode, 400);
+    assert.equal(denied.json().code, "CMH.MIHOMO.PATH_NOT_ALLOWED");
+  } finally {
+    await app.close();
+    await new Promise<void>((resolve, reject) => upstream.close((error) => error === undefined ? resolve() : reject(error)));
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
