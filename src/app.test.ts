@@ -27,6 +27,9 @@ test("component health checks verify the managed file digest without executing i
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
+    const catalog = await app.inject({ method: "GET", url: "/api/components/catalog", headers: { cookie } });
+    assert.equal(catalog.statusCode, 200);
+    assert.equal((catalog.json().components as Array<{ executablePath?: string; executable: string }>).some((component) => component.executablePath !== undefined || path.isAbsolute(component.executable)), false);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: `sha256:${digest}` } })).statusCode, 201);
     const healthy = await app.inject({ method: "POST", url: "/api/components/alist/health", headers: { cookie } });
     assert.equal(healthy.statusCode, 200);

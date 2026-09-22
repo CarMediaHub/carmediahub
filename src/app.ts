@@ -6,7 +6,7 @@ import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
 import { Repository, type UserRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
-import { loadComponentCatalog, resolveInstalledExecutable, resolveManagedExecutable } from "./components.js";
+import { loadComponentCatalog, resolveInstalledExecutable } from "./components.js";
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
@@ -482,7 +482,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/components/catalog", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { components: catalog.map((component) => ({ ...component, executablePath: resolveManagedExecutable(options.dataDir, component) })) };
+    return user === undefined ? undefined : { components: catalog.map(({ executable: _executablePath, ...component }) => ({ ...component, executable: _executablePath })) };
   });
 
   app.get("/api/media-roots", async (request, reply) => {
