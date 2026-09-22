@@ -176,3 +176,23 @@ test("job executor propagates scoped cancellation and ignores late completion", 
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("job executor drains only a bounded FIFO batch", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-drain-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const created = [jobs.enqueue(scope, "media.transcode", { n: 1 }), jobs.enqueue(scope, "media.transcode", { n: 2 }), jobs.enqueue(scope, "media.transcode", { n: 3 })];
+    executor.register("media.transcode", (job) => ({ n: (job.payload as { n: number }).n }));
+    assert.deepEqual((await executor.runUntilIdle(scope, 2)).map((job) => job.id), created.slice(0, 2).map((job) => job.id));
+    assert.equal(jobs.list(scope).filter((job) => job.status === "queued").length, 1);
+    await assert.rejects(() => executor.runUntilIdle(scope, 0));
+    assert.equal((await executor.runUntilIdle(scope)).length, 1);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

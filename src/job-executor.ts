@@ -37,6 +37,18 @@ export class JobExecutor {
     }
   }
 
+  /** Runs a bounded FIFO batch; callers own the scheduling cadence. */
+  async runUntilIdle(scope: ScopeContext, maxJobs = 10): Promise<readonly PluginJob[]> {
+    if (!Number.isSafeInteger(maxJobs) || maxJobs < 1 || maxJobs > 100) throw new Error("maxJobs is invalid");
+    const completed: PluginJob[] = [];
+    for (let index = 0; index < maxJobs; index += 1) {
+      const result = await this.runOnce(scope);
+      if (result === undefined) break;
+      completed.push(result);
+    }
+    return completed;
+  }
+
   /** Requests cooperative cancellation and closes the persisted job state. */
   cancel(scope: ScopeContext, id: string): PluginJob | undefined {
     this.active.get(this.key(scope, id))?.abort();
