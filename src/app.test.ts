@@ -464,6 +464,12 @@ test("administrator installs only a signed staged plugin package", async () => {
     assert.ok(installation.id.startsWith("plugin_"));
     assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie: login.headers["set-cookie"] } })).json().installations.length, 1);
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie: login.headers["set-cookie"] } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
+    const broken = openDatabase(dataDir);
+    broken.db.prepare("DELETE FROM applications WHERE installation_id = ?").run(installation.id);
+    broken.db.prepare("DELETE FROM plugin_installations WHERE id = ?").run(installation.id);
+    broken.close();
+    const recovered = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
+    assert.equal(recovered.statusCode, 201);
     const duplicate = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(duplicate.statusCode, 409);
     assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie: login.headers["set-cookie"] } })).json().installations.length, 1);

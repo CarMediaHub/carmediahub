@@ -721,7 +721,13 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
-      if (repository.pluginInstallationByPackage(release.manifest.id, release.manifest.version) !== undefined || repository.verifiedPluginPackages().some((item) => item.packageId === release.manifest.id)) return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
+      if (repository.pluginInstallationByPackage(release.manifest.id, release.manifest.version) !== undefined) return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
+      const verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
+      if (verified !== undefined) {
+        const installation = repository.installPlugin(release.manifest);
+        repository.audit(user.id, "plugin.package.recovered", `${verified.packageId}@${verified.packageVersion}`);
+        return reply.code(201).send({ package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location }, installation });
+      }
       const workerEntry = release.manifest.worker?.entry;
       const runtimeEntry = release.manifest.runtimeEntry?.entry;
       if (release.manifest.runtime === "isolated-worker" && workerEntry === undefined) throw new Error("Isolated plugin package has no worker entry");

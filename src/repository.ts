@@ -312,6 +312,10 @@ export class Repository {
       .map((row) => ({ packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", digest: row.digest ?? "", location: row.location ?? "", ...(row.worker_entry === null || row.worker_entry === "" ? {} : { workerEntry: row.worker_entry }), ...(row.runtime_entry === null ? {} : { runtimeEntry: row.runtime_entry }), verifiedAt: row.verified_at ?? "" }));
   }
 
+  verifiedPluginPackage(packageId: string, packageVersion: string): VerifiedPluginPackageRecord | undefined {
+    return this.verifiedPluginPackages().find((item) => item.packageId === packageId && item.packageVersion === packageVersion);
+  }
+
   disablePlugin(installationId: string): boolean {
     const current = this.db.prepare("SELECT id FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId);
     if (current === undefined) return false;
