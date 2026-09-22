@@ -208,8 +208,10 @@ export class Repository {
 
   revokeBrowserSession(scope: ScopeContext, sessionId: string): boolean {
     if (!/^browser_[0-9a-f-]{36}$/u.test(sessionId)) return false;
-    return this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status <> 'revoked'")
-      .run(sessionId, scope.organizationId, scope.userId, scope.installationId).changes === 1;
+    const result = this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status <> 'revoked'")
+      .run(sessionId, scope.organizationId, scope.userId, scope.installationId);
+    if (result.changes === 1) this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE session_id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status IN ('queued', 'running')").run(now(), sessionId, scope.organizationId, scope.userId, scope.installationId);
+    return result.changes === 1;
   }
 
   revokeBrowserSessionsForInstallation(installationId: string): number {

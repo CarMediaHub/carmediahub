@@ -76,19 +76,23 @@ test("browser sessions are opaque, bounded, persistent, and isolated by user and
     const persisted = repository.createBrowserSession(firstScope, { name: "persisted", purpose: "restart check" });
     const task = repository.createBrowserTask(firstScope, { sessionId: persisted.id, kind: "navigate-and-capture", input: { target: "fixture", label: "Restart" } });
     assert.equal(task.status, "queued");
+    assert.equal(repository.revokeBrowserSession(firstScope, persisted.id), true);
+    assert.equal(repository.browserTasks(firstScope).find((item) => item.id === task.id)?.status, "cancelled");
+    const persistedReplacement = repository.createBrowserSession(firstScope, { name: "persisted-replacement", purpose: "restart check" });
+    const replacementTask = repository.createBrowserTask(firstScope, { sessionId: persistedReplacement.id, kind: "navigate-and-capture", input: { target: "fixture" } });
     assert.equal(repository.browserTasks(secondUserScope).length, 0);
-    assert.equal(repository.cancelBrowserTask(secondUserScope, task.id), undefined);
+    assert.equal(repository.cancelBrowserTask(secondUserScope, replacementTask.id), undefined);
     database.close();
     const reopened = openDatabase(dataDir);
     try {
       const afterRestart = new Repository(reopened.db, ensureServerKey(dataDir));
       const restoredScope = afterRestart.runtimeScope(admin.id, first.id);
       assert.ok(restoredScope);
-      assert.equal(afterRestart.browserSessions(restoredScope).some((item) => item.id === persisted.id), true);
-      assert.equal(afterRestart.browserTasks(restoredScope).some((item) => item.id === task.id), true);
+      assert.equal(afterRestart.browserSessions(restoredScope).some((item) => item.id === persistedReplacement.id), true);
+      assert.equal(afterRestart.browserTasks(restoredScope).some((item) => item.id === replacementTask.id), true);
       assert.equal(afterRestart.disablePlugin(first.id), true);
-      assert.equal(afterRestart.browserSessions(restoredScope).find((item) => item.id === persisted.id)?.status, "revoked");
-      assert.equal(afterRestart.browserTasks(restoredScope).find((item) => item.id === task.id)?.status, "cancelled");
+      assert.equal(afterRestart.browserSessions(restoredScope).find((item) => item.id === persistedReplacement.id)?.status, "revoked");
+      assert.equal(afterRestart.browserTasks(restoredScope).find((item) => item.id === replacementTask.id)?.status, "cancelled");
     } finally { reopened.close(); }
   } finally { try { database.close(); } catch {} fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
