@@ -100,6 +100,14 @@ export function cleanupExpiredTransformOutputs(db: DatabaseSync, dataDir: string
   return rows.length + hlsRows.length;
 }
 
+export function revokeHlsForUser(db: DatabaseSync, userId: string): void {
+  db.prepare("UPDATE media_hls_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(new Date().toISOString(), userId);
+}
+
+export function revokeHlsForInstallation(db: DatabaseSync, installationId: string): void {
+  db.prepare("UPDATE media_hls_sessions SET revoked_at = ? WHERE installation_id = ? AND revoked_at IS NULL").run(new Date().toISOString(), installationId);
+}
+
 export function readTransformOutput(db: DatabaseSync, dataDir: string, scope: ScopeContext, outputId: string, start: number, end: number): TransformOutputRead {
   if (!/^transform_[A-Za-z0-9-]{20,80}$/u.test(outputId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Transform output range is invalid");
   const row = db.prepare("SELECT file_name, content_type, bytes FROM media_transform_outputs WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(outputId, scope.organizationId, scope.userId, scope.installationId, new Date().toISOString()) as { file_name?: string; content_type?: string; bytes?: number } | undefined;

@@ -9,7 +9,7 @@ import { openDatabase } from "./database.js";
 import { JobExecutor } from "./job-executor.js";
 import { PluginJobService } from "./job-service.js";
 import { MediaLibraryService } from "./media-library-service.js";
-import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 
 const ffmpegCandidates = process.platform === "win32"
   ? ["F:/dev_env/bin/ffmpeg.exe"]
@@ -48,7 +48,7 @@ test("runs a verified FFmpeg remux through the scoped media job", { skip: ffmpeg
     database.db.prepare("UPDATE media_transform_outputs SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", outputId);
     assert.equal(cleanupExpiredTransformOutputs(database.db, dataDir, "2026-01-01T00:00:00.000Z"), 1);
     assert.throws(() => readTransformOutput(database.db, dataDir, scope, outputId, 0, 10), /unavailable/);
-    assert.equal(jobs.list(scope)[0]?.id, job.id);
+    assert.equal(jobs.list(scope).some((candidate) => candidate.id === job.id), true);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
@@ -88,10 +88,20 @@ test("runs a scoped HLS job and reads only validated playlist and segment assets
     assert.equal(segmentData.contentType, "video/mp2t");
     assert.ok(Buffer.from(segmentData.data, "base64").byteLength > 0);
     assert.throws(() => readHlsAsset(database.db, dataDir, scope, result.sessionId, "../secret", 0, 10), /invalid/);
-    database.db.prepare("UPDATE media_hls_sessions SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", result.sessionId);
-    assert.equal(cleanupExpiredTransformOutputs(database.db, dataDir, "2026-01-01T00:00:00.000Z"), 1);
+    revokeHlsForInstallation(database.db, "other-installation");
+    assert.doesNotThrow(() => readHlsAsset(database.db, dataDir, scope, result.sessionId, result.playlistAsset, 0, 10));
+    revokeHlsForUser(database.db, "user");
     assert.throws(() => readHlsAsset(database.db, dataDir, scope, result.sessionId, result.playlistAsset, 0, 10), /unavailable/);
-    assert.equal(jobs.list(scope)[0]?.id, job.id);
+    const second = jobs.enqueueHls(scope, { mediaId: item.id, segmentDurationSeconds: 2 });
+    const secondCompleted = await executor.runOnce(scope);
+    assert.equal(secondCompleted?.status, "succeeded");
+    const secondSession = (secondCompleted?.result as { sessionId: string }).sessionId;
+    database.db.prepare("UPDATE media_hls_sessions SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", result.sessionId);
+    database.db.prepare("UPDATE media_hls_sessions SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", secondSession);
+    assert.equal(cleanupExpiredTransformOutputs(database.db, dataDir, "2026-01-01T00:00:00.000Z"), 2);
+    assert.throws(() => readHlsAsset(database.db, dataDir, scope, result.sessionId, result.playlistAsset, 0, 10), /unavailable/);
+    assert.equal(jobs.list(scope).some((candidate) => candidate.id === job.id), true);
+    assert.equal(jobs.list(scope).some((candidate) => candidate.id === second.id), true);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

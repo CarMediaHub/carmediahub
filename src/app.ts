@@ -24,7 +24,7 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
-import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
@@ -350,7 +350,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (request.cookies.cmh_session !== undefined) {
       const session = repository.sessionContext(request.cookies.cmh_session);
       repository.revokeSession(request.cookies.cmh_session);
-      if (session !== undefined) mediaLibrary.revokePlaybackForUser(session.user.id);
+      if (session !== undefined) { mediaLibrary.revokePlaybackForUser(session.user.id); revokeHlsForUser(database.db, session.user.id); }
     }
     reply.clearCookie("cmh_session", { path: "/" });
     return reply.code(204).send();
@@ -515,6 +515,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (result === "last_admin") return reply.code(409).send({ code: "CMH.USER.LAST_ADMIN", messageKey: "errors.user.lastAdmin" });
     if (result === "not_found") return reply.code(404).send({ code: "CMH.USER.NOT_FOUND", messageKey: "errors.user.notFound" });
     mediaLibrary.revokePlaybackForUser((request.params as { id: string }).id);
+    revokeHlsForUser(database.db, (request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
   });
@@ -713,6 +714,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const installationId = (request.params as { id: string }).id;
     if (!repository.disablePlugin(installationId)) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
     mediaLibrary.revokePlaybackForInstallation(installationId);
+    revokeHlsForInstallation(database.db, installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();
