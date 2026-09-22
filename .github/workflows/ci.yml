@@ -42,3 +42,29 @@ jobs:
       - run: pnpm check:native-bundle
       - run: pnpm test:native-service
       - run: pnpm test:native-linux-service
+      - name: Build the Docker image from the sibling SDK checkout
+        working-directory: ..
+        run: docker build --tag carmediahub/core:ci --file carmediahub/Dockerfile .
+      - name: Start a hardened Core container
+        working-directory: ..
+        shell: bash
+        run: |
+          set -euo pipefail
+          data_dir="$RUNNER_TEMP/carmediahub-data"
+          mkdir -p "$data_dir"
+          docker run --detach --rm --name carmediahub-core-ci \
+            --publish 127.0.0.1:8787:8787 \
+            --volume "$data_dir:/var/lib/carmediahub" \
+            --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges:true \
+            carmediahub/core:ci
+          trap 'docker logs carmediahub-core-ci || true; docker stop carmediahub-core-ci || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8787/health/live >/dev/null; then
+              curl --fail --silent http://127.0.0.1:8787/health/ready >/dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Core container did not become ready" >&2
+          exit 1
