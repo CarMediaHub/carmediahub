@@ -481,7 +481,8 @@ test("runs the browser contract Worker through Core Broker and enforces capabili
     assert.equal(deniedInstall.statusCode, 201);
     const deniedId = (deniedInstall.json() as { installation: { id: string } }).installation.id;
     const denied = await app.inject({ method: "GET", url: `/apps/browser-session-no-capability/${deniedId}/session`, headers: { cookie } });
-    assert.ok(denied.statusCode >= 400);
+    assert.equal(denied.statusCode, 503);
+    assert.equal(denied.json().code, "CMH.GATEWAY.WORKER_UNAVAILABLE");
     const afterDenied = openDatabase(dataDir);
     assert.equal((afterDenied.db.prepare("SELECT COUNT(*) AS count FROM browser_sessions WHERE installation_id = ?").get(deniedId) as { count: number }).count, 0);
     afterDenied.close();
