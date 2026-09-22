@@ -30,3 +30,10 @@ docker compose -f carmediahub/compose.yaml up --build
 ```
 
 Compose 포트는 의도적으로 `127.0.0.1`에만 바인딩되며 Core 명령은 Secure Cookie를 요구합니다. 운영자가 관리하는 리버스 프록시에서 TLS를 종료하고 공개 주소를 노출하세요. 다른 프로덕션 실행 방식에서는 `--public-url https://hub.example.com` 또는 `--cookie-secure`를 전달합니다.
+
+오프라인 백업과 복구는 명시적인 명령으로 실행합니다. 스냅샷을 만들기 전에 Core를 중지하고, 복구는 새로운 빈 디렉터리에만 수행합니다.
+
+```powershell
+pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
+pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
+```

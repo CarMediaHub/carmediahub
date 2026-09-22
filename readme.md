@@ -27,6 +27,13 @@ The Compose port is intentionally bound to `127.0.0.1` and its Core command requ
 
 The Core does not require runtime environment variables or executables discovered through `PATH`. Components such as AList, rclone and FFmpeg are registered through versioned managed-component metadata and explicit service bindings. Their full packaged adapters are delivered in later milestones.
 
+Offline backup and restore use explicit commands. Stop Core before creating a snapshot; restore only targets a new empty directory:
+
+```powershell
+pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
+pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
+```
+
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
 ```powershell

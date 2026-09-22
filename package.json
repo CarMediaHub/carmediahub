@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "tsx watch src/cli.ts -- --data-dir ./data",
     "start": "tsx src/cli.ts",
+    "backup": "tsx src/backup-cli.ts",
     "build": "tsc -p tsconfig.json",
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
