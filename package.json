@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
+    "test:deployment": "node --test scripts/validate-deployment.test.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "tsx --test src/**/*.test.ts",
     "test:coverage": "tsx --test --experimental-test-coverage src/**/*.test.ts"
