@@ -75,7 +75,7 @@ function isManagedBackupPath(relative: string): boolean {
 
 /** Creates an offline, atomic snapshot of Core-owned state. Stop Core before calling this. */
 export function createBackupSnapshot(dataDir: string, destination: string): BackupManifest {
-  if (!fs.existsSync(dataDir) || !fs.statSync(dataDir).isDirectory()) throw new Error("Backup data directory is unavailable");
+  if (!fs.existsSync(dataDir) || fs.lstatSync(dataDir).isSymbolicLink() || !fs.statSync(dataDir).isDirectory()) throw new Error("Backup data directory is unavailable");
   assertDestination(dataDir, destination);
   if (fs.existsSync(destination)) throw new Error("Backup destination already exists");
   const temporary = `${path.resolve(destination)}.tmp-${crypto.randomUUID()}`;

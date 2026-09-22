@@ -99,3 +99,14 @@ test("rejects symbolic links in managed backup directories", () => {
   fs.symlinkSync(path.join(root, "outside"), path.join(dataDir, "components", "link"), "junction");
   assert.throws(() => createBackupSnapshot(dataDir, path.join(root, "snapshot")), /symbolic links/);
 });
+
+test("rejects a symlinked backup data directory", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-backup-data-"));
+  const real = path.join(root, "real");
+  const linked = path.join(root, "linked");
+  fs.mkdirSync(real, { recursive: true });
+  fs.writeFileSync(path.join(real, "carmediahub.sqlite"), "state");
+  try { fs.symlinkSync(real, linked, "junction"); } catch { fs.rmSync(root, { recursive: true, force: true }); return; }
+  try { assert.throws(() => createBackupSnapshot(linked, path.join(root, "snapshot")), /data directory is unavailable/); }
+  finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
