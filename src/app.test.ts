@@ -447,13 +447,17 @@ test("administrator installs only a signed staged plugin package", async () => {
   const publicKey = pair.publicKey.export({ type: "spki", format: "pem" }).toString();
   const source = path.join(dataDir, "staging", "plugins", "wdr-build");
   fs.mkdirSync(path.join(source, "ui"), { recursive: true });
-  fs.writeFileSync(path.join(source, "worker.js"), "export {};\n");
+  const wdrWorker = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "official", "wdr-media", "src", "worker.js");
+  fs.copyFileSync(wdrWorker, path.join(source, "worker.js"));
+  fs.mkdirSync(path.join(source, "node_modules", "@carmediahub", "sdk"), { recursive: true });
+  fs.writeFileSync(path.join(source, "node_modules", "@carmediahub", "sdk", "package.json"), JSON.stringify({ type: "module", exports: { ".": "./dist/index.js" } }));
+  fs.cpSync(path.resolve(import.meta.dirname, "..", "..", "carmediahub-sdk", "dist"), path.join(source, "node_modules", "@carmediahub", "sdk", "dist"), { recursive: true });
   fs.writeFileSync(path.join(source, "ui", "index.html"), "<main></main>\n");
   const app = await createApp({ dataDir, pluginTrustKeys: [publicKey] });
   try {
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
-    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db"], routes: [{ path: "/", methods: ["GET"] }, { path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
     const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
     const unsigned = { keyId, manifest, artifact: { id: "wdr-build", digest: pluginPackageDigest(source) } };
     const release = { ...unsigned, signature: crypto.sign(null, canonicalPluginPackageRelease(unsigned), pair.privateKey).toString("base64") };
@@ -470,6 +474,9 @@ test("administrator installs only a signed staged plugin package", async () => {
     broken.close();
     const recovered = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(recovered.statusCode, 201);
+    const recoveredHealth = await app.inject({ method: "GET", url: `/apps/wdr-media/${recovered.json().installation.id}/health`, headers: { cookie: login.headers["set-cookie"] } });
+    assert.equal(recoveredHealth.statusCode, 200);
+    assert.equal(recoveredHealth.json().worker, "wdr-media");
     const duplicate = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(duplicate.statusCode, 409);
     assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie: login.headers["set-cookie"] } })).json().installations.length, 1);
