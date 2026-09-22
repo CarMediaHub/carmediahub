@@ -151,3 +151,28 @@ test("job executor claims only registered types and records bounded outcomes", a
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("job executor propagates scoped cancellation and ignores late completion", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-cancel-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const job = jobs.enqueue(scope, "media.transcode", { source: "cancel" });
+    let observedAbort = false;
+    executor.register("media.transcode", (_job, _scope, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => { observedAbort = true; reject(new Error("cancelled")); }, { once: true });
+    }));
+    const running = executor.runOnce(scope);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(executor.cancel(scope, job.id)?.status, "cancelled");
+    assert.equal((await running), undefined);
+    assert.equal(observedAbort, true);
+    assert.equal(jobs.list(scope)[0]?.status, "cancelled");
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

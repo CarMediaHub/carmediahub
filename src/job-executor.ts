@@ -4,11 +4,12 @@ import { PluginJobService, type PluginJob } from "./job-service.js";
 export const JOB_EXECUTION_FAILED = "CMH.JOBS.EXECUTION_FAILED";
 export const JOB_HANDLER_MISSING = "CMH.JOBS.NO_HANDLER";
 
-export type JobHandler = (job: PluginJob, scope: ScopeContext) => Promise<unknown> | unknown;
+export type JobHandler = (job: PluginJob, scope: ScopeContext, signal: AbortSignal) => Promise<unknown> | unknown;
 
 /** Core-owned dispatcher. Handlers are explicit code registrations, never commands from a manifest. */
 export class JobExecutor {
   private readonly handlers = new Map<string, JobHandler>();
+  private readonly active = new Map<string, AbortController>();
 
   constructor(private readonly jobs: PluginJobService) {}
 
@@ -23,11 +24,26 @@ export class JobExecutor {
     if (job === undefined) return undefined;
     const handler = this.handlers.get(job.type);
     if (handler === undefined) return this.jobs.transition(scope, job.id, "failed", { errorCode: JOB_HANDLER_MISSING });
+    const controller = new AbortController();
+    const key = this.key(scope, job.id);
+    this.active.set(key, controller);
     try {
-      const result = await handler(job, scope);
+      const result = await handler(job, scope, controller.signal);
       return this.jobs.transition(scope, job.id, "succeeded", { progress: 100, result });
     } catch {
       return this.jobs.transition(scope, job.id, "failed", { errorCode: JOB_EXECUTION_FAILED });
+    } finally {
+      this.active.delete(key);
     }
+  }
+
+  /** Requests cooperative cancellation and closes the persisted job state. */
+  cancel(scope: ScopeContext, id: string): PluginJob | undefined {
+    this.active.get(this.key(scope, id))?.abort();
+    return this.jobs.transition(scope, id, "cancelled");
+  }
+
+  private key(scope: ScopeContext, id: string): string {
+    return `${scope.organizationId}\0${scope.userId}\0${scope.installationId}\0${id}`;
   }
 }
