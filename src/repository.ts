@@ -231,6 +231,7 @@ export class Repository {
     const route = `/apps/${manifest.id}/${installationId}`;
     this.db.exec("BEGIN IMMEDIATE;");
     try {
+      if (this.db.prepare("SELECT 1 FROM plugin_installations WHERE package_id = ? AND package_version = ? LIMIT 1").get(manifest.id, manifest.version) !== undefined) throw new Error("Plugin package already installed");
       this.db.prepare("INSERT INTO plugin_installations (id, package_id, package_version, runtime, manifest_json, granted_capabilities, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(installationId, manifest.id, manifest.version, manifest.runtime, JSON.stringify(manifest), JSON.stringify(manifest.capabilities), "installed", createdAt, createdAt);
       this.addApplication({ name: manifest.name.en, category: manifest.category, route, installationId, vehicleSupported: manifest.ui?.vehicleSupported ?? false });
