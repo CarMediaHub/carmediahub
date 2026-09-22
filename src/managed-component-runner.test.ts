@@ -34,6 +34,7 @@ test("rejects unsafe identities, arguments and unavailable files", async () => {
     await assert.rejects(runManagedComponent(dataDir, { ...component, executable: "fixture/1.0.0/missing" }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.EXECUTABLE_UNAVAILABLE");
     fs.appendFileSync(path.join(dataDir, "components", "fixture", "1.0.0", path.basename(component.executable)), "tampered");
     await assert.rejects(runManagedComponent(dataDir, component), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.DIGEST_MISMATCH");
+    await assert.rejects(runManagedComponent(dataDir, { ...component, executable: "fixture/1.0.0/missing", checksum: component.checksum }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.EXECUTABLE_UNAVAILABLE" && !String(error).includes(dataDir));
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

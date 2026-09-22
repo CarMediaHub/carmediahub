@@ -38,10 +38,11 @@ export function runManagedComponent(dataDir: string, component: ManagedComponent
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 600_000 || !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1024 || maxOutputBytes > 16 * 1024 * 1024) return Promise.reject(runError("CMH.COMPONENT.LIMIT_INVALID"));
   let executable: string;
   try { executable = resolveInstalledExecutable(dataDir, component); } catch { return Promise.reject(runError("CMH.COMPONENT.EXECUTABLE_UNAVAILABLE")); }
-  return sha256File(executable).then((actual) => {
+  return sha256File(executable).catch(() => { throw runError("CMH.COMPONENT.EXECUTABLE_UNAVAILABLE"); }).then((actual) => {
     if (actual !== component.checksum) throw runError("CMH.COMPONENT.DIGEST_MISMATCH");
     if (options.signal?.aborted) throw runError("CMH.CANCELLED");
     return new Promise<ManagedRunResult>((resolve, reject) => {
+    if (options.signal?.aborted) { reject(runError("CMH.CANCELLED")); return; }
     let child: ChildProcess;
     try {
       child = spawn(executable, [...args], { cwd: path.resolve(dataDir), env: {}, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
