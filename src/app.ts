@@ -23,8 +23,9 @@ import { HistoryService } from "./history-service.js";
 import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
+import { JobExecutor } from "./job-executor.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -94,6 +95,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
   jobs.recoverInterrupted();
+  const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
@@ -578,7 +580,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const params = request.params as { id: string; jobId: string };
     const scope = session === undefined ? undefined : repository.runtimeScope(user.id, params.id, session.sessionId, session.deviceLabel);
     if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
-    const job = jobs.transition(scope, params.jobId, "cancelled");
+    const job = jobExecutor.cancel(scope, params.jobId);
     if (job === undefined) return reply.code(404).send({ code: "CMH.JOB.NOT_FOUND", messageKey: "errors.job.notFound" });
     repository.audit(user.id, "job.cancelled", job.id);
     return { job };
