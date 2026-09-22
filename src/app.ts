@@ -24,7 +24,7 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
-import { cleanupExpiredTransformOutputs, readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
@@ -547,6 +547,28 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!mediaLibrary.revoke(user.organizationId, (request.params as { id: string }).id)) return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
     repository.audit(user.id, "mediaRoot.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
+  });
+
+  app.get("/api/media/outputs/:id", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const outputId = (request.params as { id: string }).id;
+    const rangeHeader = singleHeader(request, "range");
+    const match = rangeHeader === undefined ? undefined : /^bytes=(\d+)-(\d*)$/u.exec(rangeHeader);
+    if (rangeHeader !== undefined && match === null) return reply.code(416).send({ code: "CMH.MEDIA.OUTPUT_RANGE_INVALID", messageKey: "errors.media.outputRangeInvalid" });
+    const validMatch = match === null ? undefined : match;
+    const start = validMatch === undefined ? 0 : Number(validMatch[1]);
+    const requestedEnd = validMatch === undefined || validMatch[2] === "" ? start + 262_143 : Number(validMatch[2]);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || requestedEnd < start) return reply.code(416).send({ code: "CMH.MEDIA.OUTPUT_RANGE_INVALID", messageKey: "errors.media.outputRangeInvalid" });
+    try {
+      const result = readTransformOutputForUser(database.db, options.dataDir, user.organizationId, user.id, outputId, start, requestedEnd);
+      const bytes = Buffer.from(result.data, "base64");
+      const end = start + bytes.byteLength - 1;
+      reply.header("accept-ranges", "bytes").header("content-length", String(bytes.byteLength)).header("content-range", `bytes ${start}-${end}/${result.size}`).type(result.contentType);
+      return request.method === "HEAD" ? reply.code(206).send() : reply.code(206).send(bytes);
+    } catch {
+      return reply.code(404).send({ code: "CMH.MEDIA.OUTPUT_NOT_FOUND", messageKey: "errors.media.outputNotFound" });
+    }
   });
 
   app.get("/api/components", async (request, reply) => {

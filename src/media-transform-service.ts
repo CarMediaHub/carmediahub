@@ -79,3 +79,10 @@ export function readTransformOutput(db: DatabaseSync, dataDir: string, scope: Sc
   const count = Math.min(end, size - 1) - start + 1; const handle = fs.openSync(location, "r");
   try { const bytes = Buffer.allocUnsafe(count); fs.readSync(handle, bytes, 0, count, start); return { data: bytes.toString("base64"), completed: start + count >= size, contentType: row.content_type, size }; } finally { fs.closeSync(handle); }
 }
+
+export function readTransformOutputForUser(db: DatabaseSync, dataDir: string, organizationId: string, userId: string, outputId: string, start: number, end: number): TransformOutputRead {
+  const row = db.prepare("SELECT installation_id FROM media_transform_outputs WHERE id = ? AND organization_id = ? AND user_id = ? AND expires_at > ? AND revoked_at IS NULL").get(outputId, organizationId, userId, new Date().toISOString()) as { installation_id?: string } | undefined;
+  if (row?.installation_id === undefined) throw new Error("Transform output is unavailable");
+  const scope = { deploymentId: "output", organizationId, userId, deviceId: "output", sessionId: "output", installationId: row.installation_id };
+  return readTransformOutput(db, dataDir, scope, outputId, start, end);
+}
