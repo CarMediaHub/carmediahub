@@ -218,14 +218,16 @@ test("SDK worker data API is brokered and remains scoped", async () => {
   try {
     await broker.start();
     const worker = await connectWorkerClient({ endpoint: broker.endpoint, installationId: scope.installationId, runtimeCredential: broker.issueCredential(scope) });
-    const migration = await worker.database().migrate({ version: 1, name: "initial-settings" });
-    assert.deepEqual(await worker.database().migrations(), [migration]);
-    const record = await worker.database().put("settings", "layout", { compact: true });
+    assert.ok(worker.database);
+    const databaseStore = worker.database();
+    const migration = await databaseStore.migrate({ version: 1, name: "initial-settings" });
+    assert.deepEqual(await databaseStore.migrations(), [migration]);
+    const record = await databaseStore.put("settings", "layout", { compact: true });
     assert.deepEqual(record.value, { compact: true });
-    assert.deepEqual((await worker.database().list("settings")).map((item) => item.key), ["layout"]);
-    assert.deepEqual((await worker.database().get("settings", "layout"))?.value, { compact: true });
-    assert.equal(await worker.database().delete("settings", "layout"), true);
-    assert.equal(await worker.database().get("settings", "layout"), undefined);
+    assert.deepEqual((await databaseStore.list("settings")).map((item) => item.key), ["layout"]);
+    assert.deepEqual((await databaseStore.get("settings", "layout"))?.value, { compact: true });
+    assert.equal(await databaseStore.delete("settings", "layout"), true);
+    assert.equal(await databaseStore.get("settings", "layout"), undefined);
     worker.close();
   } finally {
     await broker.stop();
