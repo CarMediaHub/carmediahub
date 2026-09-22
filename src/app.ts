@@ -132,7 +132,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if ((input.container !== undefined && (typeof input.container !== "string" || !allowedContainers.has(input.container))) || (input.videoCodec !== undefined && (typeof input.videoCodec !== "string" || !allowedVideo.has(input.videoCodec))) || (input.audioCodec !== undefined && (typeof input.audioCodec !== "string" || !allowedAudio.has(input.audioCodec)))) throw new Error("Invalid media transform profile");
         const probe = mediaLibrary.probe(scope, input.mediaId);
         if (!probe.availableModes.includes(input.mode)) throw new Error("Media transform mode is unavailable");
-        return jobs.enqueueMediaTransform(scope, `media.${input.mode}`, { mediaId: input.mediaId, mode: input.mode, ...(input.container === undefined ? {} : { container: input.container }), ...(input.videoCodec === undefined ? {} : { videoCodec: input.videoCodec }), ...(input.audioCodec === undefined ? {} : { audioCodec: input.audioCodec }) });
+        const job = jobs.enqueueMediaTransform(scope, `media.${input.mode}`, { mediaId: input.mediaId, mode: input.mode, ...(input.container === undefined ? {} : { container: input.container }), ...(input.videoCodec === undefined ? {} : { videoCodec: input.videoCodec }), ...(input.audioCodec === undefined ? {} : { audioCodec: input.audioCodec }) });
+        void jobExecutor.runOnce(scope).catch(() => undefined);
+        return job;
       }
       if (request.method === "media.read") {
         if (!repository.pluginHasCapability(scope.installationId, "media")) throw new Error("Plugin media capability is not granted");
