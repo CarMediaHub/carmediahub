@@ -25,6 +25,8 @@ docker compose -f carmediahub/compose.yaml up --build
 
 The current Compose profile runs Core with its managed SQLite state volume. PostgreSQL support is an explicit Core adapter under development and is not started or required by this Compose file yet.
 
+Native deployments may use a JSON configuration file at `config/core.json` (or pass `--config <path>`). Copy `config/core.example.json` as a starting point. The file accepts only `dataDir`, `host`, `port`, `publicUrl` and `cookieSecure`; command-line options override file values, and unknown or invalid fields stop startup. Do not put passwords, cookies, tokens or database credentials in this file. The default file is optional; an explicitly supplied `--config` path must exist.
+
 The Compose port is intentionally bound to `127.0.0.1` and its Core command requires Secure cookies. Terminate TLS and expose a public address through an operator-managed reverse proxy. For another production launcher, pass either `--public-url https://hub.example.com` or `--cookie-secure`.
 
 The Core does not require runtime environment variables or executables discovered through `PATH`. Components such as AList, rclone and FFmpeg are registered through versioned managed-component metadata and explicit service bindings. Their full packaged adapters are delivered in later milestones.

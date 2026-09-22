@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { listeningAddress, parseConfig } from "./config.js";
 
@@ -21,4 +24,28 @@ test("rejects invalid or incomplete deployment options", () => {
   assert.throws(() => parseConfig(["--data-dir"]), /requires a value/);
   assert.throws(() => parseConfig(["--unknown"]), /Unknown option/);
   assert.throws(() => parseConfig(["--public-url", "https://user:pass@example.test"]), /credential-free/);
+});
+
+test("loads an explicit JSON configuration and lets CLI values override it", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-config-"));
+  fs.mkdirSync(path.join(root, "config"));
+  fs.writeFileSync(path.join(root, "config", "core.json"), JSON.stringify({ dataDir: "state", host: "0.0.0.0", port: 9000, publicUrl: "https://hub.example.test", cookieSecure: false }));
+  const config = parseConfig(["--config", "config/core.json", "--port", "9001", "--no-cookie-secure"], root);
+  assert.equal(config.dataDir.replaceAll("\\", "/"), `${root.replaceAll("\\", "/")}/state`);
+  assert.equal(config.host, "0.0.0.0");
+  assert.equal(config.port, 9001);
+  assert.equal(config.publicUrl, "https://hub.example.test");
+  assert.equal(config.cookieSecure, false);
+});
+
+test("rejects unknown or invalid configuration file fields", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-config-"));
+  const configPath = path.join(root, "core.json");
+  fs.writeFileSync(configPath, JSON.stringify({ secret: "must-not-be-configured" }));
+  assert.throws(() => parseConfig(["--config", configPath], root), /Unknown configuration field/);
+  fs.writeFileSync(configPath, JSON.stringify({ publicUrl: "https://hub.example.test/path" }));
+  assert.throws(() => parseConfig(["--config", configPath], root), /credential-free/);
+  fs.writeFileSync(configPath, JSON.stringify({ publicUrl: null }));
+  assert.throws(() => parseConfig(["--config", configPath], root), /requires a value/);
+  assert.throws(() => parseConfig(["--config", path.join(root, "missing.json")], root), /does not exist/);
 });
