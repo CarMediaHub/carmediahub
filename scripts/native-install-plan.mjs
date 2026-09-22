@@ -23,8 +23,8 @@ export function createNativeInstallPlan(input, dependencies) {
   const resources = (dependencies?.checkResources ?? checkDeploymentResources)({ bundleRoot: input.bundleRoot, configPath: input.configPath, dataDir: input.dataDir, requiredFreeBytes: input.requiredFreeBytes }, dependencies);
   const serviceAccount = account(input.serviceAccount, input.platform);
   const service = input.platform === "windows"
-    ? createWindowsServiceSpec({ serviceName: input.serviceName, displayName: input.displayName ?? input.description, description: input.description, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath })
-    : createLinuxServiceSpec({ serviceName: input.serviceName, description: input.description, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath });
+    ? createWindowsServiceSpec({ serviceName: input.serviceName, displayName: input.displayName ?? input.description, description: input.description, serviceAccount, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath })
+    : createLinuxServiceSpec({ serviceName: input.serviceName, description: input.description, serviceAccount, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath });
   return { platform: input.platform, bundle, resources, service, serviceAccount, acl: [{ path: resources.bundleRoot, access: "read-execute" }, { path: resources.configPath, access: "read-only" }, { path: resources.dataDir, access: "read-write" }] };
 }
 

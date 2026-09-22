@@ -16,6 +16,7 @@ export function createWindowsServiceSpec(input) {
   if (!/^[A-Za-z][A-Za-z0-9_.-]{0,79}$/u.test(serviceName)) throw new Error("serviceName is invalid");
   const displayName = reject(input.displayName, "displayName is invalid");
   const description = reject(input.description, "description is invalid");
+  const serviceAccount = reject(input.serviceAccount ?? "NT AUTHORITY\\LocalService", "serviceAccount is invalid");
   const nodePath = quote(input.nodePath, "nodePath");
   const bundleRootValue = reject(input.bundleRoot, "bundleRoot is invalid");
   if (!path.win32.isAbsolute(bundleRootValue)) throw new Error("bundleRoot must be absolute Windows path");
@@ -29,7 +30,8 @@ export function createWindowsServiceSpec(input) {
     displayName,
     description,
     command,
-    createArguments: ["create", serviceName, `binPath= ${command}`, "start= auto", `DisplayName= ${displayName}`],
+    serviceAccount,
+    createArguments: ["create", serviceName, `binPath= ${command}`, "start= auto", `DisplayName= ${displayName}`, `obj= \"${serviceAccount}\"`],
     descriptionArguments: ["description", serviceName, description]
   };
 }

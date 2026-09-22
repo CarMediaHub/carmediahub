@@ -9,6 +9,8 @@ test("creates a hardened explicit systemd unit", () => {
   assert.equal(spec.unitName, "carmediahub-core.service");
   assert.match(spec.unitText, /ExecStart=.*dist\/cli\.js.*--config.*--data-dir/iu);
   assert.match(spec.unitText, /NoNewPrivileges=true/iu);
+  assert.match(spec.unitText, /User=carmediahub/iu);
+  assert.match(spec.unitText, /Group=carmediahub/iu);
   assert.match(spec.unitText, /ProtectSystem=strict/iu);
   assert.match(spec.unitText, /ReadWritePaths="\/var\/lib\/carmediahub"/u);
   assert.doesNotMatch(spec.unitText, /Environment=/u);

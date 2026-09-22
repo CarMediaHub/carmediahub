@@ -11,6 +11,8 @@ test("creates an explicit sc.exe service specification", () => {
   assert.match(spec.command, /--data-dir/iu);
   assert.deepEqual(spec.createArguments.slice(0, 2), ["create", "CarMediaHubCore"]);
   assert.equal(spec.descriptionArguments[0], "description");
+  assert.equal(spec.serviceAccount, "NT AUTHORITY\\LocalService");
+  assert.match(spec.createArguments.at(-1), /LocalService/u);
   const rootSpec = createWindowsServiceSpec({ ...valid, bundleRoot: "C:\\" });
   assert.match(rootSpec.command, /C:\\dist\\cli\.js/iu);
 });
