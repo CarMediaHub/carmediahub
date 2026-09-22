@@ -211,7 +211,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       }
       if (request.method === "notifications.markAllRead") {
         if (!repository.pluginHasCapability(scope.installationId, "events")) throw new Error("Plugin events capability is not granted");
-        return { marked: notifications.markAllReadUser(scope.organizationId, scope.userId) };
+        return { marked: notifications.markAllRead(scope) };
       }
       throw new Error("Worker method is not available");
     }

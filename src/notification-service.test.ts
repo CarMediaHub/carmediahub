@@ -46,3 +46,22 @@ test("marking all user notifications read does not affect another user", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("plugin bulk read stays inside its installation scope", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-notification-scope-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.prepare("INSERT INTO deployments (id, created_at, locale) VALUES (?, ?, ?)").run("deployment", new Date().toISOString(), "en");
+    database.db.prepare("INSERT INTO organizations (id, deployment_id, name) VALUES (?, ?, ?)").run("org", "deployment", "Organization");
+    database.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("user-a", "org", "a", "hash", "admin", "en", new Date().toISOString());
+    const service = new NotificationService(database.db);
+    service.publish({ organizationId: "org", userId: "user-a", installationId: "plugin-a" }, { severity: "info", title: "A" });
+    service.publish({ organizationId: "org", userId: "user-a", installationId: "plugin-b" }, { severity: "info", title: "B" });
+    assert.equal(service.markAllRead({ organizationId: "org", userId: "user-a", installationId: "plugin-a" }), 1);
+    assert.equal(service.list({ organizationId: "org", userId: "user-a", installationId: "plugin-a" }, { unreadOnly: true }).length, 0);
+    assert.equal(service.list({ organizationId: "org", userId: "user-a", installationId: "plugin-b" }, { unreadOnly: true }).length, 1);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

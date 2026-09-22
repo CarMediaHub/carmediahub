@@ -32,6 +32,10 @@ export class NotificationService {
     return this.db.prepare("UPDATE platform_notifications SET read_at = ? WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND read_at IS NULL").run(new Date().toISOString(), id, scope.organizationId, scope.userId, scope.installationId).changes === 1;
   }
 
+  markAllRead(scope: NotificationScope): number {
+    return Number(this.db.prepare("UPDATE platform_notifications SET read_at = ? WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND read_at IS NULL").run(new Date().toISOString(), scope.organizationId, scope.userId, scope.installationId).changes);
+  }
+
   markReadUser(organizationId: string, userId: string, id: string): boolean {
     return this.db.prepare("UPDATE platform_notifications SET read_at = ? WHERE id = ? AND organization_id = ? AND user_id = ? AND read_at IS NULL").run(new Date().toISOString(), id, organizationId, userId).changes === 1;
   }
