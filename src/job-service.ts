@@ -7,6 +7,7 @@ const now = () => new Date().toISOString();
 export const MAX_ACTIVE_JOBS_PER_SCOPE = 10;
 export const MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION = 1;
 export const MAX_JOB_PAYLOAD_BYTES = 64 * 1024;
+export const INTERRUPTED_JOB_ERROR = "CMH.JOBS.INTERRUPTED";
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export interface PluginJob { id: string; type: string; status: JobStatus; progress: number; payload: unknown; result?: unknown; errorCode?: string; createdAt: string; updatedAt: string; completedAt?: string; }
@@ -34,6 +35,14 @@ function jobFromRow(row: Record<string, string | number | null>): PluginJob {
 /** Core-only job service. Every read and transition is bound to a plugin scope. */
 export class PluginJobService {
   constructor(private readonly db: DatabaseSync) {}
+
+  /** Mark work that was running when Core stopped; queued work remains resumable for a future executor. */
+  recoverInterrupted(): number {
+    const timestamp = now();
+    const result = this.db.prepare("UPDATE plugin_jobs SET status = 'failed', error_code = ?, updated_at = ?, completed_at = ? WHERE status = 'running'")
+      .run(INTERRUPTED_JOB_ERROR, timestamp, timestamp);
+    return Number(result.changes);
+  }
 
   enqueue(scope: ScopeContext, type: string, payload: unknown): PluginJob {
     const [organizationId, userId, installationId] = scopeValues(scope);

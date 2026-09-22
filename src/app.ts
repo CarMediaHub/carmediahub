@@ -93,6 +93,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const repository = new Repository(database.db, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
+  jobs.recoverInterrupted();
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);

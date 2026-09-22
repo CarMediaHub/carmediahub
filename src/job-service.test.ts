@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
-import { MAX_ACTIVE_JOBS_PER_SCOPE, MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
+import { INTERRUPTED_JOB_ERROR, MAX_ACTIVE_JOBS_PER_SCOPE, MAX_ACTIVE_MEDIA_JOBS_PER_INSTALLATION, MAX_JOB_PAYLOAD_BYTES, PluginJobService } from "./job-service.js";
 
 test("plugin jobs are persisted and isolated by user and installation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-jobs-"));
@@ -96,4 +96,28 @@ test("organization task view omits cross-organization jobs and supports admin ca
     assert.deepEqual(jobs.listOrganization("org").map((job) => job.id), [first.id]);
     assert.equal(jobs.cancelOrganization("org", first.id)?.status, "cancelled");
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("startup recovery closes interrupted jobs without consuming the queue", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-recovery-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "wdr" };
+    const running = jobs.enqueue(scope, "media.transcode", { source: "running" });
+    assert.equal(jobs.transition(scope, running.id, "running")?.status, "running");
+    const queued = jobs.enqueue({ ...scope, installationId: "other" }, "media.remux", { source: "queued" });
+    assert.equal(jobs.recoverInterrupted(), 1);
+    const recovered = jobs.list(scope)[0];
+    assert.equal(recovered?.id, running.id);
+    assert.equal(recovered?.status, "failed");
+    assert.equal(recovered?.errorCode, INTERRUPTED_JOB_ERROR);
+    assert.equal(jobs.list({ ...scope, installationId: "other" })[0]?.id, queued.id);
+    assert.equal(jobs.list({ ...scope, installationId: "other" })[0]?.status, "queued");
+    assert.equal(jobs.recoverInterrupted(), 0);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
 });
