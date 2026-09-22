@@ -12,7 +12,9 @@ function fixture(): { dataDir: string; component: { id: string; version: string;
   fs.mkdirSync(location, { recursive: true });
   const executable = process.platform === "win32" ? "node.exe" : "node";
   fs.copyFileSync(process.execPath, path.join(location, executable));
-  return { dataDir, component: { id: "fixture", version: "1.0.0", executable: `fixture/1.0.0/${executable}` } };
+  const executablePath = path.join(location, executable);
+  const checksum = crypto.createHash("sha256").update(fs.readFileSync(executablePath)).digest("hex");
+  return { dataDir, component: { id: "fixture", version: "1.0.0", executable: `fixture/1.0.0/${executable}`, checksum } };
 }
 
 test("runs a verified component with an explicit empty environment", async () => {
@@ -30,6 +32,8 @@ test("rejects unsafe identities, arguments and unavailable files", async () => {
     await assert.rejects(runManagedComponent(dataDir, { ...component, id: "../escape" }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.IDENTITY_INVALID");
     await assert.rejects(runManagedComponent(dataDir, component, { args: ["bad\0arg"] }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.ARGUMENTS_INVALID");
     await assert.rejects(runManagedComponent(dataDir, { ...component, executable: "fixture/1.0.0/missing" }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.EXECUTABLE_UNAVAILABLE");
+    fs.appendFileSync(path.join(dataDir, "components", "fixture", "1.0.0", path.basename(component.executable)), "tampered");
+    await assert.rejects(runManagedComponent(dataDir, component), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.DIGEST_MISMATCH");
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
