@@ -41,8 +41,14 @@ jobs:
         run: |
           pnpm create:native-bundle -- "$RUNNER_TEMP/carmediahub-native"
           pnpm check:native-bundle -- "$RUNNER_TEMP/carmediahub-native"
+          pnpm check:resources -- \
+            --bundle-root "$RUNNER_TEMP/carmediahub-native" \
+            --config "$RUNNER_TEMP/carmediahub-native/config/core.example.json" \
+            --data-dir "$RUNNER_TEMP/carmediahub-data" \
+            --required-free-bytes 1
       - run: pnpm test:native-bundle
       - run: pnpm test:create-native-bundle
+      - run: pnpm test:resources
       - run: pnpm check:native-bundle
       - run: pnpm test:native-service
       - run: pnpm test:native-linux-service
