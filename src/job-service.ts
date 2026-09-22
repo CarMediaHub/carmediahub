@@ -74,11 +74,10 @@ export class PluginJobService {
     if (allowedTypes.length === 0) return undefined;
     const placeholders = allowedTypes.map(() => "?").join(", ");
     const timestamp = now();
-    const result = this.db.prepare(`UPDATE plugin_jobs SET status = 'running', updated_at = ?
+    const claimed = this.db.prepare(`UPDATE plugin_jobs SET status = 'running', updated_at = ?
       WHERE id = (SELECT id FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'queued' AND type IN (${placeholders}) ORDER BY created_at ASC LIMIT 1)
-      AND status = 'queued'`).run(timestamp, organizationId, userId, installationId, ...allowedTypes);
-    if (Number(result.changes) !== 1) return undefined;
-    return jobFromRow(this.db.prepare("SELECT * FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'running' AND updated_at = ? ORDER BY updated_at DESC LIMIT 1").get(organizationId, userId, installationId, timestamp) as Record<string, string | number | null>);
+      AND status = 'queued' RETURNING *`).get(timestamp, organizationId, userId, installationId, ...allowedTypes) as Record<string, string | number | null> | undefined;
+    return claimed === undefined ? undefined : jobFromRow(claimed);
   }
 
   list(scope: ScopeContext, limit = 100): PluginJob[] {
