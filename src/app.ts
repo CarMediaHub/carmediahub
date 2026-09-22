@@ -28,6 +28,13 @@ export interface AppOptions { dataDir: string; cookieSecure?: boolean; component
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
+function pagination(query: { limit?: string; offset?: string }): { limit: number; offset: number } | undefined {
+  const limit = query.limit === undefined ? 100 : Number(query.limit);
+  const offset = query.offset === undefined ? 0 : Number(query.offset);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500 || !Number.isSafeInteger(offset) || offset < 0 || offset > 10_000_000) return undefined;
+  return { limit, offset };
+}
+
 type DisplayContext = { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } };
 
 const gatewayRequestHeaders = new Set(["accept", "accept-encoding", "accept-language", "content-type", "if-match", "if-modified-since", "if-none-match", "if-range", "if-unmodified-since", "range"]);
@@ -352,7 +359,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
     const query = request.query as { limit?: string; offset?: string; keyword?: string; category?: string; pluginId?: string };
-    return history.queryUserPage(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), offset: query.offset === undefined ? 0 : Number(query.offset), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }), ...(query.pluginId === undefined ? {} : { pluginId: query.pluginId }) });
+    const page = pagination(query);
+    if (page === undefined) return reply.code(400).send({ code: "CMH.PAGINATION.INVALID", messageKey: "errors.pagination.invalid" });
+    return history.queryUserPage(user.organizationId, user.id, { ...page, ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }), ...(query.pluginId === undefined ? {} : { pluginId: query.pluginId }) });
   });
 
   app.delete("/api/history", async (request, reply) => {
@@ -368,7 +377,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
     const query = request.query as { limit?: string; offset?: string; keyword?: string; category?: string };
-    return catalogService.queryUserPage(user.organizationId, user.id, { limit: query.limit === undefined ? 100 : Number(query.limit), offset: query.offset === undefined ? 0 : Number(query.offset), ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) });
+    const page = pagination(query);
+    if (page === undefined) return reply.code(400).send({ code: "CMH.PAGINATION.INVALID", messageKey: "errors.pagination.invalid" });
+    return catalogService.queryUserPage(user.organizationId, user.id, { ...page, ...(query.keyword === undefined ? {} : { keyword: query.keyword }), ...(query.category === undefined ? {} : { category: query.category }) });
   });
 
   app.get("/api/notifications", async (request, reply) => {
