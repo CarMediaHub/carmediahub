@@ -246,6 +246,14 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     done(null, payload);
   });
   await app.register(cookie);
+  app.addHook("onSend", async (request, reply, payload) => {
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("referrer-policy", "same-origin");
+    reply.header("permissions-policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
+    reply.header("x-frame-options", "DENY");
+    if (!request.url.startsWith("/apps/")) reply.header("content-security-policy", "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'");
+    return payload;
+  });
   const loginSubject = (request: FastifyRequest, username: string) => `login:${request.ip}:${username.trim().toLowerCase()}`;
   const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
 

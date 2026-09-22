@@ -16,6 +16,21 @@ test("gateway forwards only protocol headers and never session or authorization 
   assert.deepEqual(filterGatewayHeaders({ range: "bytes=0-1", accept: "video/*", cookie: "cmh_session=secret", authorization: "Bearer secret", "x-cmh-device-class": "vehicle", "x-forwarded-for": "127.0.0.1" }), { range: "bytes=0-1", accept: "video/*" });
 });
 
+test("sets security headers for Core-owned responses without imposing CSP on plugin routes", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-security-headers-"));
+  const app = await createApp({ dataDir });
+  try {
+    const home = await app.inject({ method: "GET", url: "/" });
+    assert.equal(home.headers["x-content-type-options"], "nosniff");
+    assert.equal(home.headers["referrer-policy"], "same-origin");
+    assert.equal(home.headers["x-frame-options"], "DENY");
+    assert.match(String(home.headers["content-security-policy"]), /default-src 'self'/u);
+    const plugin = await app.inject({ method: "GET", url: "/apps/example/content" });
+    assert.equal(plugin.headers["x-content-type-options"], "nosniff");
+    assert.equal(plugin.headers["content-security-policy"], undefined);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("component health checks verify the managed file digest without executing it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-health-"));
   const executable = path.join(dataDir, "components", "alist", "1.0.0", "alist");
