@@ -59,6 +59,10 @@ function copyFile(source: string, destination: string): void {
   fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
 }
 
+function isManagedBackupPath(relative: string): boolean {
+  return managedFiles.includes(relative as typeof managedFiles[number]) || managedDirectories.some((directory) => relative.startsWith(`${directory}/`) && relative.length > directory.length + 1);
+}
+
 /** Creates an offline, atomic snapshot of Core-owned state. Stop Core before calling this. */
 export function createBackupSnapshot(dataDir: string, destination: string): BackupManifest {
   if (!fs.existsSync(dataDir) || !fs.statSync(dataDir).isDirectory()) throw new Error("Backup data directory is unavailable");
@@ -93,7 +97,7 @@ export function verifyBackupSnapshot(snapshot: string): BackupManifest {
   if (manifest.schemaVersion !== 1 || manifest.product !== "carmediahub-core" || manifest.source !== "offline-snapshot" || !Array.isArray(manifest.files)) throw new Error("Backup manifest is invalid");
   const seen = new Set<string>();
   for (const entry of manifest.files) {
-    if (typeof entry.path !== "string" || entry.path.length === 0 || entry.path.includes("..") || path.isAbsolute(entry.path) || seen.has(entry.path) || !/^[a-f0-9]{64}$/u.test(entry.sha256) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) throw new Error("Backup manifest file entry is invalid");
+    if (typeof entry.path !== "string" || entry.path.length === 0 || entry.path.includes("..") || path.isAbsolute(entry.path) || !isManagedBackupPath(entry.path) || seen.has(entry.path) || !/^[a-f0-9]{64}$/u.test(entry.sha256) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) throw new Error("Backup manifest file entry is invalid");
     seen.add(entry.path);
     const location = path.resolve(snapshot, ...entry.path.split("/"));
     if (!location.startsWith(path.resolve(snapshot) + path.sep) || !fs.existsSync(location) || fs.lstatSync(location).isSymbolicLink()) throw new Error("Backup file is unavailable");
@@ -101,4 +105,22 @@ export function verifyBackupSnapshot(snapshot: string): BackupManifest {
     if (actual.bytes !== entry.bytes || actual.sha256 !== entry.sha256) throw new Error("Backup file digest mismatch");
   }
   return manifest;
+}
+
+/** Restores a verified snapshot into a new data directory; existing data is never overwritten. */
+export function restoreBackupSnapshot(snapshot: string, targetDataDir: string): BackupManifest {
+  const manifest = verifyBackupSnapshot(snapshot);
+  const target = path.resolve(targetDataDir);
+  if (fs.existsSync(target)) throw new Error("Restore target must be a new empty directory");
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const temporary = `${target}.restore-${crypto.randomUUID()}`;
+  fs.mkdirSync(temporary, { recursive: true });
+  try {
+    for (const entry of manifest.files) copyFile(path.join(snapshot, ...entry.path.split("/")), path.join(temporary, ...entry.path.split("/")));
+    fs.renameSync(temporary, target);
+    return manifest;
+  } catch (error) {
+    fs.rmSync(temporary, { recursive: true, force: true });
+    throw error;
+  }
 }
