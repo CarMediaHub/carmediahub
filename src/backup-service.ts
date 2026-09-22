@@ -102,6 +102,7 @@ export function createBackupSnapshot(dataDir: string, destination: string): Back
 
 /** Verifies a snapshot without extracting or executing anything from it. */
 export function verifyBackupSnapshot(snapshot: string): BackupManifest {
+  if (!fs.existsSync(snapshot) || !fs.statSync(snapshot).isDirectory() || fs.lstatSync(snapshot).isSymbolicLink()) throw new Error("Backup snapshot root is invalid");
   const manifestPath = path.join(snapshot, manifestName);
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as BackupManifest;
   if (manifest.schemaVersion !== 1 || manifest.product !== "carmediahub-core" || manifest.source !== "offline-snapshot" || !Array.isArray(manifest.files)) throw new Error("Backup manifest is invalid");
