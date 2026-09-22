@@ -63,6 +63,13 @@ export class JobExecutor {
     return this.jobs.cancelOrganization(organizationId, id);
   }
 
+  cancelUser(organizationId: string, userId: string): number {
+    for (const [key, controller] of this.active) {
+      if (key.startsWith(`${organizationId}\0${userId}\0`)) controller.abort();
+    }
+    return this.jobs.cancelUser(organizationId, userId);
+  }
+
   private key(scope: ScopeContext, id: string): string {
     return `${scope.organizationId}\0${scope.userId}\0${scope.installationId}\0${id}`;
   }

@@ -202,6 +202,37 @@ test("organization cancellation aborts an active handler before closing the job"
   }
 });
 
+test("user cancellation aborts active work and queued jobs without affecting another user", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-user-cancel-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z'), ('other', 'org', 'b', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" };
+    const otherScope = { ...scope, userId: "other" };
+    let aborted = false;
+    executor.register("media.transcode", (_job, _scope, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => { aborted = true; reject(new Error("cancelled")); }, { once: true });
+    }));
+    const runningJob = jobs.enqueue(scope, "media.transcode", { mediaId: "running" });
+    const queuedJob = jobs.enqueue(scope, "media.transcode", { mediaId: "queued" });
+    const otherJob = jobs.enqueue(otherScope, "media.transcode", { mediaId: "other" });
+    const running = executor.runOnce(scope);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(executor.cancelUser(scope.organizationId, scope.userId), 2);
+    assert.equal(aborted, true);
+    assert.equal(jobs.list(scope).every((job) => job.status === "cancelled"), true);
+    assert.equal(jobs.list(otherScope).find((job) => job.id === otherJob.id)?.status, "queued");
+    await running;
+    assert.equal(jobs.list(scope).find((job) => job.id === runningJob.id)?.status, "cancelled");
+    assert.equal(jobs.list(scope).find((job) => job.id === queuedJob.id)?.status, "cancelled");
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("job executor drains only a bounded FIFO batch", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-drain-"));
   const database = openDatabase(dataDir);

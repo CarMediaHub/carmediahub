@@ -109,6 +109,15 @@ export class PluginJobService {
     return jobFromRow(this.db.prepare("SELECT * FROM plugin_jobs WHERE id = ?").get(id) as Record<string, string | number | null>);
   }
 
+  cancelUser(organizationId: string, userId: string): number {
+    assertIdentifier(organizationId, "organizationId");
+    assertIdentifier(userId, "userId");
+    const completedAt = now();
+    const result = this.db.prepare("UPDATE plugin_jobs SET status = 'cancelled', updated_at = ?, completed_at = ? WHERE organization_id = ? AND user_id = ? AND status IN ('queued', 'running')")
+      .run(completedAt, completedAt, organizationId, userId);
+    return Number(result.changes);
+  }
+
   transition(scope: ScopeContext, id: string, status: JobStatus, options: { progress?: number; result?: unknown; errorCode?: string } = {}): PluginJob | undefined {
     const [organizationId, userId, installationId] = scopeValues(scope);
     if (!id.startsWith("job_")) throw new Error("job id is invalid");
