@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
+export const CORE_SCHEMA_VERSION = 1;
+
 export interface CoreDatabase {
   db: DatabaseSync;
   close(): void;
@@ -11,6 +13,11 @@ export function openDatabase(dataDir: string): CoreDatabase {
   fs.mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, "carmediahub.sqlite"));
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+  const currentVersion = Number((db.prepare("PRAGMA user_version").get() as { user_version?: number } | undefined)?.user_version ?? 0);
+  if (!Number.isInteger(currentVersion) || currentVersion > CORE_SCHEMA_VERSION) {
+    db.close();
+    throw new Error(`Unsupported Core database schema version: ${currentVersion}`);
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS deployments (
       id TEXT PRIMARY KEY,
@@ -256,5 +263,6 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!userColumns.some((column) => column.name === "time_zone")) db.exec("ALTER TABLE users ADD COLUMN time_zone TEXT NOT NULL DEFAULT 'UTC'");
   if (!userColumns.some((column) => column.name === "theme")) db.exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'");
   if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
+  db.exec(`PRAGMA user_version = ${CORE_SCHEMA_VERSION}`);
   return { db, close: () => db.close() };
 }
