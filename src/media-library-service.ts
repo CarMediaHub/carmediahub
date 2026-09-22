@@ -7,6 +7,19 @@ import { decryptSecret, encryptSecret, keyedHash } from "./security.js";
 const mediaTypes: Record<string, string> = { ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v", ".mp3": "audio/mpeg", ".m4a": "audio/mp4" };
 const now = () => new Date().toISOString();
 
+function resolveDirectoryWithoutLinks(input: string): string {
+  const resolved = path.resolve(input);
+  const parsed = path.parse(resolved);
+  let current = parsed.root;
+  for (const segment of resolved.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) throw new Error("Media root is unavailable");
+    if (!stat.isDirectory()) throw new Error("Media root is unavailable");
+  }
+  return resolved;
+}
+
 export interface MediaRoot { id: string; name: string; createdAt: string; }
 export interface MediaItem { id: string; title: string; contentType: string; size: number; updatedAt: string; }
 export type MediaPlaybackMode = "direct-range" | "remux" | "transcode";
@@ -24,8 +37,8 @@ export class MediaLibraryService {
   addRoot(organizationId: string, installationId: string, name: string, selectedPath: string): MediaRoot {
     if (!/^[A-Za-z0-9_-]{3,128}$/u.test(installationId)) throw new Error("Media root installation is invalid");
     if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,79}$/u.test(name.trim())) throw new Error("Media root name is invalid");
-    const resolved = fs.realpathSync(selectedPath);
-    if (!fs.statSync(resolved).isDirectory()) throw new Error("Selected media root is not a directory");
+    const resolved = fs.realpathSync(resolveDirectoryWithoutLinks(selectedPath));
+    if (!fs.lstatSync(resolved).isDirectory() || fs.lstatSync(resolved).isSymbolicLink()) throw new Error("Selected media root is not a directory");
     const root = { id: `media_root_${crypto.randomUUID()}`, name: name.trim(), createdAt: now() };
     this.db.prepare("INSERT INTO media_roots (id, organization_id, installation_id, name, protected_path, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(root.id, organizationId, installationId, root.name, encryptSecret(resolved, this.key), root.createdAt);
@@ -144,7 +157,7 @@ export class MediaLibraryService {
     const row = this.db.prepare("SELECT protected_path FROM media_roots WHERE id = ? AND organization_id = ? AND installation_id = ? AND revoked_at IS NULL").get(rootId, organizationId, installationId) as { protected_path?: string } | undefined;
     if (row?.protected_path === undefined) throw new Error("Media root is unavailable");
     const root = decryptSecret(row.protected_path, this.key);
-    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new Error("Media root is unavailable");
-    return fs.realpathSync(root);
+    if (!fs.existsSync(root)) throw new Error("Media root is unavailable");
+    return fs.realpathSync(resolveDirectoryWithoutLinks(root));
   }
 }

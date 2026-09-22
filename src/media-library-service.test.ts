@@ -49,3 +49,26 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
     assert.throws(() => service.list("org", "plugin-a", mediaRoot.id), /unavailable/);
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("rejects a media root replaced by a directory link", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-media-data-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-media-root-"));
+  const moved = `${root}-moved`;
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-media-outside-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.prepare("INSERT INTO deployments (id, created_at, locale) VALUES ('deployment', 'now', 'en')").run();
+    database.db.prepare("INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'deployment', 'Default')").run();
+    const service = new MediaLibraryService(database.db, Buffer.alloc(32, 1));
+    const mediaRoot = service.addRoot("org", "plugin-a", "Road media", root);
+    fs.renameSync(root, moved);
+    try { fs.symlinkSync(outside, root, "junction"); } catch { return; }
+    assert.throws(() => service.list("org", "plugin-a", mediaRoot.id), /unavailable/);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(moved, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
