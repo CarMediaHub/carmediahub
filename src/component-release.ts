@@ -13,6 +13,14 @@ export interface ComponentRelease {
   artifactId: string;
   sha256: string;
   platform: string;
+  provenance?: ComponentProvenance;
+}
+
+export interface ComponentProvenance {
+  sourceUrl: string;
+  licenseSpdx: string;
+  sbomSha256?: string;
+  releasedAt?: string;
 }
 
 export interface SignedComponentRelease {
@@ -23,13 +31,23 @@ export interface SignedComponentRelease {
 function canonicalRelease(release: ComponentRelease): Buffer {
   return Buffer.from(JSON.stringify({
     artifactId: release.artifactId, componentId: release.componentId, keyId: release.keyId,
-    platform: release.platform, schemaVersion: release.schemaVersion, sha256: release.sha256, version: release.version
+    platform: release.platform, provenance: release.provenance, schemaVersion: release.schemaVersion,
+    sha256: release.sha256, version: release.version
   }), "utf8");
+}
+
+function validateProvenance(provenance: ComponentProvenance | undefined): void {
+  if (provenance === undefined) return;
+  if (!/^https:\/\//u.test(provenance.sourceUrl) || provenance.sourceUrl.length > 2048) throw new Error("Invalid component source URL");
+  if (!/^[A-Za-z0-9.-]+$/u.test(provenance.licenseSpdx) || provenance.licenseSpdx.length > 128) throw new Error("Invalid component SPDX license");
+  if (provenance.sbomSha256 !== undefined && !/^[a-f0-9]{64}$/u.test(provenance.sbomSha256)) throw new Error("Invalid component SBOM digest");
+  if (provenance.releasedAt !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(provenance.releasedAt)) throw new Error("Invalid component release timestamp");
 }
 
 /** Verify an explicit release record against an operator-owned Ed25519 trust set. */
 export function verifyComponentRelease(signed: SignedComponentRelease, trustedPublicKeys: readonly string[]): ComponentRelease {
   if (signed.release.schemaVersion !== 1 || !/^[a-f0-9]{16}$/u.test(signed.release.keyId) || !base64.test(signed.signature)) throw new Error("Invalid signed component release");
+  validateProvenance(signed.release.provenance);
   const key = trustedPublicKeys.find((candidate) => fingerprint(candidate) === signed.release.keyId);
   if (key === undefined) throw new Error("Component release signer is not trusted");
   const signature = Buffer.from(signed.signature, "base64");
