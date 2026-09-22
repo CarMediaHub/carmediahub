@@ -30,6 +30,7 @@ jobs:
       - run: pnpm --dir ../carmediahub-sdk check
       - run: pnpm --dir ../carmediahub-sdk build
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:deployment
       - run: pnpm check
       - run: pnpm --dir admin check
       - run: pnpm test
