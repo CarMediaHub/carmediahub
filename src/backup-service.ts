@@ -111,6 +111,8 @@ export function verifyBackupSnapshot(snapshot: string): BackupManifest {
 export function restoreBackupSnapshot(snapshot: string, targetDataDir: string): BackupManifest {
   const manifest = verifyBackupSnapshot(snapshot);
   const target = path.resolve(targetDataDir);
+  const snapshotRoot = `${fs.realpathSync(snapshot)}${path.sep}`;
+  if (target === path.resolve(snapshot) || target.startsWith(snapshotRoot)) throw new Error("Restore target must be outside snapshot");
   if (fs.existsSync(target)) throw new Error("Restore target must be a new empty directory");
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const temporary = `${target}.restore-${crypto.randomUUID()}`;

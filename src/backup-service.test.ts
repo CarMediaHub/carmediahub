@@ -50,6 +50,7 @@ test("rejects restore into an existing non-empty data directory", () => {
   fs.mkdirSync(target, { recursive: true });
   fs.writeFileSync(path.join(target, "existing"), "keep");
   assert.throws(() => restoreBackupSnapshot(snapshot, target), /new empty directory/);
+  assert.throws(() => restoreBackupSnapshot(snapshot, path.join(snapshot, "restored")), /outside snapshot/);
 });
 
 test("rejects manifest paths outside the managed state allowlist", () => {
