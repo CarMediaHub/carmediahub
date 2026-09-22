@@ -26,3 +26,17 @@ test("rejects missing runtime assets and instance secrets", () => {
   fs.writeFileSync(path.join(root, "config/core.json"), "{}\n");
   assert.throws(() => validateNativeBundle(root), /instance secret/);
 });
+
+test("rejects a symlinked release asset", (t) => {
+  const root = fixture();
+  const target = path.join(root, "outside.json");
+  fs.writeFileSync(target, "{}\n");
+  fs.rmSync(path.join(root, "config/core.example.json"));
+  try {
+    fs.symlinkSync(target, path.join(root, "config/core.example.json"), "file");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && (error.code === "EPERM" || error.code === "EACCES")) { t.skip("symbolic links are unavailable in this environment"); return; }
+    throw error;
+  }
+  assert.throws(() => validateNativeBundle(root), /symbolic link/);
+});

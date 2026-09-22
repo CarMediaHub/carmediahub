@@ -7,7 +7,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 function fail(message) { throw new Error(`Native bundle validation failed: ${message}`); }
 function requiredFile(bundleRoot, relative) {
   const location = path.join(bundleRoot, relative);
-  if (!fs.existsSync(location) || !fs.statSync(location).isFile()) fail(`missing file: ${relative}`);
+  let current = bundleRoot;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    let stat;
+    try { stat = fs.lstatSync(current); } catch { fail(`missing file: ${relative}`); }
+    if (stat.isSymbolicLink()) fail(`symbolic link is not allowed: ${relative}`);
+  }
+  if (!fs.lstatSync(location).isFile()) fail(`missing file: ${relative}`);
 }
 
 export function validateNativeBundle(bundleRoot) {
