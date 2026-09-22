@@ -17,10 +17,12 @@ export function createWindowsServiceSpec(input) {
   const displayName = reject(input.displayName, "displayName is invalid");
   const description = reject(input.description, "description is invalid");
   const nodePath = quote(input.nodePath, "nodePath");
-  const bundleRoot = quote(input.bundleRoot, "bundleRoot");
+  const bundleRootValue = reject(input.bundleRoot, "bundleRoot is invalid");
+  if (!path.win32.isAbsolute(bundleRootValue)) throw new Error("bundleRoot must be absolute Windows path");
+  const bundleRoot = quote(bundleRootValue, "bundleRoot");
   const dataDir = quote(input.dataDir, "dataDir");
   const configPath = quote(input.configPath, "configPath");
-  const cliPath = `${bundleRoot.slice(0, -1)}\\dist\\cli.js"`;
+  const cliPath = quote(path.win32.join(bundleRootValue, "dist", "cli.js"), "cliPath");
   const command = `${nodePath} ${cliPath} --config ${configPath} --data-dir ${dataDir} --host 127.0.0.1 --port 8787`;
   return {
     serviceName,
