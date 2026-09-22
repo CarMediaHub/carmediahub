@@ -84,6 +84,14 @@ test("rejects a symlinked snapshot root even when the manifest has no files", ()
   assert.throws(() => verifyBackupSnapshot(snapshot), /snapshot root is invalid/);
 });
 
+test("rejects a snapshot that does not contain the Core database", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-backup-"));
+  const snapshot = path.join(root, "snapshot");
+  fs.mkdirSync(snapshot, { recursive: true });
+  fs.writeFileSync(path.join(snapshot, "backup-manifest.json"), JSON.stringify({ schemaVersion: 1, product: "carmediahub-core", source: "offline-snapshot", createdAt: new Date().toISOString(), files: [] }));
+  assert.throws(() => verifyBackupSnapshot(snapshot), /missing the Core database/);
+});
+
 test("rejects symbolic links in managed backup directories", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-backup-"));
   const dataDir = path.join(root, "data");

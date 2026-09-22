@@ -115,6 +115,7 @@ export function verifyBackupSnapshot(snapshot: string): BackupManifest {
     const actual = digest(location);
     if (actual.bytes !== entry.bytes || actual.sha256 !== entry.sha256) throw new Error("Backup file digest mismatch");
   }
+  if (!seen.has("carmediahub.sqlite")) throw new Error("Backup manifest is missing the Core database");
   return manifest;
 }
 
