@@ -177,6 +177,31 @@ test("job executor propagates scoped cancellation and ignores late completion", 
   }
 });
 
+test("organization cancellation aborts an active handler before closing the job", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-org-cancel-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" };
+    let aborted = false;
+    executor.register("media.transcode", (_job, _scope, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => { aborted = true; reject(new Error("cancelled")); }, { once: true });
+    }));
+    const job = jobs.enqueue(scope, "media.transcode", { mediaId: "opaque" });
+    const running = executor.runOnce(scope);
+    await new Promise((resolve) => setImmediate(resolve));
+    const cancelled = executor.cancelOrganization(scope.organizationId, job.id);
+    assert.equal(cancelled?.status, "cancelled");
+    assert.equal(aborted, true);
+    await running;
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("job executor drains only a bounded FIFO batch", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-drain-"));
   const database = openDatabase(dataDir);

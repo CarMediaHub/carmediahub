@@ -556,7 +556,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.post("/api/jobs/:id/cancel", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
-    const job = jobs.cancelOrganization(user.organizationId, (request.params as { id: string }).id);
+    const job = jobExecutor.cancelOrganization(user.organizationId, (request.params as { id: string }).id);
     return job === undefined ? reply.code(404).send({ code: "CMH.JOB.NOT_FOUND", messageKey: "errors.job.notFound" }) : { job: { id: job.id, status: job.status, updatedAt: job.updatedAt, completedAt: job.completedAt } };
   });
 

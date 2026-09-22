@@ -55,6 +55,14 @@ export class JobExecutor {
     return this.jobs.transition(scope, id, "cancelled");
   }
 
+  /** Cancels an organization-visible job and signals any active handler first. */
+  cancelOrganization(organizationId: string, id: string): PluginJob | undefined {
+    for (const [key, controller] of this.active) {
+      if (key.startsWith(`${organizationId}\0`) && key.endsWith(`\0${id}`)) controller.abort();
+    }
+    return this.jobs.cancelOrganization(organizationId, id);
+  }
+
   private key(scope: ScopeContext, id: string): string {
     return `${scope.organizationId}\0${scope.userId}\0${scope.installationId}\0${id}`;
   }
