@@ -5,6 +5,7 @@ data/
 components/
 public/admin/
 *.tsbuildinfo
+sbom/
 .env
 .env.*
 !.env.example

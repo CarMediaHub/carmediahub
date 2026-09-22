@@ -37,6 +37,12 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm build:admin
+      - name: Generate CycloneDX SBOM
+        run: pnpm run sbom -- "$RUNNER_TEMP/carmediahub-core.cdx.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: carmediahub-core-sbom
+          path: ${{ runner.temp }}/carmediahub-core.cdx.json
       - name: Create and validate the real Native bundle
         run: |
           pnpm create:native-bundle -- "$RUNNER_TEMP/carmediahub-native"

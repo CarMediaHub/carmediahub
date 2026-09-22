@@ -13,6 +13,7 @@
     "dev": "tsx watch src/cli.ts -- --data-dir ./data",
     "start": "tsx src/cli.ts",
     "backup": "node dist/backup-cli.js",
+    "sbom": "node scripts/generate-sbom.mjs",
     "upgrade-preflight": "node scripts/upgrade-preflight.mjs",
     "build": "tsc -p tsconfig.json",
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
