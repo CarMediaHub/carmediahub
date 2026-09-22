@@ -45,3 +45,11 @@ Compose 포트는 의도적으로 `127.0.0.1`에만 바인딩되며 Core 명령�
 pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
+
+Native 번들을 변경하기 전에 명시적이고 검증된 스냅샷으로 읽기 전용 업그레이드 사전 검사를 실행하세요.
+
+```powershell
+pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --snapshot <snapshot>
+```
+
+검사는 번들 메타데이터, 데이터베이스 스키마 호환성과 스냅샷 데이터베이스가 현재 데이터와 일치하는지 확인합니다. Core를 중지하거나 스냅샷을 만들거나 번들을 설치하거나 롤백하지는 않습니다.

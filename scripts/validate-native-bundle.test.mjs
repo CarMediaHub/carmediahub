@@ -10,12 +10,12 @@ function fixture() {
   for (const relative of ["dist/cli.js", "public/admin/index.html", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json", "node_modules/@carmediahub/sdk/package.json", "node_modules/@carmediahub/sdk/dist/index.js"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
-  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0" }));
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0", carmediahub: { databaseSchemaVersion: 1 } }));
   return root;
 }
 
 test("accepts a complete native bundle without instance configuration", () => {
-  assert.deepEqual(validateNativeBundle(fixture()), { files: 12, packageVersion: "0.1.0" });
+  assert.deepEqual(validateNativeBundle(fixture()), { files: 12, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
 });
 
 test("rejects missing runtime assets and instance secrets", () => {

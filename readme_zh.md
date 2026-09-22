@@ -45,3 +45,11 @@ Compose 端口刻意只绑定到 `127.0.0.1`，其 Core 命令要求使用 Secur
 pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
+
+更换 Native 部署包前，请使用显式且已校验的快照执行只读升级预检：
+
+```powershell
+pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --snapshot <snapshot>
+```
+
+预检会校验 Bundle 元数据、数据库 schema 兼容性，以及快照中的数据库是否与当前数据一致。它不会停止 Core、创建快照、安装部署包或执行回滚。

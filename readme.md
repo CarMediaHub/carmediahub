@@ -42,6 +42,14 @@ pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
 
+Before changing a Native bundle, run the read-only upgrade preflight with an explicit, verified snapshot:
+
+```powershell
+pnpm upgrade-preflight -- --bundle-root <bundle-root> --data-dir <data-dir> --snapshot <snapshot>
+```
+
+The check validates bundle metadata, database schema compatibility and that the snapshot database matches the current data. It does not stop Core, create a snapshot, install a bundle or roll back a deployment.
+
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
 ```powershell

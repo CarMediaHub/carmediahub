@@ -27,7 +27,8 @@ export function validateNativeBundle(bundleRoot, options = {}) {
   }
   const packageJson = JSON.parse(fs.readFileSync(path.join(bundleRoot, "package.json"), "utf8"));
   if (packageJson.type !== "module" || packageJson.private !== true || typeof packageJson.version !== "string") fail("runtime package metadata is incomplete");
-  return { files: required.length, packageVersion: packageJson.version };
+  if (!Number.isSafeInteger(packageJson.carmediahub?.databaseSchemaVersion) || packageJson.carmediahub.databaseSchemaVersion < 1) fail("database schema metadata is incomplete");
+  return { files: required.length, packageVersion: packageJson.version, databaseSchemaVersion: packageJson.carmediahub.databaseSchemaVersion };
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

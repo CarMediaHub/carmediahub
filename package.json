@@ -4,12 +4,16 @@
   "private": true,
   "description": "Self-hosted Core and single gateway for CarMediaHub.",
   "license": "AGPL-3.0-only",
+  "carmediahub": {
+    "databaseSchemaVersion": 1
+  },
   "packageManager": "pnpm@11.19.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/cli.ts -- --data-dir ./data",
     "start": "tsx src/cli.ts",
     "backup": "node dist/backup-cli.js",
+    "upgrade-preflight": "node scripts/upgrade-preflight.mjs",
     "build": "tsc -p tsconfig.json",
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
@@ -19,6 +23,7 @@
     "create:native-bundle": "node scripts/create-native-bundle.mjs",
     "test:create-native-bundle": "node --test scripts/create-native-bundle.test.mjs",
     "test:resources": "node --test scripts/preflight-resources.test.mjs",
+    "test:upgrade": "node --test --import tsx src/upgrade-preflight.test.ts",
     "test:native-bundle": "node --test scripts/validate-native-bundle.test.mjs",
     "test:native-service": "node --test scripts/native-windows-service.test.mjs",
     "test:native-linux-service": "node --test scripts/native-linux-service.test.mjs",

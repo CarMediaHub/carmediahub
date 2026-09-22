@@ -13,7 +13,7 @@ function fixture() {
   for (const relative of ["node_modules/@carmediahub/sdk/package.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
-  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0" }));
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0", carmediahub: { databaseSchemaVersion: 1 } }));
   fs.writeFileSync(path.join(root, "config/core.json"), "{}\n");
   return root;
 }
@@ -22,7 +22,7 @@ test("creates a validated bundle without instance configuration", () => {
   const source = fixture();
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-output-"));
   const result = createNativeBundle(source, path.join(output, "bundle"));
-  assert.deepEqual(result, { files: 12, packageVersion: "0.1.0" });
+  assert.deepEqual(result, { files: 12, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
   assert.equal(fs.existsSync(path.join(output, "bundle/config/core.json")), false);
 });
 
