@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { decryptSecret, encryptSecret, generateTotpSecret, hashPassword, keyedHash, randomToken, verifyPassword, verifyTotp } from "./security.js";
-import type { CapabilityName, PluginManifest } from "@carmediahub/sdk";
+import type { BrowserSession, BrowserSessionRequest, CapabilityName, PluginManifest, ScopeContext } from "@carmediahub/sdk";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
@@ -16,6 +16,14 @@ export interface TotpSetup { secret: string; otpauthUrl: string; }
 export interface ManagedUserRecord extends UserRecord { createdAt: string; revokedAt: string | null; }
 export interface PluginInstallationRecord { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled"; createdAt: string; updatedAt: string; }
 export interface VerifiedPluginPackageRecord { packageId: string; packageVersion: string; digest: string; location: string; workerEntry?: string; runtimeEntry?: string; verifiedAt: string; }
+
+const browserSession = (row: Record<string, string>): BrowserSession => ({
+  id: row.id ?? "",
+  name: row.name ?? "",
+  purpose: row.purpose ?? "",
+  status: row.status === "revoked" ? "revoked" : row.status === "expired" || (row.expires_at ?? "") <= now() ? "expired" : "active",
+  expiresAt: row.expires_at ?? "",
+});
 
 export class Repository {
   constructor(private readonly db: DatabaseSync, private readonly serverKey: Buffer) {}
@@ -169,12 +177,42 @@ export class Repository {
     try {
       this.db.prepare("UPDATE users SET revoked_at = ? WHERE id = ?").run(now(), userId);
       this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId);
+      this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE organization_id = ? AND user_id = ? AND status = 'active'").run(organizationId, userId);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");
       throw error;
     }
     return "revoked";
+  }
+
+  createBrowserSession(scope: ScopeContext, input: BrowserSessionRequest): BrowserSession {
+    if (!/^[a-z][a-z0-9_-]{1,63}$/u.test(input.name) || input.purpose.trim().length === 0 || input.purpose.length > 160) throw new Error("Invalid browser session request");
+    const expiresInSeconds = input.expiresInSeconds ?? 300;
+    if (!Number.isSafeInteger(expiresInSeconds) || expiresInSeconds < 30 || expiresInSeconds > 3600) throw new Error("Invalid browser session expiry");
+    const createdAt = now();
+    const record: BrowserSession = { id: id("browser"), name: input.name, purpose: input.purpose.trim(), status: "active", expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString() };
+    this.db.prepare("INSERT INTO browser_sessions (id, organization_id, user_id, installation_id, name, purpose, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)")
+      .run(record.id, scope.organizationId, scope.userId, scope.installationId, record.name, record.purpose, record.expiresAt, createdAt);
+    return record;
+  }
+
+  browserSessions(scope: ScopeContext): BrowserSession[] {
+    const rows = this.db.prepare("SELECT id, name, purpose, status, expires_at FROM browser_sessions WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC")
+      .all(scope.organizationId, scope.userId, scope.installationId) as Array<Record<string, string>>;
+    const result = rows.map(browserSession);
+    for (const session of result) if (session.status === "expired") this.db.prepare("UPDATE browser_sessions SET status = 'expired' WHERE id = ? AND status = 'active'").run(session.id);
+    return result;
+  }
+
+  revokeBrowserSession(scope: ScopeContext, sessionId: string): boolean {
+    if (!/^browser_[0-9a-f-]{36}$/u.test(sessionId)) return false;
+    return this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status <> 'revoked'")
+      .run(sessionId, scope.organizationId, scope.userId, scope.installationId).changes === 1;
+  }
+
+  revokeBrowserSessionsForInstallation(installationId: string): number {
+    return Number(this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE installation_id = ? AND status = 'active'").run(installationId).changes);
   }
 
   applications(): ApplicationRecord[] {
@@ -296,7 +334,10 @@ export class Repository {
       const manifest = JSON.parse(row.manifest_json) as { capabilities?: unknown };
       const declared = new Set(Array.isArray(manifest.capabilities) ? manifest.capabilities.filter((value): value is string => typeof value === "string") : []);
       if (capabilities.some((capability) => !declared.has(capability))) return false;
-      return this.db.prepare("UPDATE plugin_installations SET granted_capabilities = ?, updated_at = ? WHERE id = ?").run(JSON.stringify([...new Set(capabilities)]), now(), installationId).changes === 1;
+      const previous = this.pluginCapabilities(installationId);
+      const changed = this.db.prepare("UPDATE plugin_installations SET granted_capabilities = ?, updated_at = ? WHERE id = ?").run(JSON.stringify([...new Set(capabilities)]), now(), installationId).changes === 1;
+      if (changed && previous.includes("browser") && !capabilities.includes("browser")) this.revokeBrowserSessionsForInstallation(installationId);
+      return changed;
     } catch { return false; }
   }
 
@@ -324,6 +365,7 @@ export class Repository {
       const updatedAt = now();
       this.db.prepare("UPDATE plugin_installations SET status = 'disabled', updated_at = ? WHERE id = ?").run(updatedAt, installationId);
       this.db.prepare("UPDATE applications SET enabled = 0 WHERE installation_id = ?").run(installationId);
+      this.revokeBrowserSessionsForInstallation(installationId);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");

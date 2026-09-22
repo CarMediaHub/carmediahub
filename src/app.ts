@@ -187,6 +187,22 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.id !== "string") throw new Error("Invalid job cancel request");
         return { job: jobs.transition(scope, input.id, "cancelled") };
       }
+      if (request.method === "browser.session.request") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        const input = request.params as { name?: unknown; purpose?: unknown; expiresInSeconds?: unknown } | undefined;
+        if (typeof input?.name !== "string" || typeof input.purpose !== "string" || (input.expiresInSeconds !== undefined && typeof input.expiresInSeconds !== "number")) throw new Error("Invalid browser session request");
+        return repository.createBrowserSession(scope, { name: input.name, purpose: input.purpose, ...(input.expiresInSeconds === undefined ? {} : { expiresInSeconds: input.expiresInSeconds }) });
+      }
+      if (request.method === "browser.session.list") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        return { sessions: repository.browserSessions(scope) };
+      }
+      if (request.method === "browser.session.revoke") {
+        if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
+        const id = (request.params as { id?: unknown } | undefined)?.id;
+        if (typeof id !== "string") throw new Error("Invalid browser session ID");
+        return { revoked: repository.revokeBrowserSession(scope, id) };
+      }
       if (request.method === "history.record") {
         if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
         const input = request.params as Parameters<HistoryService["record"]>[1] | undefined;

@@ -116,6 +116,19 @@ export function openDatabase(dataDir: string): CoreDatabase {
       revoked_at TEXT
     );
     CREATE INDEX IF NOT EXISTS playback_sessions_scope_index ON playback_sessions (organization_id, user_id, installation_id, expires_at);
+    CREATE TABLE IF NOT EXISTS browser_sessions (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      status TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS browser_sessions_scope_index
+      ON browser_sessions (organization_id, user_id, installation_id, status, expires_at);
     CREATE TABLE IF NOT EXISTS entry_keys (
       id TEXT PRIMARY KEY,
       key_hash TEXT NOT NULL UNIQUE,

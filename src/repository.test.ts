@@ -45,6 +45,48 @@ test("capability grants can only be reduced from the manifest declaration", () =
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("browser sessions are opaque, bounded, persistent, and isolated by user and installation", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-session-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const member = repository.createUser({ organizationId: admin.organizationId, username: "member", password: "correct horse battery staple", role: "member", locale: "en" });
+    const manifest = (id: string) => ({ id, version: "0.1.0", sdk: "^0.1.0", name: { en: id, "zh-CN": id, ko: id }, description: { en: id, "zh-CN": id, ko: id }, category: "official", runtime: "isolated-worker", capabilities: ["browser"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const);
+    const first = repository.installPlugin(manifest("browser-one"));
+    const second = repository.installPlugin(manifest("browser-two"));
+    const firstScope = repository.runtimeScope(admin.id, first.id);
+    const secondUserScope = repository.runtimeScope(member.id, first.id);
+    const secondInstallationScope = repository.runtimeScope(admin.id, second.id);
+    assert.ok(firstScope && secondUserScope && secondInstallationScope);
+    const session = repository.createBrowserSession(firstScope, { name: "youtube", purpose: "authorized media extraction", expiresInSeconds: 60 });
+    assert.match(session.id, /^browser_[0-9a-f-]{36}$/u);
+    assert.equal("profilePath" in session, false);
+    assert.equal(repository.browserSessions(firstScope).length, 1);
+    assert.equal(repository.browserSessions(secondUserScope).length, 0);
+    assert.equal(repository.browserSessions(secondInstallationScope).length, 0);
+    assert.equal(repository.revokeBrowserSession(secondUserScope, session.id), false);
+    assert.equal(repository.revokeBrowserSession(firstScope, session.id), true);
+    assert.equal(repository.browserSessions(firstScope)[0]?.status, "revoked");
+    assert.throws(() => repository.createBrowserSession(firstScope, { name: "Bad Name", purpose: "x" }));
+    assert.throws(() => repository.createBrowserSession(firstScope, { name: "valid", purpose: "x", expiresInSeconds: 5 }));
+    const active = repository.createBrowserSession(firstScope, { name: "valid", purpose: "bounded", expiresInSeconds: 60 });
+    database.db.prepare("UPDATE browser_sessions SET expires_at = ? WHERE id = ?").run(new Date(Date.now() - 1000).toISOString(), active.id);
+    assert.equal(repository.browserSessions(firstScope).find((item) => item.id === active.id)?.status, "expired");
+    const persisted = repository.createBrowserSession(firstScope, { name: "persisted", purpose: "restart check" });
+    database.close();
+    const reopened = openDatabase(dataDir);
+    try {
+      const afterRestart = new Repository(reopened.db, ensureServerKey(dataDir));
+      const restoredScope = afterRestart.runtimeScope(admin.id, first.id);
+      assert.ok(restoredScope);
+      assert.equal(afterRestart.browserSessions(restoredScope).some((item) => item.id === persisted.id), true);
+      assert.equal(afterRestart.disablePlugin(first.id), true);
+      assert.equal(afterRestart.browserSessions(restoredScope).find((item) => item.id === persisted.id)?.status, "revoked");
+    } finally { reopened.close(); }
+  } finally { try { database.close(); } catch {} fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("disabled plugin installations can be re-enabled without changing their grants", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-enable-"));
   const database = openDatabase(dataDir);
