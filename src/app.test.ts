@@ -471,3 +471,29 @@ test("administrator manages Core-owned media roots without exposing their paths"
     assert.equal((await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie: login.headers["set-cookie"] } })).statusCode, 404);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); fs.rmSync(mediaRoot, { recursive: true, force: true }); }
 });
+
+test("authenticated transform playback route enforces Range and expiry", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-output-route-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const database = openDatabase(dataDir);
+    const user = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
+    const outputId = "transform_00000000-0000-4000-8000-000000000001";
+    const output = path.join(dataDir, "media-transforms", `${outputId}.mp4`);
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, "0123456789");
+    database.db.prepare("INSERT INTO media_transform_outputs (id, organization_id, user_id, installation_id, file_name, content_type, bytes, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(outputId, user.organization_id, user.id, "wdr", path.basename(output), "video/mp4", 10, new Date().toISOString(), "2099-01-01T00:00:00.000Z");
+    database.close();
+    const response = await app.inject({ method: "GET", url: `/api/media/outputs/${outputId}`, headers: { cookie, range: "bytes=2-5" } });
+    assert.equal(response.statusCode, 206);
+    assert.equal(response.body, "2345");
+    assert.equal(response.headers["content-range"], "bytes 2-5/10");
+    const expired = openDatabase(dataDir);
+    expired.db.prepare("UPDATE media_transform_outputs SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", outputId);
+    expired.close();
+    assert.equal((await app.inject({ method: "GET", url: `/api/media/outputs/${outputId}`, headers: { cookie } })).statusCode, 404);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
