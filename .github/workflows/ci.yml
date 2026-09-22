@@ -40,3 +40,4 @@ jobs:
       - run: pnpm test:native-bundle
       - run: pnpm check:native-bundle
       - run: pnpm test:native-service
+      - run: pnpm test:native-linux-service
