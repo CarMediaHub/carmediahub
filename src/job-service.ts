@@ -118,6 +118,15 @@ export class PluginJobService {
     return Number(result.changes);
   }
 
+  cancelInstallation(organizationId: string, installationId: string): number {
+    assertIdentifier(organizationId, "organizationId");
+    assertIdentifier(installationId, "installationId");
+    const completedAt = now();
+    const result = this.db.prepare("UPDATE plugin_jobs SET status = 'cancelled', updated_at = ?, completed_at = ? WHERE organization_id = ? AND installation_id = ? AND status IN ('queued', 'running')")
+      .run(completedAt, completedAt, organizationId, installationId);
+    return Number(result.changes);
+  }
+
   transition(scope: ScopeContext, id: string, status: JobStatus, options: { progress?: number; result?: unknown; errorCode?: string } = {}): PluginJob | undefined {
     const [organizationId, userId, installationId] = scopeValues(scope);
     if (!id.startsWith("job_")) throw new Error("job id is invalid");

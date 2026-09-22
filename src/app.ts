@@ -634,6 +634,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!repository.updatePluginCapabilities(installationId, input.capabilities as never[])) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
     // Capability revocation must invalidate the Worker credential immediately.
     runtimeBroker.revokeInstallationCredentials(installationId);
+    jobExecutor.cancelInstallation(user.organizationId, installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
     return { installationId, capabilities: repository.pluginCapabilities(installationId) };

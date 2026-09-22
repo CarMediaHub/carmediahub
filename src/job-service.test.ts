@@ -233,6 +233,38 @@ test("user cancellation aborts active work and queued jobs without affecting ano
   }
 });
 
+test("installation cancellation aborts every user scope for that installation", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-install-cancel-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user-a', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z'), ('user-b', 'org', 'b', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const executor = new JobExecutor(jobs);
+    const base = { deploymentId: "dep", organizationId: "org", deviceId: "device", sessionId: "session", installationId: "plugin" };
+    const first = { ...base, userId: "user-a" };
+    const second = { ...base, userId: "user-b" };
+    const unrelated = { ...second, installationId: "other" };
+    let aborts = 0;
+    executor.register("media.transcode", (_job, _scope, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => { aborts += 1; reject(new Error("cancelled")); }, { once: true });
+    }));
+    jobs.enqueue(first, "media.transcode", { mediaId: "a" });
+    jobs.enqueue(second, "media.transcode", { mediaId: "b" });
+    const unrelatedJob = jobs.enqueue(unrelated, "media.transcode", { mediaId: "other" });
+    const running = executor.runOnce(first);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(executor.cancelInstallation("org", "plugin"), 2);
+    assert.equal(aborts, 1);
+    assert.equal(jobs.list(first)[0]?.status, "cancelled");
+    assert.equal(jobs.list(second)[0]?.status, "cancelled");
+    assert.equal(jobs.list(unrelated).find((job) => job.id === unrelatedJob.id)?.status, "queued");
+    await running;
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("job executor drains only a bounded FIFO batch", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-drain-"));
   const database = openDatabase(dataDir);
