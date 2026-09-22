@@ -253,6 +253,12 @@ export class Repository {
     return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
+  pluginInstallationByPackage(packageId: string, packageVersion: string): PluginInstallationRecord | undefined {
+    const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE package_id = ? AND package_version = ? ORDER BY created_at DESC LIMIT 1").get(packageId, packageVersion) as Record<string, string> | undefined;
+    if (row === undefined) return undefined;
+    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+  }
+
   pluginHasCapability(installationId: string, capability: string): boolean {
     const row = this.db.prepare("SELECT manifest_json, granted_capabilities FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string; granted_capabilities?: string | null } | undefined;
     if (row?.manifest_json === undefined) return false;
