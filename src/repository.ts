@@ -5,6 +5,7 @@ import type { CapabilityName, PluginManifest } from "@carmediahub/sdk";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
+const validLocale = (locale: string): locale is "en" | "zh-CN" | "ko" => locale === "en" || locale === "zh-CN" || locale === "ko";
 
 export interface UserRecord { id: string; username: string; role: string; locale: string; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; organizationId: string; }
 export interface SessionContext { user: UserRecord; sessionId: string; deviceLabel: string; }
@@ -23,6 +24,7 @@ export class Repository {
 
   bootstrap(username: string, password: string, locale: string): UserRecord {
     if (this.initialized()) throw new Error("Deployment already initialized");
+    if (!validLocale(locale)) throw new Error("Invalid locale");
     const deploymentId = id("deployment");
     const organizationId = id("org");
     const userId = id("user");
@@ -135,6 +137,7 @@ export class Repository {
 
   createUser(input: { organizationId: string; username: string; password: string; role: string; locale: string }): UserRecord {
     if (input.role !== "admin" && input.role !== "member") throw new Error("Invalid role");
+    if (!validLocale(input.locale)) throw new Error("Invalid locale");
     const record = { id: id("user"), organizationId: input.organizationId, username: input.username, role: input.role, locale: input.locale, timeZone: "UTC", theme: "system" as const, density: "comfortable" as const };
     this.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(record.id, record.organizationId, record.username, hashPassword(input.password), record.role, record.locale, now());

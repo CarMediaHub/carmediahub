@@ -47,6 +47,7 @@ test("exposes safe liveness, readiness, and diagnostic probes", async () => {
     assert.equal(diagnostic.statusCode, 200);
     assert.deepEqual(diagnostic.json(), { status: "ok", initialized: false, components: { total: 0, healthy: 0, unhealthy: 0 }, plugins: { total: 0, enabled: 0, disabled: 0 } });
 
+    assert.equal((await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple", locale: "fr" } })).statusCode, 400);
     const bootstrap = await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     assert.equal(bootstrap.statusCode, 201);
     const ready = await app.inject({ method: "GET", url: "/health/ready" });
@@ -110,6 +111,7 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     assert.equal(login.statusCode, 200);
     const cookie = login.headers["set-cookie"];
+    assert.equal((await app.inject({ method: "POST", url: "/api/users", headers: { cookie }, payload: { username: "invalid-locale", password: "correct horse battery staple", locale: "fr" } })).statusCode, 400);
     assert.ok(cookie);
     const preferences = await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko", timeZone: "Asia/Shanghai", theme: "dark", density: "compact" } });
     assert.equal(preferences.statusCode, 200);
