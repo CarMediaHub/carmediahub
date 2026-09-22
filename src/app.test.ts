@@ -401,6 +401,11 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } })).statusCode, 200);
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "vehicle", "x-cmh-input": "touch,remote", "x-cmh-viewport-width": "1920", "x-cmh-viewport-height": "1200", "x-cmh-fullscreen": "true", authorization: "Bearer should-not-reach-plugin" } });
     assert.equal(response.statusCode, 200);
+    const methodDenied = await app.inject({ method: "POST", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
+    assert.equal(methodDenied.statusCode, 405);
+    assert.equal(methodDenied.headers.allow, "GET");
+    const unknownRoute = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/not-declared`, headers: { cookie } });
+    assert.equal(unknownRoute.statusCode, 404);
     assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko", entry: "navigation", display: { deviceClass: "vehicle", input: ["touch", "remote"], fullscreenAvailable: true, viewport: { width: 1920, height: 1200 } } });
     const runningInstallation = (await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.find((candidate: { id: string }) => candidate.id === installationId);
     assert.deepEqual(runningInstallation.worker, { installationId, state: "running", attempts: 0 });

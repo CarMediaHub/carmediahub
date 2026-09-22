@@ -40,7 +40,7 @@ interface ConnectionState {
 }
 
 export interface GatewayInvocation {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   query?: Record<string, string | string[]>;
   headers?: Record<string, string>;

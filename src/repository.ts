@@ -183,6 +183,28 @@ export class Repository {
     return this.applications().find((application) => requestPath === application.route || requestPath.startsWith(`${application.route}/`));
   }
 
+  pluginRouteMethods(installationId: string, relativePath: string): string[] | undefined {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return undefined;
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { routes?: unknown };
+      if (!Array.isArray(manifest.routes)) return undefined;
+      const route = manifest.routes.find((candidate) => {
+        if (typeof candidate !== "object" || candidate === null) return false;
+        return (candidate as { path?: unknown }).path === relativePath;
+      });
+      if (typeof route !== "object" || route === null) return undefined;
+      const methods = (route as { methods?: unknown }).methods;
+      return Array.isArray(methods) && methods.every((method): method is string => typeof method === "string") ? methods : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  pluginRouteAllows(installationId: string, relativePath: string, method: string): boolean {
+    return this.pluginRouteMethods(installationId, relativePath)?.includes(method) ?? false;
+  }
+
   runtimeScope(userId: string, installationId: string, sessionId = "gateway", deviceId = "gateway", presentation: { entry?: "navigation" | "key"; display?: { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } } } = {}): { deploymentId: string; organizationId: string; userId: string; deviceId: string; sessionId: string; installationId: string; locale: "en" | "zh-CN" | "ko"; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; entry: "navigation" | "key"; display: { deviceClass: "desktop" | "mobile" | "vehicle" | "unknown"; input: Array<"touch" | "keyboard" | "pointer" | "remote">; fullscreenAvailable: boolean; viewport: { width: number; height: number } }; grantedCapabilities: CapabilityName[]; policyVersion: number } | undefined {
     const row = this.db.prepare(`SELECT u.organization_id, u.locale, u.time_zone, u.theme, u.density, o.deployment_id
       FROM users u JOIN organizations o ON o.id = u.organization_id

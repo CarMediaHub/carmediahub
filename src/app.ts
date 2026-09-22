@@ -868,12 +868,21 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const streamLease = gatewayStreamQuota.tryAcquire(session.sessionId);
     if (streamLease === undefined) return reply.code(429).header("retry-after", "1").send({ code: "CMH.GATEWAY.STREAM_LIMIT", messageKey: "errors.gateway.streamLimit", retryable: true });
     const relativePath = requestPath.slice(application.route.length) || "/";
+    const routeMethods = repository.pluginRouteMethods(application.installationId, relativePath);
+    if (routeMethods === undefined) {
+      streamLease.release();
+      return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
+    }
+    if (!routeMethods.includes(request.method)) {
+      streamLease.release();
+      return reply.code(405).header("allow", routeMethods.join(", ")).send({ code: "CMH.GATEWAY.METHOD_NOT_ALLOWED", messageKey: "errors.gateway.methodNotAllowed" });
+    }
     try {
       const workerStatus = await supervisor.start(application.installationId, scope);
       if (workerStatus.state !== "running") return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
       await runtimeBroker.waitForWorker(application.installationId, scope.userId);
       const stream = runtimeBroker.invokeStream(application.installationId, scope, {
-        method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+        method: request.method as "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE",
         path: relativePath,
         query: request.query as Record<string, string | string[]>,
         headers: pluginRequestHeaders(request),
