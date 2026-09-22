@@ -15,7 +15,7 @@ test("creates an explicit sc.exe service specification", () => {
 
 test("rejects unsafe service metadata and implicit paths", () => {
   assert.throws(() => createWindowsServiceSpec({ ...valid, serviceName: "bad name" }), /serviceName/);
-  assert.throws(() => createWindowsServiceSpec({ ...valid, nodePath: "node.exe" }), /nodePath.*absolute/);
+  assert.throws(() => createWindowsServiceSpec({ ...valid, nodePath: "node.exe" }), /nodePath.*absolute Windows/);
   assert.throws(() => createWindowsServiceSpec({ ...valid, configPath: "C:/secret\".json" }), /configPath/);
   assert.throws(() => createWindowsServiceSpec({ ...valid, description: "line\ncontaining" }), /description/);
 });

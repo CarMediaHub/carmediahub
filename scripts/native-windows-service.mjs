@@ -7,7 +7,7 @@ function reject(value, message) {
 
 function quote(value, label) {
   const safe = reject(value, `${label} is invalid`);
-  if (!path.isAbsolute(safe)) throw new Error(`${label} must be absolute`);
+  if (!path.win32.isAbsolute(safe)) throw new Error(`${label} must be absolute Windows path`);
   return `"${safe}"`;
 }
 
