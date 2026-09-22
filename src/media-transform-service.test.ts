@@ -9,7 +9,7 @@ import { openDatabase } from "./database.js";
 import { JobExecutor } from "./job-executor.js";
 import { PluginJobService } from "./job-service.js";
 import { MediaLibraryService } from "./media-library-service.js";
-import { readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
 
 const ffmpegCandidates = process.platform === "win32"
   ? ["F:/dev_env/bin/ffmpeg.exe"]
@@ -45,6 +45,9 @@ test("runs a verified FFmpeg remux through the scoped media job", { skip: ffmpeg
     const files = fs.readdirSync(path.join(dataDir, "media-transforms"));
     assert.equal(files.length, 1);
     assert.ok(fs.statSync(path.join(dataDir, "media-transforms", files[0]!)).size > 0);
+    database.db.prepare("UPDATE media_transform_outputs SET expires_at = ? WHERE id = ?").run("2000-01-01T00:00:00.000Z", outputId);
+    assert.equal(cleanupExpiredTransformOutputs(database.db, dataDir, "2026-01-01T00:00:00.000Z"), 1);
+    assert.throws(() => readTransformOutput(database.db, dataDir, scope, outputId, 0, 10), /unavailable/);
     assert.equal(jobs.list(scope)[0]?.id, job.id);
   } finally {
     database.close();

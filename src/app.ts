@@ -24,7 +24,7 @@ import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { JobExecutor } from "./job-executor.js";
-import { readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
+import { cleanupExpiredTransformOutputs, readTransformOutput, registerMediaTransformHandlers } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
@@ -92,6 +92,7 @@ function publicWorkerStatus(status: ReturnType<WorkerSupervisor["status"]>): { i
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const database = openDatabase(options.dataDir);
+  cleanupExpiredTransformOutputs(database.db, options.dataDir);
   const serverKey = ensureServerKey(options.dataDir);
   const repository = new Repository(database.db, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);

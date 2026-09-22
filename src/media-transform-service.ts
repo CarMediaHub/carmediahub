@@ -57,6 +57,18 @@ export function registerMediaTransformHandlers(input: {
 }
 
 export interface TransformOutputRead { data: string; completed: boolean; contentType: string; size: number; }
+
+export function cleanupExpiredTransformOutputs(db: DatabaseSync, dataDir: string, nowIso = new Date().toISOString()): number {
+  const rows = db.prepare("SELECT id, file_name FROM media_transform_outputs WHERE expires_at <= ? OR revoked_at IS NOT NULL").all(nowIso) as Array<{ id: string; file_name: string }>;
+  const root = path.resolve(dataDir, "media-transforms");
+  for (const row of rows) {
+    const location = path.resolve(root, row.file_name);
+    if (location.startsWith(root + path.sep) && fs.existsSync(location) && !fs.lstatSync(location).isSymbolicLink()) fs.rmSync(location, { force: true });
+    db.prepare("DELETE FROM media_transform_outputs WHERE id = ?").run(row.id);
+  }
+  return rows.length;
+}
+
 export function readTransformOutput(db: DatabaseSync, dataDir: string, scope: ScopeContext, outputId: string, start: number, end: number): TransformOutputRead {
   if (!/^transform_[A-Za-z0-9-]{20,80}$/u.test(outputId) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end - start >= 262_144) throw new Error("Transform output range is invalid");
   const row = db.prepare("SELECT file_name, content_type, bytes FROM media_transform_outputs WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(outputId, scope.organizationId, scope.userId, scope.installationId, new Date().toISOString()) as { file_name?: string; content_type?: string; bytes?: number } | undefined;
