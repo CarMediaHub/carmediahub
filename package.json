@@ -4,6 +4,7 @@
   "private": true,
   "description": "Self-hosted Core and single gateway for CarMediaHub.",
   "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.19.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/cli.ts -- --data-dir ./data",
