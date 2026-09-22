@@ -26,6 +26,7 @@
     "test:create-native-bundle": "node --test scripts/create-native-bundle.test.mjs",
     "test:resources": "node --test scripts/preflight-resources.test.mjs",
     "test:upgrade": "node --test --import tsx src/upgrade-preflight.test.ts",
+    "test:postgres": "node scripts/postgres-smoke.mjs",
     "test:native-install-plan": "node --test scripts/native-install-plan.test.mjs",
     "test:native-bundle": "node --test scripts/validate-native-bundle.test.mjs",
     "test:native-service": "node --test scripts/native-windows-service.test.mjs",

@@ -11,6 +11,20 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: carmediahub_ci
+          POSTGRES_USER: carmediahub_ci
+          POSTGRES_PASSWORD: carmediahub_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U carmediahub_ci -d carmediahub_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -36,6 +50,8 @@ jobs:
       - run: pnpm --dir admin check
       - run: pnpm test
       - run: pnpm build
+      - name: Exercise the explicit PostgreSQL adapter fixture
+        run: pnpm test:postgres -- --connection-string "postgresql://carmediahub_ci:carmediahub_ci_password@127.0.0.1:5432/carmediahub_ci"
       - run: pnpm build:admin
       - name: Generate CycloneDX SBOM
         run: pnpm run sbom -- "$RUNNER_TEMP/carmediahub-core.cdx.json"
