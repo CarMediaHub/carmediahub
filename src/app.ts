@@ -747,6 +747,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     mediaLibrary.revokePlaybackForInstallation(installationId);
     revokeHlsForInstallation(database.db, installationId);
     runtimeBroker.revokeInstallationCredentials(installationId);
+    jobExecutor.cancelInstallation(user.organizationId, installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();
