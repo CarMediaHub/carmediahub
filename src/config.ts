@@ -65,8 +65,11 @@ export function listeningAddress(config: Pick<CoreConfig, "host" | "port" | "pub
 export function parseConfig(args: readonly string[], workingDirectory = process.cwd()): CoreConfig {
   let configPath = path.join(workingDirectory, "config", "core.json");
   let explicitConfig = false;
+  let configCount = 0;
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] !== "--config") continue;
+    configCount += 1;
+    if (configCount > 1) throw new Error("--config may only be specified once");
     const next = args[index + 1];
     if (next === undefined || next.startsWith("--")) throw new Error("--config requires a value");
     configPath = path.resolve(workingDirectory, next);
@@ -88,7 +91,7 @@ export function parseConfig(args: readonly string[], workingDirectory = process.
       index += 1;
     } else if (value === "--data-dir") {
       if (next === undefined || next.startsWith("--")) throw new Error("--data-dir requires a value");
-      dataDir = path.resolve(next);
+      dataDir = path.resolve(workingDirectory, next);
       index += 1;
     } else if (value === "--host") {
       if (next === undefined || next.startsWith("--")) throw new Error("--host requires a valid value");

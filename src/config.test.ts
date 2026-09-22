@@ -22,6 +22,7 @@ test("rejects invalid or incomplete deployment options", () => {
   assert.throws(() => parseConfig(["--port", "70000"]), /between 1 and 65535/);
   assert.throws(() => parseConfig(["--host"]), /requires a valid value/);
   assert.throws(() => parseConfig(["--data-dir"]), /requires a value/);
+  assert.throws(() => parseConfig(["--config", "one.json", "--config", "two.json"]), /only be specified once/);
   assert.throws(() => parseConfig(["--unknown"]), /Unknown option/);
   assert.throws(() => parseConfig(["--public-url", "https://user:pass@example.test"]), /credential-free/);
 });
@@ -36,6 +37,8 @@ test("loads an explicit JSON configuration and lets CLI values override it", () 
   assert.equal(config.port, 9001);
   assert.equal(config.publicUrl, "https://hub.example.test");
   assert.equal(config.cookieSecure, false);
+  const cliRelative = parseConfig(["--data-dir", "cli-state"], root);
+  assert.equal(cliRelative.dataDir.replaceAll("\\", "/"), `${root.replaceAll("\\", "/")}/cli-state`);
 });
 
 test("rejects unknown or invalid configuration file fields", () => {

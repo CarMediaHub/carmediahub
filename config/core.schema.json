@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CarMediaHub Core deployment configuration",
+  "description": "Non-secret deployment metadata. Passwords, tokens, cookies and database credentials are not permitted.",
+  "type": "object",
+  "properties": {
+    "dataDir": { "type": "string", "minLength": 1 },
+    "host": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^\\S+$" },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "publicUrl": { "type": "string", "format": "uri", "pattern": "^https?://[^/?#]+/?$" },
+    "cookieSecure": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

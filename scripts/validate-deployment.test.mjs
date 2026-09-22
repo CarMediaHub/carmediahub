@@ -22,5 +22,5 @@ test("rejects implicit environment and a non-Core entrypoint", () => {
 });
 
 test("rejects baking the whole configuration directory into the image", () => {
-  assert.throws(() => validateDeployment(compose, dockerfile.replace("COPY carmediahub/config/components.json carmediahub/config/components.schema.json carmediahub/config/core.example.json ./carmediahub/config/", "COPY carmediahub/config ./carmediahub/config/")), /controlled configuration artifacts|whole configuration directory/u);
+  assert.throws(() => validateDeployment(compose, dockerfile.replace("COPY carmediahub/config/components.json carmediahub/config/components.schema.json carmediahub/config/core.schema.json carmediahub/config/core.example.json ./carmediahub/config/", "COPY carmediahub/config ./carmediahub/config/")), /controlled configuration artifacts|whole configuration directory/u);
 });
