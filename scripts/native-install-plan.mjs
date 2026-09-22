@@ -4,6 +4,7 @@ import { validateNativeBundle } from "./validate-native-bundle.mjs";
 import { checkDeploymentResources } from "./preflight-resources.mjs";
 import { createWindowsServiceSpec } from "./native-windows-service.mjs";
 import { createLinuxServiceSpec } from "./native-linux-service.mjs";
+import { createNativeInstallActions } from "./native-install-actions.mjs";
 
 function fail(message) { throw new Error(`Native install plan failed: ${message}`); }
 
@@ -25,7 +26,8 @@ export function createNativeInstallPlan(input, dependencies) {
   const service = input.platform === "windows"
     ? createWindowsServiceSpec({ serviceName: input.serviceName, displayName: input.displayName ?? input.description, description: input.description, serviceAccount, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath })
     : createLinuxServiceSpec({ serviceName: input.serviceName, description: input.description, serviceAccount, nodePath: input.nodePath, bundleRoot: resources.bundleRoot, dataDir: resources.dataDir, configPath: resources.configPath });
-  return { platform: input.platform, bundle, resources, service, serviceAccount, acl: [{ path: resources.bundleRoot, access: "read-execute" }, { path: resources.configPath, access: "read-only" }, { path: resources.dataDir, access: "read-write" }] };
+  const plan = { platform: input.platform, bundle, resources, service, serviceAccount, acl: [{ path: resources.bundleRoot, access: "read-execute" }, { path: resources.configPath, access: "read-only" }, { path: resources.dataDir, access: "read-write" }] };
+  return { ...plan, actions: createNativeInstallActions(plan) };
 }
 
 function parse(args) {

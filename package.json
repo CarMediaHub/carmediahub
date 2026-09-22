@@ -16,6 +16,7 @@
     "sbom": "node scripts/generate-sbom.mjs",
     "upgrade-preflight": "node scripts/upgrade-preflight.mjs",
     "native-install-plan": "node scripts/native-install-plan.mjs",
+    "test:native-install-actions": "node --test scripts/native-install-actions.test.mjs",
     "build": "tsc -p tsconfig.json",
     "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
