@@ -52,3 +52,15 @@ test("rejects unknown or invalid configuration file fields", () => {
   assert.throws(() => parseConfig(["--config", configPath], root), /requires a value/);
   assert.throws(() => parseConfig(["--config", path.join(root, "missing.json")], root), /does not exist/);
 });
+
+test("keeps the checked-in configuration schema aligned with the example", () => {
+  const schemaPath = path.resolve(process.cwd(), "config", "core.schema.json");
+  const examplePath = path.resolve(process.cwd(), "config", "core.example.json");
+  const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8")) as { properties?: Record<string, unknown>; additionalProperties?: boolean };
+  const example = JSON.parse(fs.readFileSync(examplePath, "utf8")) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(schema.properties ?? {}).sort(), ["cookieSecure", "dataDir", "host", "port", "publicUrl"]);
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(Object.keys(example).sort(), Object.keys(schema.properties ?? {}).sort());
+  assert.equal("password" in example, false);
+  assert.equal("token" in example, false);
+});
