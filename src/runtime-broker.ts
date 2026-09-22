@@ -133,6 +133,13 @@ export class RuntimeBroker {
     }
   }
 
+  revokeUserConnections(userId: string): void {
+    this.revokeUserCredentials(userId);
+    for (const { socket, state } of this.connections()) {
+      if (state.scope?.userId === userId) socket.destroy();
+    }
+  }
+
   /** Broadcasts persisted user preference changes to matching authenticated Workers. */
   broadcastContext(userId: string, update: ContextUpdate): void {
     for (const connection of this.connections()) {

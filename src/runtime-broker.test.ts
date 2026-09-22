@@ -83,6 +83,25 @@ test("Broker rejects a credential revoked before worker handshake", async () => 
   }
 });
 
+test("Broker closes established connections when a user is revoked", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
+  const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });
+  try {
+    const endpoint = await broker.start();
+    const credential = broker.issueCredential(scope);
+    const client = await connect(endpoint);
+    await send(client.socket, client.decoder, request("hello-user-revoke", "broker.hello"));
+    await send(client.socket, client.decoder, request("prove-user-revoke", "worker.prove", scope.installationId, { runtimeCredential: credential }));
+    const closed = once(client.socket, "close");
+    broker.revokeUserConnections(scope.userId);
+    await closed;
+    assert.equal(client.socket.destroyed, true);
+  } finally {
+    await broker.stop();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("Broker waits for a matching Worker to finish its authenticated handshake", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-broker-"));
   const broker = new RuntimeBroker({ dataDir, installationEnabled: (id) => id === scope.installationId });

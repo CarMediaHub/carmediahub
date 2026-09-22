@@ -541,7 +541,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (result === "not_found") return reply.code(404).send({ code: "CMH.USER.NOT_FOUND", messageKey: "errors.user.notFound" });
     mediaLibrary.revokePlaybackForUser((request.params as { id: string }).id);
     revokeHlsForUser(database.db, (request.params as { id: string }).id);
-    runtimeBroker.revokeUserCredentials((request.params as { id: string }).id);
+    runtimeBroker.revokeUserConnections((request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
   });
