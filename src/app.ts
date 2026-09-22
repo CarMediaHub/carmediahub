@@ -904,7 +904,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
             if (!reply.raw.destroyed) reply.raw.destroy();
             return reply;
           }
-          if (!reply.raw.destroyed) reply.raw.write(chunk);
+          if (request.method !== "HEAD" && !reply.raw.destroyed) reply.raw.write(chunk);
         }
         if (!reply.raw.destroyed) reply.raw.end();
       } catch {

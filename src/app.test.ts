@@ -375,7 +375,7 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
     const cookie = login.headers["set-cookie"];
-    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "storage", "media", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/stream", methods: ["GET"] }, { path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
+    const manifest = { id: "wdr-media", version: "0.1.0", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "storage", "media", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/stream", methods: ["GET"] }, { path: "/health", methods: ["GET", "HEAD"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } };
     const pluginKeyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
     const release = { keyId: pluginKeyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
@@ -401,9 +401,12 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal((await app.inject({ method: "PATCH", url: "/api/me/preferences", headers: { cookie }, payload: { locale: "ko" } })).statusCode, 200);
     const response = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie, "x-cmh-device-class": "vehicle", "x-cmh-input": "touch,remote", "x-cmh-viewport-width": "1920", "x-cmh-viewport-height": "1200", "x-cmh-fullscreen": "true", authorization: "Bearer should-not-reach-plugin" } });
     assert.equal(response.statusCode, 200);
+    const head = await app.inject({ method: "HEAD", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
+    assert.equal(head.statusCode, 200);
+    assert.equal(head.body, "");
     const methodDenied = await app.inject({ method: "POST", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie } });
     assert.equal(methodDenied.statusCode, 405);
-    assert.equal(methodDenied.headers.allow, "GET");
+    assert.equal(methodDenied.headers.allow, "GET, HEAD");
     const unknownRoute = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/not-declared`, headers: { cookie } });
     assert.equal(unknownRoute.statusCode, 404);
     assert.deepEqual(response.json(), { status: "ok", worker: "wdr-media", locale: "ko", entry: "navigation", display: { deviceClass: "vehicle", input: ["touch", "remote"], fullscreenAvailable: true, viewport: { width: 1920, height: 1200 } } });
