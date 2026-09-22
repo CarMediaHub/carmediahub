@@ -441,6 +441,56 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
   }
 });
 
+test("runs the browser contract Worker through Core Broker and enforces capability boundaries", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-worker-"));
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const packageRoot = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "browser-bridge", "browser-session-contract-example", "src");
+  const trustedWorkerPackages = [
+    { packageId: "browser-session-contract-example", packageRoot, workerEntry: "./worker.js" },
+    { packageId: "browser-session-no-capability", packageRoot, workerEntry: "./worker.js" }
+  ];
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const sign = (manifest: object) => ({ keyId: crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16), manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") });
+    const browserManifest = { id: "browser-session-contract-example", version: "0.1.0", sdk: "^0.1.0", name: { en: "Browser contract", "zh-CN": "浏览器契约", ko: "브라우저 계약" }, description: { en: "Worker fixture", "zh-CN": "Worker 夹具", ko: "Worker 픽스처" }, category: "browser-bridge", runtime: "isolated-worker", capabilities: ["browser", "gateway"], routes: [{ path: "/", methods: ["GET", "HEAD"] }, { path: "/health", methods: ["GET", "HEAD"] }, { path: "/session", methods: ["GET"] }, { path: "/task", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const installed = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: sign(browserManifest) });
+    assert.equal(installed.statusCode, 201);
+    const installationId = (installed.json() as { installation: { id: string } }).installation.id;
+    const taskResponse = await app.inject({ method: "GET", url: `/apps/browser-session-contract-example/${installationId}/task`, headers: { cookie } });
+    assert.equal(taskResponse.statusCode, 200);
+    const taskBody = taskResponse.json() as { session: { id: string; name: string; status: string }; task: { id: string; kind: string; status: string; input: { target: string; label: string } }; listed: Array<{ id: string }>; cancelled: { id: string; status: string } };
+    assert.match(taskBody.session.id, /^browser_[0-9a-f-]{36}$/u);
+    assert.equal(taskBody.session.name, "task-fixture");
+    assert.equal(taskBody.task.kind, "navigate-and-capture");
+    assert.equal(taskBody.task.status, "queued");
+    assert.deepEqual(taskBody.task.input, { target: "contract-fixture", label: "Contract fixture" });
+    assert.equal(taskBody.listed.some((task) => task.id === taskBody.task.id), true);
+    assert.equal(taskBody.cancelled.id, taskBody.task.id);
+    assert.equal(taskBody.cancelled.status, "cancelled");
+    const database = openDatabase(dataDir);
+    assert.equal((database.db.prepare("SELECT COUNT(*) AS count FROM browser_sessions WHERE installation_id = ?").get(installationId) as { count: number }).count, 1);
+    assert.equal((database.db.prepare("SELECT COUNT(*) AS count FROM browser_tasks WHERE installation_id = ? AND status = 'cancelled'").get(installationId) as { count: number }).count, 1);
+    database.close();
+
+    const deniedManifest = { ...browserManifest, id: "browser-session-no-capability", capabilities: ["gateway"] as const };
+    const deniedInstall = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: sign(deniedManifest) });
+    assert.equal(deniedInstall.statusCode, 201);
+    const deniedId = (deniedInstall.json() as { installation: { id: string } }).installation.id;
+    const denied = await app.inject({ method: "GET", url: `/apps/browser-session-no-capability/${deniedId}/session`, headers: { cookie } });
+    assert.ok(denied.statusCode >= 400);
+    const afterDenied = openDatabase(dataDir);
+    assert.equal((afterDenied.db.prepare("SELECT COUNT(*) AS count FROM browser_sessions WHERE installation_id = ?").get(deniedId) as { count: number }).count, 0);
+    afterDenied.close();
+  } finally {
+    await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("administrator installs only a signed staged plugin package", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
   const pair = crypto.generateKeyPairSync("ed25519");
