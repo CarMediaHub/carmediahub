@@ -27,6 +27,8 @@ The Compose port is intentionally bound to `127.0.0.1` and its Core command requ
 
 The Core does not require runtime environment variables or executables discovered through `PATH`. Components such as AList, rclone and FFmpeg are registered through versioned managed-component metadata and explicit service bindings. Their full packaged adapters are delivered in later milestones.
 
+Unauthenticated deployment probes are available at `/health/live`, `/health/ready` and `/health/diagnostic`. They return only bounded status and aggregate counts; they never expose paths, URLs, credentials or user content. Readiness returns HTTP 503 until the local deployment has been initialized.
+
 Offline backup and restore use explicit commands. Stop Core before creating a snapshot; restore only targets a new empty directory:
 
 ```powershell

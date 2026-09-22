@@ -314,7 +314,32 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user;
   };
 
-  app.get("/api/health", async () => ({ status: "ok", initialized: repository.initialized() }));
+  const healthSnapshot = () => ({ status: "ok" as const, initialized: repository.initialized() });
+  const diagnosticSnapshot = () => ({
+    status: "ok" as const,
+    initialized: repository.initialized(),
+    components: repository.components().reduce((summary, component) => {
+      summary.total += 1;
+      if (component.health === "healthy") summary.healthy += 1;
+      else if (component.health === "unhealthy") summary.unhealthy += 1;
+      return summary;
+    }, { total: 0, healthy: 0, unhealthy: 0 }),
+    plugins: repository.pluginInstallations().reduce((summary, plugin) => {
+      summary.total += 1;
+      if (plugin.status === "installed") summary.enabled += 1;
+      else summary.disabled += 1;
+      return summary;
+    }, { total: 0, enabled: 0, disabled: 0 })
+  });
+  // Keep health probes unauthenticated and free of paths, URLs, identifiers, and secrets.
+  app.get("/health/live", async () => healthSnapshot());
+  app.get("/health/ready", async (_request, reply) => {
+    const health = healthSnapshot();
+    if (!health.initialized) return reply.code(503).send({ ...health, status: "not_ready" as const });
+    return health;
+  });
+  app.get("/health/diagnostic", async () => diagnosticSnapshot());
+  app.get("/api/health", async () => healthSnapshot());
   app.get("/api/bootstrap", async () => ({ initialized: repository.initialized() }));
 
   app.post("/api/bootstrap", async (request, reply) => {

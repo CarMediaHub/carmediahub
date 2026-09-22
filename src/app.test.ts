@@ -31,6 +31,31 @@ test("sets security headers for Core-owned responses without imposing CSP on plu
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("exposes safe liveness, readiness, and diagnostic probes", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-health-probes-"));
+  const app = await createApp({ dataDir });
+  try {
+    const live = await app.inject({ method: "GET", url: "/health/live" });
+    assert.equal(live.statusCode, 200);
+    assert.deepEqual(live.json(), { status: "ok", initialized: false });
+
+    const notReady = await app.inject({ method: "GET", url: "/health/ready" });
+    assert.equal(notReady.statusCode, 503);
+    assert.deepEqual(notReady.json(), { status: "not_ready", initialized: false });
+
+    const diagnostic = await app.inject({ method: "GET", url: "/health/diagnostic" });
+    assert.equal(diagnostic.statusCode, 200);
+    assert.deepEqual(diagnostic.json(), { status: "ok", initialized: false, components: { total: 0, healthy: 0, unhealthy: 0 }, plugins: { total: 0, enabled: 0, disabled: 0 } });
+
+    const bootstrap = await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    assert.equal(bootstrap.statusCode, 201);
+    const ready = await app.inject({ method: "GET", url: "/health/ready" });
+    assert.equal(ready.statusCode, 200);
+    assert.deepEqual(ready.json(), { status: "ok", initialized: true });
+    assert.deepEqual((await app.inject({ method: "GET", url: "/api/health" })).json(), ready.json());
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("component health checks verify the managed file digest without executing it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-health-"));
   const executable = path.join(dataDir, "components", "alist", "1.0.0", "alist");

@@ -17,6 +17,8 @@ pnpm start -- --data-dir .\data
 
 Core 使用显式数据目录，不要求运行时环境变量或通过系统 PATH 隐式发现组件。
 
+部署探针位于 `/health/live`、`/health/ready` 和 `/health/diagnostic`。探针只返回受限的状态和聚合数量，不暴露路径、URL、凭据或用户内容。初始化完成前，readiness 探针返回 HTTP 503。
+
 HTTPS 反向代理部署时，请显式传入公网地址，使会话和入口 Cookie 带有 `Secure` 属性：
 
 ```powershell
