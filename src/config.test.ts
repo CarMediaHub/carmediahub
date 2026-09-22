@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseConfig } from "./config.js";
+import { listeningAddress, parseConfig } from "./config.js";
 
 test("uses explicit configuration rather than environment variables", () => {
   const config = parseConfig(["--data-dir", "C:/cmh/data", "--host", "0.0.0.0", "--port", "9080", "--public-url", "https://hub.example.test"], "C:/ignored");
@@ -9,6 +9,8 @@ test("uses explicit configuration rather than environment variables", () => {
   assert.equal(config.port, 9080);
   assert.equal(config.publicUrl, "https://hub.example.test");
   assert.equal(config.cookieSecure, true);
+  assert.equal(listeningAddress(config), "https://hub.example.test");
+  assert.equal(listeningAddress(parseConfig([])), "http://127.0.0.1:8787");
   assert.equal(parseConfig(["--cookie-secure"]).cookieSecure, true);
 });
 

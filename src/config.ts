@@ -8,6 +8,10 @@ export interface CoreConfig {
   cookieSecure: boolean;
 }
 
+export function listeningAddress(config: Pick<CoreConfig, "host" | "port" | "publicUrl">): string {
+  return config.publicUrl ?? `http://${config.host}:${config.port}`;
+}
+
 export function parseConfig(args: readonly string[], workingDirectory = process.cwd()): CoreConfig {
   let dataDir = path.join(workingDirectory, "data");
   let host = "127.0.0.1";
