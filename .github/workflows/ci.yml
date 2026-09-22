@@ -71,6 +71,12 @@ jobs:
                 *) echo "Unexpected bootstrap status: $bootstrap_status" >&2; exit 1 ;;
               esac
               curl --fail --silent http://127.0.0.1:8787/health/ready >/dev/null
+              docker exec carmediahub-core-ci node dist/backup-cli.js backup \
+                --data-dir /var/lib/carmediahub --output /tmp/cmh-snapshot
+              docker exec carmediahub-core-ci node dist/backup-cli.js restore \
+                --snapshot /tmp/cmh-snapshot --data-dir /tmp/cmh-restored
+              docker exec carmediahub-core-ci node -e \
+                "const fs=require('node:fs'); for (const file of ['carmediahub.sqlite','secrets/session-hmac.key']) { if (!fs.statSync('/tmp/cmh-restored/'+file).isFile()) process.exit(1); }"
               exit 0
             fi
             sleep 2
