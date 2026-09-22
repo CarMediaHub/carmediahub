@@ -15,6 +15,46 @@ function scopeValues(scope: ScopeContext): [string, string, string] {
   return [scope.organizationId, scope.userId, scope.installationId];
 }
 
+export interface PluginDataExport {
+  exportedAt: string;
+  scope: Pick<ScopeContext, "organizationId" | "userId" | "installationId">;
+  migrations: readonly PluginDataMigration[];
+  collections: readonly { name: string; records: readonly DataRecord[] }[];
+}
+
+const MAX_EXPORT_RECORDS = 10_000;
+const MAX_EXPORT_BYTES = 4 * 1024 * 1024;
+
+export function exportPluginData(db: DatabaseSync, scope: ScopeContext): PluginDataExport {
+  const [organizationId, userId, installationId] = scopeValues(scope);
+  const rows = db.prepare("SELECT collection, record_key, value_json, updated_at FROM plugin_data WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY collection, record_key LIMIT ?").all(organizationId, userId, installationId, MAX_EXPORT_RECORDS + 1) as Array<{ collection: string; record_key: string; value_json: string; updated_at: string }>;
+  if (rows.length > MAX_EXPORT_RECORDS) throw new Error("Plugin data export exceeds record limit");
+  const grouped = new Map<string, DataRecord[]>();
+  for (const row of rows) {
+    const records = grouped.get(row.collection) ?? [];
+    records.push({ key: row.record_key, value: JSON.parse(row.value_json) as unknown, updatedAt: row.updated_at });
+    grouped.set(row.collection, records);
+  }
+  const migrations = (db.prepare("SELECT version, name, applied_at FROM plugin_data_migrations WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY version").all(organizationId, userId, installationId) as Array<{ version: number; name: string; applied_at: string }>).map((row) => ({ version: row.version, name: row.name, appliedAt: row.applied_at }));
+  const result: PluginDataExport = { exportedAt: new Date().toISOString(), scope: { organizationId, userId, installationId }, migrations, collections: [...grouped.entries()].map(([name, records]) => ({ name, records })) };
+  if (Buffer.byteLength(JSON.stringify(result), "utf8") > MAX_EXPORT_BYTES) throw new Error("Plugin data export exceeds byte limit");
+  return result;
+}
+
+export function deletePluginData(db: DatabaseSync, scope: ScopeContext): number {
+  const [organizationId, userId, installationId] = scopeValues(scope);
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const data = Number(db.prepare("DELETE FROM plugin_data WHERE organization_id = ? AND user_id = ? AND installation_id = ?").run(organizationId, userId, installationId).changes);
+    db.prepare("DELETE FROM plugin_data_migrations WHERE organization_id = ? AND user_id = ? AND installation_id = ?").run(organizationId, userId, installationId);
+    db.exec("COMMIT");
+    return data;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 /** Core-side adapter for the SDK's scoped logical data contract. */
 export function createPluginDataStore(db: DatabaseSync, scope: ScopeContext): PluginDataStore {
   const [organizationId, userId, installationId] = scopeValues(scope);

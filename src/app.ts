@@ -10,7 +10,7 @@ import { loadComponentCatalog, resolveInstalledExecutable } from "./components.j
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
-import { createPluginDataStore } from "./data-service.js";
+import { createPluginDataStore, deletePluginData, exportPluginData } from "./data-service.js";
 import { PluginJobService } from "./job-service.js";
 import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
 import { WorkerSupervisor } from "./worker-supervisor.js";
@@ -766,6 +766,38 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (job === undefined) return reply.code(404).send({ code: "CMH.JOB.NOT_FOUND", messageKey: "errors.job.notFound" });
     repository.audit(user.id, "job.cancelled", job.id);
     return { job };
+  });
+
+  app.get("/api/plugins/:id/data/export", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    const installationId = (request.params as { id: string }).id;
+    const scope = session === undefined ? undefined : repository.runtimeScope(user.id, installationId, session.sessionId, session.deviceLabel);
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    try {
+      const result = exportPluginData(database.db, scope);
+      repository.audit(user.id, "plugin.data.exported", installationId);
+      return reply.header("cache-control", "no-store").send(result);
+    } catch {
+      return reply.code(413).send({ code: "CMH.PLUGIN.DATA_EXPORT_TOO_LARGE", messageKey: "errors.plugin.dataExportTooLarge" });
+    }
+  });
+
+  app.delete("/api/plugins/:id/data", async (request, reply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const input = body<{ confirm?: unknown }>(request) ?? {};
+    if (input.confirm !== true) return reply.code(400).send({ code: "CMH.PLUGIN.DATA_DELETE_CONFIRMATION_REQUIRED", messageKey: "errors.plugin.dataDeleteConfirmationRequired" });
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    const installationId = (request.params as { id: string }).id;
+    const scope = session === undefined ? undefined : repository.runtimeScope(user.id, installationId, session.sessionId, session.deviceLabel);
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    const deleted = deletePluginData(database.db, scope);
+    repository.audit(user.id, "plugin.data.deleted", `${installationId}:${deleted}`);
+    return { deleted };
   });
 
   app.post("/api/plugins", async (request, reply) => {

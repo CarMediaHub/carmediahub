@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
-import { createPluginDataStore } from "./data-service.js";
+import { createPluginDataStore, deletePluginData, exportPluginData } from "./data-service.js";
 
 test("persistent plugin data is isolated by user and installation", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-data-"));
@@ -25,6 +25,13 @@ test("persistent plugin data is isolated by user and installation", async () => 
     assert.equal(await otherInstallation.get("history", "road-trip"), undefined);
     assert.equal(await first.delete("history", "road-trip"), true);
     assert.equal(await first.get("history", "road-trip"), undefined);
+    const exported = exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" });
+    assert.deepEqual(exported.collections, []);
+    await first.put("settings", "layout", { compact: true });
+    const withData = exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" });
+    assert.deepEqual(withData.collections[0], { name: "settings", records: [{ key: "layout", value: { compact: true }, updatedAt: withData.collections[0]?.records[0]?.updatedAt }] });
+    assert.equal(deletePluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }), 1);
+    assert.deepEqual(exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }).collections, []);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

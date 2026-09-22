@@ -435,6 +435,15 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal(stream.statusCode, 206);
     assert.equal(stream.headers["content-range"], "bytes 1-3/5");
     assert.equal(stream.body, "ide");
+    const exportedData = await app.inject({ method: "GET", url: `/api/plugins/${installationId}/data/export`, headers: { cookie } });
+    assert.equal(exportedData.statusCode, 200);
+    assert.equal(exportedData.headers["cache-control"], "no-store");
+    assert.equal((exportedData.json() as { scope: { userId: string }; collections: unknown[] }).scope.userId.length > 0, true);
+    const missingConfirmation = await app.inject({ method: "DELETE", url: `/api/plugins/${installationId}/data`, headers: { cookie }, payload: { confirm: false } });
+    assert.equal(missingConfirmation.statusCode, 400);
+    const deletedData = await app.inject({ method: "DELETE", url: `/api/plugins/${installationId}/data`, headers: { cookie }, payload: { confirm: true } });
+    assert.equal(deletedData.statusCode, 200);
+    assert.equal((deletedData.json() as { deleted: number }).deleted >= 1, true);
   } finally {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
