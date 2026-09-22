@@ -40,3 +40,15 @@ test("rejects a symlinked release asset", (t) => {
   }
   assert.throws(() => validateNativeBundle(root), /symbolic link/);
 });
+
+test("rejects a symbolic bundle root", (t) => {
+  const realRoot = fixture();
+  const linkRoot = `${realRoot}-link`;
+  try {
+    fs.symlinkSync(realRoot, linkRoot, "junction");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && (error.code === "EPERM" || error.code === "EACCES")) { t.skip("junctions are unavailable in this environment"); return; }
+    throw error;
+  }
+  assert.throws(() => validateNativeBundle(linkRoot), /symbolic/);
+});

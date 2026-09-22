@@ -19,7 +19,7 @@ function requiredFile(bundleRoot, relative) {
 
 export function validateNativeBundle(bundleRoot) {
   if (!path.isAbsolute(bundleRoot)) fail("bundle root must be absolute");
-  if (!fs.existsSync(bundleRoot) || !fs.statSync(bundleRoot).isDirectory()) fail("bundle root is unavailable");
+  if (!fs.existsSync(bundleRoot) || !fs.lstatSync(bundleRoot).isDirectory() || fs.lstatSync(bundleRoot).isSymbolicLink()) fail("bundle root is unavailable or symbolic");
   for (const relative of ["dist/cli.js", "public/admin/index.html", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json", "package.json"]) requiredFile(bundleRoot, relative);
   for (const forbidden of ["config/core.json", ".env", ".env.production"]) {
     if (fs.existsSync(path.join(bundleRoot, forbidden))) fail(`instance secret/configuration file is present: ${forbidden}`);
