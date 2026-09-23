@@ -1,4 +1,4 @@
-import type { BrowserContext, BrowserType } from "playwright-core";
+import { chromium, type BrowserContext, type BrowserType } from "playwright-core";
 import { resolveInstalledExecutable, type ComponentCatalogItem } from "./components.js";
 import { buildBrowserLaunchSpec, type BrowserLaunchSpec } from "./browser-engine-launcher.js";
 import { installBrowserNetworkPolicy } from "./browser-network-policy.js";
@@ -33,8 +33,7 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   const catalogComponent = options.catalog.find((candidate) => candidate.id === options.component.id);
   if (catalogComponent === undefined || !catalogComponent.provides.includes("browser-engine")) throw new Error("Browser component role is unavailable");
   const launch = buildBrowserLaunchSpec(options.dataDir, options.scope);
-  const runtime = options.runtime;
-  if (runtime === undefined) throw new Error("Browser runtime is not configured");
+  const runtime = options.runtime ?? chromium;
   const context = await runtime.launchPersistentContext(launch.userDataDir, {
     executablePath: executable,
     args: [...launch.args],

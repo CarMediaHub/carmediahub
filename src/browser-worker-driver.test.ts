@@ -65,3 +65,17 @@ test("browser worker driver closes the context when network policy setup fails",
     assert.equal(closed, true);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
+
+test("browser worker driver has a Playwright Chromium runtime by default", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-driver-default-"));
+  try {
+    await assert.rejects(() => startBrowserWorker({
+      dataDir,
+      component: { id: "chromium", version: "1.0.0", executable: "chromium/1.0.0/chromium", checksum: "0".repeat(64) },
+      catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
+      scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
+      targetRegistry: new BrowserTargetRegistry(),
+      targetId: "missing"
+    }), /unavailable/);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
