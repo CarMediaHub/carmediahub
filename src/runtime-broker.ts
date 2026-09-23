@@ -78,7 +78,7 @@ class ResponseStream implements GatewayStream {
     const waiter = this.waiters.shift();
     if (waiter !== undefined) waiter({ done: false, value: chunk });
     else if (this.queued.length < this.maxQueue) this.queued.push(chunk);
-    else this.fail(new Error("Gateway stream backpressure limit exceeded"));
+    else this.cancel("Gateway stream backpressure limit exceeded");
   }
   end(): void { if (this.ended) return; this.ended = true; while (this.waiters.length > 0) this.waiters.shift()!({ done: true, value: undefined }); }
   fail(error: Error): void { if (this.ended) return; this.failure = error; this.ended = true; this.startReject(error); while (this.waiters.length > 0) this.waiters.shift()!({ done: true, value: undefined }); }
