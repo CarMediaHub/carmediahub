@@ -436,6 +436,8 @@ export class Repository {
       const updatedAt = now();
       this.db.prepare("UPDATE plugin_installations SET status = 'uninstalled', updated_at = ? WHERE id = ?").run(updatedAt, installationId);
       this.db.prepare("UPDATE applications SET enabled = 0 WHERE installation_id = ?").run(installationId);
+      this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE application_id IN (SELECT id FROM applications WHERE installation_id = ?) AND revoked_at IS NULL").run(updatedAt, installationId);
+      this.db.prepare("DELETE FROM service_bindings WHERE installation_id = ?").run(installationId);
       this.revokeBrowserSessionsForInstallation(installationId);
       this.db.exec("COMMIT;");
     } catch (error) {

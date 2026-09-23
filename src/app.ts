@@ -877,6 +877,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const installationId = (request.params as { id: string }).id;
     if (!repository.uninstallPlugin(installationId)) return reply.code(409).send({ code: "CMH.PLUGIN.UNINSTALL_REQUIRES_DISABLED", messageKey: "errors.plugin.uninstallRequiresDisabled" });
     mediaLibrary.revokePlaybackForInstallation(installationId);
+    mediaLibrary.revokeForInstallation(installationId);
     revokeHlsForInstallation(database.db, installationId);
     runtimeBroker.revokeInstallationCredentials(installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);

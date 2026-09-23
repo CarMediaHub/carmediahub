@@ -67,6 +67,10 @@ export class MediaLibraryService {
     return result.changes === 1;
   }
 
+  revokeForInstallation(installationId: string): number {
+    return Number(this.db.prepare("UPDATE media_roots SET revoked_at = ? WHERE installation_id = ? AND revoked_at IS NULL").run(now(), installationId).changes);
+  }
+
   createPlayback(scope: PlaybackScope, mediaId: string): PlaybackSession {
     if (!/^[A-Za-z0-9_-]{20,128}$/u.test(mediaId)) throw new Error("Media item is unavailable");
     const exists = this.findItem(scope.organizationId, scope.installationId, mediaId);
