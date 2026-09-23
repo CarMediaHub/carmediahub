@@ -138,7 +138,11 @@ export class WorkerSupervisor {
   }
 
   async stopAll(): Promise<void> {
-    const installationIds = new Set([...this.workers.keys()].map((key) => key.split(":", 1)[0]));
+    const installationIds = new Set(
+      [...this.workers.keys()]
+        .map((key) => key.split(":", 1)[0])
+        .filter((installationId): installationId is string => installationId !== undefined),
+    );
     await Promise.all([...installationIds].map((installationId) => this.stop(installationId)));
   }
 
@@ -147,7 +151,7 @@ export class WorkerSupervisor {
     if (worker === undefined || worker.state !== "running") return;
     this.clearIdle(worker);
     const schedule = this.options.schedule ?? setTimeout;
-    worker.idleTimer = schedule(() => {
+    const idleTimer = schedule(() => {
       const current = this.workers.get(key);
       if (current === undefined) return;
       this.clearIdle(current);
@@ -156,6 +160,12 @@ export class WorkerSupervisor {
       current.state = "stopped";
       void handle?.stop();
     }, this.options.idleTimeoutMs ?? 60_000);
+    // An idle worker must not keep a short-lived CLI or test process alive.
+    // Custom schedulers remain fully under the caller's lifecycle control.
+    if (this.options.schedule === undefined && typeof idleTimer === "object" && idleTimer !== null && "unref" in idleTimer && typeof idleTimer.unref === "function") {
+      idleTimer.unref();
+    }
+    worker.idleTimer = idleTimer;
   }
 
   private clearIdle(worker: ManagedWorker): void {
