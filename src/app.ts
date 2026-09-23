@@ -185,8 +185,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (request.method === "mediaSource.read") {
           if (typeof input?.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media source read request");
           if (input.sessionId.startsWith("remote_playback_")) return remoteMediaSources.read(scope, input.sessionId, input.start, input.end);
-          if (typeof input.sourceHandle !== "string" || typeof input.itemHandle !== "string") throw new Error("Invalid media source item request");
-          return mediaLibrary.sourceRead(scope, input.sourceHandle, input.itemHandle, input.sessionId, input.start, input.end);
+          if (typeof input.sourceHandle === "string" && typeof input.itemHandle === "string") return mediaLibrary.sourceRead(scope, input.sourceHandle, input.itemHandle, input.sessionId, input.start, input.end);
+          return mediaLibrary.sourceReadSession(scope, input.sessionId, input.start, input.end);
         }
         if (typeof input?.sourceHandle !== "string" || typeof input.itemHandle !== "string") throw new Error("Invalid media source item request");
         if (input.sourceHandle.startsWith("remote_source_")) {

@@ -96,6 +96,12 @@ export class MediaLibraryService {
     return this.readWithPlayback(scope, sessionId, itemHandle, start, end);
   }
 
+  sourceReadSession(scope: PlaybackScope, sessionId: string, start: number, end: number): MediaRead {
+    const row = this.db.prepare("SELECT media_id FROM playback_sessions WHERE token_hash = ? AND organization_id = ? AND user_id = ? AND device_id = ? AND installation_id = ? AND expires_at > ? AND revoked_at IS NULL").get(keyedHash(sessionId, this.key), scope.organizationId, scope.userId, scope.deviceId, scope.installationId, now()) as { media_id?: string } | undefined;
+    if (row?.media_id === undefined) throw new Error("Playback session is unavailable");
+    return this.readWithPlayback(scope, sessionId, row.media_id, start, end);
+  }
+
   sourceHandle(rootId: string): string { return `media_source_${keyedHash(`root\0${rootId}`, this.key)}`; }
 
   revoke(organizationId: string, rootId: string): boolean {
