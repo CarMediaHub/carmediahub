@@ -102,3 +102,23 @@ test("browser worker navigation resolves only a logical target and relative path
   await assert.rejects(() => navigateToTarget(handle, registry, "media", "https://evil.example"), /path is invalid/);
   assert.equal(closed, false);
 });
+
+test("browser worker driver bounds active pages before creating another page", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-driver-pages-"));
+  const location = path.join(dataDir, "components", "chromium", "1.0.0");
+  fs.mkdirSync(location, { recursive: true });
+  const executable = process.platform === "win32" ? "chromium.exe" : "chromium";
+  fs.writeFileSync(path.join(location, executable), "browser-fixture");
+  const checksum = crypto.createHash("sha256").update(fs.readFileSync(path.join(location, executable))).digest("hex");
+  let created = 0;
+  const registry = new BrowserTargetRegistry();
+  registry.register({ id: "media", origins: ["https://media.example"] });
+  const context = { close: async () => undefined, route: async () => undefined, unroute: async () => undefined, newPage: async () => { created += 1; return { goto: async () => undefined, close: async () => undefined, once: () => undefined }; } } as never;
+  try {
+    const handle = await startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", maxPages: 1, runtime: { launchPersistentContext: async () => context } });
+    await handle.navigate("media");
+    await assert.rejects(() => handle.navigate("media"), /page limit exceeded/);
+    assert.equal(created, 1);
+    await handle.stop();
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});

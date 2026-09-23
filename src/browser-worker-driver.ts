@@ -18,6 +18,7 @@ export interface BrowserWorkerDriverOptions {
   scope: BrowserWorkerScope;
   targetRegistry: BrowserTargetRegistry;
   targetId: string;
+  maxPages?: number;
   runtime?: Pick<BrowserType, "launchPersistentContext">;
 }
 
@@ -59,9 +60,12 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   try { policy = await installBrowserNetworkPolicy(context, options.targetRegistry, options.targetId); }
   catch (error) { await context.close(); throw error; }
   const pages = new Set<Awaited<ReturnType<BrowserContext["newPage"]>>>();
+  const maxPages = options.maxPages ?? 8;
+  if (!Number.isSafeInteger(maxPages) || maxPages < 1 || maxPages > 32) { await policy.remove(); await context.close(); throw new Error("Browser page limit is invalid"); }
   let stopped = false;
   const navigate = async (targetId: string, relativePath = "/") => {
     if (stopped) throw new Error("Browser worker is stopped");
+    if (pages.size >= maxPages) throw new Error("Browser page limit exceeded");
     const page = await navigateToTarget({ context }, options.targetRegistry, targetId, relativePath);
     pages.add(page);
     page.once("close", () => pages.delete(page));
