@@ -18,6 +18,7 @@ try {
   const module = await import(pathToFileURL(entry).href);
   if (typeof module.startWorker !== "function") process.exit(65);
   await module.startWorker({ endpoint, installationId, runtimeCredential });
+  process.stdout.write("ready\n");
 } catch {
   process.exit(70);
 }

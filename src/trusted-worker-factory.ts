@@ -30,13 +30,31 @@ export function createTrustedNodeWorkerFactory(input: TrustedWorkerPackage): Tru
     packageId: input.packageId,
     packageVersion: input.packageVersion,
     async start(start: TrustedWorkerStart): Promise<WorkerHandle> {
-      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
+      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
       child.stdin.end(JSON.stringify({ runtimeCredential: start.runtimeCredential }));
       let crashListener: ((error: Error) => void) | undefined;
       child.once("error", (error) => crashListener?.(error));
       child.once("exit", (code, signal) => { if (code !== 0 && signal !== "SIGTERM") crashListener?.(new Error(`Worker exited (${code ?? signal ?? "unknown"})`)); });
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let output = "";
+        const finish = (error?: Error) => { if (settled) return; settled = true; clearTimeout(timer); error === undefined ? resolve() : reject(error); };
+        const timer = setTimeout(() => finish(new Error("Worker readiness timed out")), 5_000);
+        child.stdout?.on("data", (chunk: Buffer) => {
+          output += chunk.toString("utf8");
+          if (output.split(/\r?\n/u).includes("ready")) finish();
+          if (output.length > 256) finish(new Error("Worker readiness output is invalid"));
+        });
+        child.once("exit", (code, signal) => finish(new Error(`Worker exited before ready (${code ?? signal ?? "unknown"})`)));
+        child.once("error", (error) => finish(error));
+      }).catch(async (error) => { if (!child.killed) child.kill("SIGTERM"); throw error; });
       return {
-        stop: () => { if (!child.killed) child.kill("SIGTERM"); },
+        stop: () => {
+          if (child.exitCode !== null || child.signalCode !== null) return;
+          if (process.platform === "win32" && child.pid !== undefined) {
+            childProcess.spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+          } else if (!child.killed) child.kill("SIGTERM");
+        },
         onCrash: (listener) => { crashListener = listener; }
       };
     }
