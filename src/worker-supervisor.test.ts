@@ -61,6 +61,28 @@ test("Supervisor retries crashes with bounded backoff and disables stopped insta
   assert.equal(supervisor.status("plugin_one").state, "failed");
 });
 
+test("Supervisor cancels a pending crash restart when the worker is stopped", async () => {
+  const pending: Array<{ callback: () => void; delay: number }> = [];
+  let crash: ((error: Error) => void) | undefined;
+  let starts = 0;
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "trusted-package", status: "installed" }),
+    schedule: (callback, delay) => { pending.push({ callback, delay }); return pending.length; },
+    cancel: (handle) => { pending[Number(handle) - 1]!.callback = () => undefined; }
+  });
+  supervisor.register({ packageId: "trusted-package", async start() { starts += 1; return { stop() {}, onCrash(listener) { crash = listener; } }; } });
+  await supervisor.start("plugin_one", scope);
+  crash!(new Error("unexpected exit"));
+  assert.equal(supervisor.status("plugin_one").state, "backoff");
+  await supervisor.stop("plugin_one");
+  pending[0]!.callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(starts, 1);
+  assert.equal(supervisor.status("plugin_one").state, "stopped");
+});
+
 test("Supervisor selects the factory matching the installed package version", async () => {
   const selected: string[] = [];
   const supervisor = new WorkerSupervisor({

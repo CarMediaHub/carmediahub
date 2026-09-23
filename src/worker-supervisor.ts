@@ -34,6 +34,7 @@ interface ManagedWorker {
   state: WorkerState;
   handle?: WorkerHandle | undefined;
   idleTimer?: unknown | undefined;
+  restartTimer?: unknown | undefined;
   attempts: number;
   lastError?: string | undefined;
 }
@@ -116,6 +117,7 @@ export class WorkerSupervisor {
       const worker = this.workers.get(key);
       if (worker === undefined) continue;
       this.clearIdle(worker);
+      this.clearRestart(worker);
       const handle = worker.handle;
       worker.handle = undefined;
       worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "stopped";
@@ -130,6 +132,7 @@ export class WorkerSupervisor {
       const worker = this.workers.get(key);
       if (worker === undefined) continue;
       this.clearIdle(worker);
+      this.clearRestart(worker);
       const handle = worker.handle;
       worker.handle = undefined;
       worker.state = "disabled";
@@ -175,9 +178,17 @@ export class WorkerSupervisor {
     worker.idleTimer = undefined;
   }
 
+  private clearRestart(worker: ManagedWorker): void {
+    if (worker.restartTimer === undefined) return;
+    if (this.options.cancel !== undefined) this.options.cancel(worker.restartTimer);
+    else clearTimeout(worker.restartTimer as NodeJS.Timeout);
+    worker.restartTimer = undefined;
+  }
+
   private crashed(key: string, installationId: string, scope: RuntimeCredentialScope, error: Error): WorkerStatus {
     const worker = this.workers.get(key) ?? { state: "failed", attempts: 0 };
     this.clearIdle(worker);
+    this.clearRestart(worker);
     worker.handle = undefined;
     worker.attempts += 1;
     worker.lastError = error.message;
@@ -190,7 +201,12 @@ export class WorkerSupervisor {
     worker.state = "backoff";
     this.workers.set(key, worker);
     const delay = Math.min(1_000 * 2 ** (worker.attempts - 1), 30_000);
-    (this.options.schedule ?? setTimeout)(() => { void this.start(installationId, scope); }, delay);
+    const schedule = this.options.schedule ?? setTimeout;
+    worker.restartTimer = schedule(() => {
+      if (this.workers.get(key) !== worker || worker.state !== "backoff") return;
+      worker.restartTimer = undefined;
+      void this.start(installationId, scope);
+    }, delay);
     return this.status(installationId);
   }
 }
