@@ -368,7 +368,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!supervisor.hasFactory(adapterPackage.packageId)) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
   }
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
-  const ffmpeg = repository.componentById("ffmpeg");
+  const ffmpegRecord = repository.componentById("ffmpeg");
+  const ffmpegCatalog = catalog.find((component) => component.id === "ffmpeg");
+  const ffmpeg = ffmpegRecord === undefined ? undefined : { ...ffmpegRecord, ...(ffmpegCatalog === undefined ? {} : { provides: ffmpegCatalog.provides }) };
   if (ffmpeg !== undefined && ffmpeg.health === "healthy") {
     mediaLibrary.enableTransforms();
     registerMediaTransformHandlers({ executor: jobExecutor, jobs, media: mediaLibrary, dataDir: options.dataDir, ffmpeg, database: database.db });
