@@ -27,6 +27,9 @@ export class BrowserTargetRegistry {
     return target === undefined ? undefined : { id: target.id, origins: [...target.origins] };
   }
 
+  /** Returns logical identifiers only; origins remain Core-owned. */
+  ids(): string[] { return [...this.targets.keys()].sort(); }
+
   allowsOrigin(id: string, origin: string): boolean {
     const target = this.targets.get(id);
     if (target === undefined) return false;

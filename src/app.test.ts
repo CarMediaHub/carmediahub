@@ -416,6 +416,8 @@ test("admin browser center exposes redacted sessions and cancels scoped tasks", 
     assert.equal("input" in tasks.json().tasks[0], false);
     assert.equal((await app.inject({ method: "POST", url: `/api/browser/tasks/${taskId}/cancel`, headers: { cookie } })).json().task.status, "cancelled");
     assert.equal((await app.inject({ method: "POST", url: `/api/browser/sessions/${sessionId}/revoke`, headers: { cookie } })).json().revoked, true);
+    assert.deepEqual((await app.inject({ method: "POST", url: "/api/browser/tasks/run", headers: { cookie }, payload: { limit: 10 } })).json().tasks, []);
+    assert.equal((await app.inject({ method: "POST", url: "/api/browser/tasks/run", headers: { cookie }, payload: { limit: 0 } })).statusCode, 400);
     assert.equal((await app.inject({ method: "GET", url: "/api/browser/sessions", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

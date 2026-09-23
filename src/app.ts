@@ -32,8 +32,10 @@ import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, read
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 import { BrowserWorkerManager } from "./browser-worker-manager.js";
 import { BrowserTaskExecutor } from "./browser-task-executor.js";
+import { BrowserTargetRegistry } from "./browser-target-registry.js";
+import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } from "./browser-task-handlers.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -114,6 +116,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
   const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
   const browserTaskExecutor = options.browserTaskExecutor ?? new BrowserTaskExecutor(repository);
+  const browserTargetRegistry = options.browserTargetRegistry;
+  if (options.browserTaskExecutor === undefined && browserTargetRegistry !== undefined && options.browserWorkerOptionsResolver !== undefined && browserTargetRegistry.ids().length > 0) {
+    browserTaskExecutor.register("navigate-and-capture", createNavigateAndCaptureHandler(browserWorkerManager, options.browserWorkerOptionsResolver), { allowedTargets: browserTargetRegistry.ids() });
+  }
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
@@ -864,6 +870,31 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     return { tasks: repository.browserTasksForOrganization(user.organizationId).map(({ input: _input, userId, installationId, ...task }) => ({ ...task, userId, installationId })) };
+  });
+
+  app.post("/api/browser/tasks/run", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const limitValue = (body<{ limit?: unknown }>(request) ?? {}).limit;
+    const limit = limitValue === undefined ? 10 : Number(limitValue);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) return reply.code(400).send({ code: "CMH.BROWSER.TASK_LIMIT_INVALID", messageKey: "errors.browser.taskLimitInvalid" });
+    const pending = repository.browserTasksForOrganization(user.organizationId).filter((task) => task.status === "queued");
+    const scopes = new Map<string, ScopeContext>();
+    for (const task of pending) {
+      const scope = repository.runtimeScope(task.userId, task.installationId, "browser-task", "browser-task");
+      if (scope !== undefined) scopes.set(`${task.userId}\0${task.installationId}`, scope);
+    }
+    const completed = [] as Array<Awaited<ReturnType<BrowserTaskExecutor["runOnce"]>>>;
+    for (const scope of scopes.values()) {
+      if (completed.length >= limit) break;
+      while (completed.length < limit) {
+        const task = await browserTaskExecutor.runOnce(scope);
+        if (task === undefined) break;
+        completed.push(task);
+      }
+    }
+    repository.audit(user.id, "browser.tasks.run", String(completed.length));
+    return { tasks: completed.filter((task): task is NonNullable<typeof task> => task !== undefined).map(({ input: _input, ...task }) => task) };
   });
 
   app.post("/api/browser/tasks/:id/cancel", async (request, reply) => {
