@@ -20,11 +20,13 @@ test("browser worker driver launches only the verified browser-engine component"
   let routed = false;
   let unrouted = false;
   let pageClosed = false;
+  let createdPages = 0;
   const fakePage = { goto: async () => undefined, close: async () => { pageClosed = true; }, once: () => undefined };
-  const fakeContext = { close: async () => { closed = true; }, route: async () => { routed = true; }, unroute: async () => { unrouted = true; }, newPage: async () => fakePage } as never;
+  const fakeContext = { close: async () => { closed = true; }, route: async () => { routed = true; }, unroute: async () => { unrouted = true; }, newPage: async () => { createdPages += 1; return fakePage; } } as never;
   try {
     const targetRegistry = new BrowserTargetRegistry();
     targetRegistry.register({ id: "media", origins: ["https://media.example"] });
+    targetRegistry.register({ id: "other", origins: ["https://other.example"] });
     const handle = await startBrowserWorker({
       dataDir,
       component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum },
@@ -43,6 +45,8 @@ test("browser worker driver launches only the verified browser-engine component"
     assert.equal(routed, true);
     const page = await handle.navigate("media", "/library");
     assert.equal(page, fakePage);
+    await assert.rejects(() => handle.navigate("other"), /target mismatch/);
+    assert.equal(createdPages, 1);
     await handle.stop();
     assert.equal(closed, true);
     assert.equal(unrouted, true);

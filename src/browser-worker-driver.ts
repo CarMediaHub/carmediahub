@@ -75,6 +75,7 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   let stopped = false;
   const navigate = async (targetId: string, relativePath = "/") => {
     if (stopped) throw new Error("Browser worker is stopped");
+    if (targetId !== options.targetId) throw new Error("Browser worker target mismatch");
     if (pages.size >= maxPages) throw new Error("Browser page limit exceeded");
     const page = await navigateToTarget({ context }, options.targetRegistry, targetId, relativePath);
     pages.add(page);
