@@ -94,6 +94,10 @@ export class WorkerSupervisor {
     this.workers.set(key, worker);
     try {
       const handle = await factory.start({ installationId, endpoint: this.options.endpoint, runtimeCredential: this.options.issueCredential(scope), scope });
+      if (this.workers.get(key) !== worker || worker.state !== "starting" || this.options.installation(installationId)?.status !== "installed") {
+        await handle.stop();
+        return this.status(installationId);
+      }
       worker.handle = handle;
       worker.state = "running";
       worker.lastError = undefined;

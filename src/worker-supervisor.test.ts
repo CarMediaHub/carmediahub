@@ -83,6 +83,27 @@ test("Supervisor cancels a pending crash restart when the worker is stopped", as
   assert.equal(supervisor.status("plugin_one").state, "stopped");
 });
 
+test("Supervisor stops a worker that finishes after its start was stopped", async () => {
+  let resolveStart: ((handle: { stop(): void }) => void) | undefined;
+  let stopped = 0;
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "trusted-package", status: "installed" })
+  });
+  supervisor.register({
+    packageId: "trusted-package",
+    async start() { return await new Promise<{ stop(): void }>((resolve) => { resolveStart = resolve; }); }
+  });
+  const starting = supervisor.start("plugin_one", scope);
+  await new Promise((resolve) => setImmediate(resolve));
+  await supervisor.stop("plugin_one");
+  resolveStart!({ stop() { stopped += 1; } });
+  await starting;
+  assert.equal(stopped, 1);
+  assert.equal(supervisor.status("plugin_one").state, "stopped");
+});
+
 test("Supervisor selects the factory matching the installed package version", async () => {
   const selected: string[] = [];
   const supervisor = new WorkerSupervisor({
