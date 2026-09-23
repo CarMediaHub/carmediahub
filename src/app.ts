@@ -22,6 +22,7 @@ import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./p
 import { MediaLibraryService } from "./media-library-service.js";
 import { RemoteWebDavProvider } from "./remote-webdav-provider.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
+import { PluginDrainManager } from "./plugin-drain.js";
 import { HistoryService } from "./history-service.js";
 import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
@@ -123,6 +124,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
   const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
+  const pluginDrain = new PluginDrainManager();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed",
@@ -1083,6 +1085,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const current = repository.pluginInstallation(installationId);
     const previousManifest = current === undefined ? undefined : repository.pluginManifest(installationId);
     const previousCapabilities = current === undefined ? [] : repository.pluginCapabilities(installationId);
+    let draining = false;
     try {
       if (current === undefined || current.status !== "installed") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
@@ -1101,6 +1104,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       }
       if (verified === undefined) throw new Error("Plugin upgrade package is not installed");
       if (!registerVerifiedPluginRuntime(verified)) throw new Error("Verified plugin package integrity check failed");
+      if (!pluginDrain.begin(installationId)) return reply.code(409).send({ code: "CMH.PLUGIN.UPGRADE_IN_PROGRESS", messageKey: "errors.plugin.upgradeInProgress", retryable: true });
+      draining = true;
+      if (!await pluginDrain.waitForIdle(installationId, 5_000)) return reply.code(409).send({ code: "CMH.PLUGIN.DRAIN_TIMEOUT", messageKey: "errors.plugin.drainTimeout", retryable: true });
       await supervisor.stop(installationId);
       runtimeBroker.revokeInstallationCredentials(installationId);
       const upgraded = repository.upgradePlugin(installationId, release.manifest);
@@ -1137,6 +1143,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     } catch (error) {
       if (error instanceof Error && error.message === "Plugin upgrade package is not installed") return reply.code(409).send({ code: "CMH.PLUGIN.PACKAGE_NOT_INSTALLED", messageKey: "errors.plugin.packageNotInstalled" });
       return reply.code(400).send({ code: "CMH.PLUGIN.UPGRADE_INVALID", messageKey: "errors.plugin.upgradeInvalid" });
+    } finally {
+      if (draining) pluginDrain.resume(installationId);
     }
   });
 
@@ -1333,6 +1341,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (scope === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.PLUGIN_DISABLED", messageKey: "errors.gateway.pluginDisabled" });
     const streamLease = gatewayStreamQuota.tryAcquire(session.sessionId);
     if (streamLease === undefined) return reply.code(429).header("retry-after", "1").send({ code: "CMH.GATEWAY.STREAM_LIMIT", messageKey: "errors.gateway.streamLimit", retryable: true });
+    const drainLease = pluginDrain.acquire(application.installationId);
+    if (drainLease === undefined) {
+      streamLease.release();
+      return reply.code(503).header("retry-after", "1").send({ code: "CMH.GATEWAY.WORKER_DRAINING", messageKey: "errors.gateway.workerDraining", retryable: true });
+    }
     const relativePath = requestPath.slice(application.route.length) || "/";
     const routeMethods = repository.pluginRouteMethods(application.installationId, relativePath);
     if (routeMethods === undefined) {
@@ -1345,7 +1358,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
     try {
       const workerStatus = await supervisor.start(application.installationId, scope);
-      if (workerStatus.state !== "running") return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
+      if (workerStatus.state !== "running") {
+        streamLease.release();
+        drainLease.release();
+        return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
+      }
       await runtimeBroker.waitForWorker(application.installationId, scope.userId);
       const stream = runtimeBroker.invokeStream(application.installationId, scope, {
         method: request.method as "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE",
@@ -1368,6 +1385,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         request.raw.off("aborted", abort);
         stream.cancel("HEAD request");
         streamLease.release();
+        drainLease.release();
         return reply.send();
       }
       const body = Readable.from((async function* () {
@@ -1379,11 +1397,13 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         } finally {
           request.raw.off("aborted", abort);
           streamLease.release();
+          drainLease.release();
         }
       })());
       return reply.send(body);
     } catch {
       streamLease.release();
+      drainLease.release();
       return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
     }
   });
