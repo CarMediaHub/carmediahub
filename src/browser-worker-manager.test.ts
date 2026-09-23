@@ -51,3 +51,32 @@ test("browser worker manager can stop a session without exposing its scope", asy
   assert.equal(await manager.stopSession(scope.sessionId), false);
   assert.equal(stops, 1);
 });
+
+test("browser worker manager deduplicates concurrent startup", async () => {
+  let starts = 0;
+  let release!: (handle: BrowserWorkerHandle) => void;
+  const startGate = new Promise<BrowserWorkerHandle>((resolve) => { release = resolve; });
+  const handle = fakeHandle(() => undefined);
+  const manager = new BrowserWorkerManager(async () => { starts += 1; return startGate; });
+  const first = manager.acquire(options("media"));
+  const second = manager.acquire(options("media"));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(starts, 1);
+  release(handle);
+  assert.equal(await first, handle);
+  assert.equal(await second, handle);
+});
+
+test("browser worker manager stops a worker that finishes after revocation", async () => {
+  let release!: (handle: BrowserWorkerHandle) => void;
+  let stops = 0;
+  const gate = new Promise<BrowserWorkerHandle>((resolve) => { release = resolve; });
+  const manager = new BrowserWorkerManager(async () => gate);
+  const starting = manager.acquire(options("media"));
+  const stopping = manager.stop(scope);
+  release(fakeHandle(() => { stops += 1; }));
+  await stopping;
+  await starting;
+  assert.equal(stops, 1);
+  assert.equal(manager.has(scope), false);
+});
