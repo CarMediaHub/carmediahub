@@ -30,6 +30,9 @@ export class BrowserTargetRegistry {
   /** Returns logical identifiers only; origins remain Core-owned. */
   ids(): string[] { return [...this.targets.keys()].sort(); }
 
+  /** Returns a defensive snapshot for the administrator diagnostics surface. */
+  list(): BrowserTarget[] { return this.ids().map((id) => this.get(id)!); }
+
   allowsOrigin(id: string, origin: string): boolean {
     const target = this.targets.get(id);
     if (target === undefined) return false;

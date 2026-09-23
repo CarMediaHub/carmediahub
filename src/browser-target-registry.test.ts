@@ -14,6 +14,7 @@ test("browser target registry stores logical IDs and normalized HTTPS origins", 
   const copy = registry.get("media.example")!;
   (copy.origins as string[]).push("https://other.example");
   assert.equal(registry.allowsOrigin("media.example", "https://other.example"), false);
+  assert.deepEqual(registry.list(), [{ id: "media.example", origins: ["https://media.example"] }]);
 });
 
 test("browser target registry rejects unsafe origins and duplicate targets", () => {

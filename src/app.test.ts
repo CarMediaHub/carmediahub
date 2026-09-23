@@ -12,6 +12,7 @@ import { totpCode } from "./security.js";
 import { currentPlatformKey } from "./components.js";
 import { canonicalPluginManifest } from "./plugin-release.js";
 import { canonicalPluginPackageRelease } from "./plugin-package-release.js";
+import { BrowserTargetRegistry } from "./browser-target-registry.js";
 
 test("gateway forwards only protocol headers and never session or authorization material", () => {
   assert.deepEqual(filterGatewayHeaders({ range: "bytes=0-1", accept: "video/*", cookie: "cmh_session=secret", authorization: "Bearer secret", "x-cmh-device-class": "vehicle", "x-forwarded-for": "127.0.0.1" }), { range: "bytes=0-1", accept: "video/*" });
@@ -419,6 +420,21 @@ test("admin browser center exposes redacted sessions and cancels scoped tasks", 
     assert.deepEqual((await app.inject({ method: "POST", url: "/api/browser/tasks/run", headers: { cookie }, payload: { limit: 10 } })).json().tasks, []);
     assert.equal((await app.inject({ method: "POST", url: "/api/browser/tasks/run", headers: { cookie }, payload: { limit: 0 } })).statusCode, 400);
     assert.equal((await app.inject({ method: "GET", url: "/api/browser/sessions", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("admin browser target diagnostics expose only registered logical targets", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-admin-browser-targets-"));
+  const targets = new BrowserTargetRegistry();
+  targets.register({ id: "fixture", origins: ["https://fixture.example:443"] });
+  const app = await createApp({ dataDir, browserTargetRegistry: targets });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const response = await app.inject({ method: "GET", url: "/api/browser/targets", headers: { cookie: login.headers["set-cookie"] } });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { targets: [{ id: "fixture", origins: ["https://fixture.example"] }] });
+    assert.equal((await app.inject({ method: "GET", url: "/api/browser/targets", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

@@ -857,6 +857,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { sessions: repository.browserSessionsForOrganization(user.organizationId).map(({ userId, installationId, ...session }) => ({ ...session, userId, installationId })) };
   });
 
+  app.get("/api/browser/targets", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    return { targets: browserTargetRegistry.list() };
+  });
+
   app.post("/api/browser/sessions/:id/revoke", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
