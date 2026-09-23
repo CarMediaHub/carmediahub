@@ -9,7 +9,9 @@ function absolute(value, platform, label) {
   return value;
 }
 
-function action(command, args, description) { return { command, args, description }; }
+function action(command, args, description, stdin) {
+  return stdin === undefined ? { command, args, description } : { command, args, description, stdin };
+}
 
 export function createNativeInstallActions(plan) {
   if (plan?.platform !== "windows" && plan?.platform !== "linux") fail("platform is invalid");
@@ -33,12 +35,13 @@ export function createNativeInstallActions(plan) {
     ];
   }
   if (!/^[a-z_][a-z0-9_-]{0,31}$/u.test(account)) fail("serviceAccount is invalid for Linux");
+  if (typeof plan.service?.unitText !== "string" || plan.service.unitText.length === 0 || /\0/u.test(plan.service.unitText)) fail("systemd unit text is invalid");
   const unitPath = `/etc/systemd/system/${plan.service.unitName}`;
   return [
     action("useradd", ["--system", "--no-create-home", "--shell", "/usr/sbin/nologin", account], "create the restricted service account if absent"),
     action("install", ["-d", "-o", account, "-g", account, "-m", "0750", dataDir], "create the writable data directory"),
     action("install", ["-d", "-o", "root", "-g", "root", "-m", "0755", path.posix.dirname(configPath)], "create the configuration directory"),
-    action("install", ["-m", "0644", "--owner=root", "--group=root", "--", "<generated-unit-text>", unitPath], "write the hardened systemd unit"),
+    action("install", ["-m", "0644", "--owner=root", "--group=root", "/dev/stdin", unitPath], "write the hardened systemd unit", plan.service.unitText),
     action("chown", ["-R", `${account}:${account}`, dataDir], "apply data directory ownership"),
     action("systemctl", ["daemon-reload"], "reload systemd units"),
     action("systemctl", ["enable", "--now", plan.service.unitName], "enable and start the Core systemd service"),

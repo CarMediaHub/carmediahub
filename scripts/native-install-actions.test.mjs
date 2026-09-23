@@ -9,7 +9,7 @@ const base = (platform) => ({
     ? { bundleRoot: "/opt/carmediahub", configPath: "/etc/carmediahub/core.json", dataDir: "/var/lib/carmediahub" }
     : { bundleRoot: "C:/Program Files/CarMediaHub", configPath: "C:/ProgramData/CarMediaHub/core.json", dataDir: "C:/ProgramData/CarMediaHub/data" },
   service: platform === "linux"
-    ? { serviceName: "carmediahub-core", unitName: "carmediahub-core.service" }
+    ? { serviceName: "carmediahub-core", unitName: "carmediahub-core.service", unitText: "[Unit]\nDescription=CarMediaHub Core\n" }
     : { serviceName: "CarMediaHubCore", createArguments: ["create", "CarMediaHubCore"], descriptionArguments: ["description", "CarMediaHubCore", "CarMediaHub Core"] },
 });
 
@@ -22,10 +22,15 @@ test("creates Windows ACL and service actions without executing them", () => {
 test("creates Linux account, filesystem, and systemd actions", () => {
   const actions = createNativeInstallActions(base("linux"));
   assert.deepEqual(actions.map((item) => item.command), ["useradd", "install", "install", "install", "chown", "systemctl", "systemctl"]);
+  const unitAction = actions[3];
+  assert.deepEqual(unitAction?.args.slice(-2), ["/dev/stdin", "/etc/systemd/system/carmediahub-core.service"]);
+  assert.match(unitAction?.stdin ?? "", /^\[Unit\]/u);
+  assert.equal(unitAction?.args.includes("<generated-unit-text>"), false);
   assert.deepEqual(actions.at(-1)?.args, ["enable", "--now", "carmediahub-core.service"]);
 });
 
 test("rejects unsafe action plan paths and accounts", () => {
   assert.throws(() => createNativeInstallActions({ ...base("linux"), serviceAccount: "root;rm" }), /serviceAccount/);
   assert.throws(() => createNativeInstallActions({ ...base("windows"), resources: { ...base("windows").resources, dataDir: "relative" } }), /absolute/);
+  assert.throws(() => createNativeInstallActions({ ...base("linux"), service: { ...base("linux").service, unitText: "" } }), /systemd unit text/);
 });
