@@ -22,7 +22,7 @@ export interface TrustedWorkerFactory {
 export interface WorkerSupervisorOptions {
   endpoint: string;
   issueCredential(scope: RuntimeCredentialScope): string;
-  installation(installationId: string): { packageId: string; status: "installed" | "disabled" } | undefined;
+  installation(installationId: string): { packageId: string; status: "installed" | "disabled" | "uninstalled" } | undefined;
   idleTimeoutMs?: number;
   maxRestartAttempts?: number;
   schedule?(callback: () => void, delayMs: number): unknown;
@@ -67,7 +67,7 @@ export class WorkerSupervisor {
   status(installationId: string): WorkerStatus {
     const worker = this.workers.get(installationId);
     const installation = this.options.installation(installationId);
-    return { installationId, state: installation?.status === "disabled" ? "disabled" : worker?.state ?? "stopped", attempts: worker?.attempts ?? 0, ...(worker?.lastError === undefined ? {} : { lastError: worker.lastError }) };
+    return { installationId, state: installation?.status === "disabled" || installation?.status === "uninstalled" ? "disabled" : worker?.state ?? "stopped", attempts: worker?.attempts ?? 0, ...(worker?.lastError === undefined ? {} : { lastError: worker.lastError }) };
   }
 
   async start(installationId: string, scope: RuntimeCredentialScope): Promise<WorkerStatus> {
@@ -102,7 +102,7 @@ export class WorkerSupervisor {
     this.clearIdle(worker);
     const handle = worker.handle;
     worker.handle = undefined;
-    worker.state = this.options.installation(installationId)?.status === "disabled" ? "disabled" : "stopped";
+    worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "stopped";
     await handle?.stop();
     return this.status(installationId);
   }
@@ -145,7 +145,7 @@ export class WorkerSupervisor {
     worker.lastError = error.message;
     const maximum = this.options.maxRestartAttempts ?? 3;
     if (worker.attempts > maximum || this.options.installation(installationId)?.status !== "installed") {
-      worker.state = this.options.installation(installationId)?.status === "disabled" ? "disabled" : "failed";
+      worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "failed";
       this.workers.set(installationId, worker);
       return this.status(installationId);
     }

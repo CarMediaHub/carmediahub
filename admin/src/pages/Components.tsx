@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type Component = { id: string; version: string; executable: string; checksum: string; installed_at: string; health: string };
 type CatalogComponent = { id: string; displayName: string; kind: string; version: string; executable: string; platforms: string[]; status: string };
-type Installation = { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled"; createdAt: string };
+type Installation = { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled" | "uninstalled"; createdAt: string };
 type Binding = { id: string; component_id: string; name: string; endpoint: string; installation_id: string | null; created_at: string };
 
 export default function Components() {

@@ -14,7 +14,7 @@ export interface EntryResolution { application: ApplicationRecord; userId: strin
 export interface EntryKeyRecord { id: string; applicationId: string; applicationName: string; route: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
 export interface TotpSetup { secret: string; otpauthUrl: string; }
 export interface ManagedUserRecord extends UserRecord { createdAt: string; revokedAt: string | null; }
-export interface PluginInstallationRecord { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled"; createdAt: string; updatedAt: string; }
+export interface PluginInstallationRecord { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled" | "uninstalled"; createdAt: string; updatedAt: string; }
 export interface VerifiedPluginPackageRecord { packageId: string; packageVersion: string; digest: string; location: string; workerEntry?: string; runtimeEntry?: string; verifiedAt: string; }
 
 const browserSession = (row: Record<string, string>): BrowserSession => ({
@@ -307,7 +307,7 @@ export class Repository {
     const route = `/apps/${manifest.id}/${installationId}`;
     this.db.exec("BEGIN IMMEDIATE;");
     try {
-      if (this.db.prepare("SELECT 1 FROM plugin_installations WHERE package_id = ? AND package_version = ? LIMIT 1").get(manifest.id, manifest.version) !== undefined) throw new Error("Plugin package already installed");
+      if (this.db.prepare("SELECT 1 FROM plugin_installations WHERE package_id = ? AND package_version = ? AND status <> 'uninstalled' LIMIT 1").get(manifest.id, manifest.version) !== undefined) throw new Error("Plugin package already installed");
       this.db.prepare("INSERT INTO plugin_installations (id, package_id, package_version, runtime, manifest_json, granted_capabilities, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(installationId, manifest.id, manifest.version, manifest.runtime, JSON.stringify(manifest), JSON.stringify(manifest.capabilities), "installed", createdAt, createdAt);
       this.addApplication({ name: manifest.name.en, category: manifest.category, route, installationId, vehicleSupported: manifest.ui?.vehicleSupported ?? false });
@@ -321,19 +321,19 @@ export class Repository {
 
   pluginInstallations(): PluginInstallationRecord[] {
     return (this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations ORDER BY created_at DESC").all() as Array<Record<string, string>>)
-      .map((row) => ({ id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" }));
+      .map((row) => ({ id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : row.status === "uninstalled" ? "uninstalled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" }));
   }
 
   pluginInstallation(installationId: string): PluginInstallationRecord | undefined {
     const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE id = ?").get(installationId) as Record<string, string> | undefined;
     if (row === undefined) return undefined;
-    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : row.status === "uninstalled" ? "uninstalled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
   pluginInstallationByPackage(packageId: string, packageVersion: string): PluginInstallationRecord | undefined {
     const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE package_id = ? AND package_version = ? ORDER BY created_at DESC LIMIT 1").get(packageId, packageVersion) as Record<string, string> | undefined;
     if (row === undefined) return undefined;
-    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+    return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : row.status === "uninstalled" ? "uninstalled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
   pluginHasCapability(installationId: string, capability: string): boolean {
@@ -420,6 +420,23 @@ export class Repository {
       const updatedAt = now();
       this.db.prepare("UPDATE plugin_installations SET status = 'installed', updated_at = ? WHERE id = ?").run(updatedAt, installationId);
       this.db.prepare("UPDATE applications SET enabled = 1 WHERE installation_id = ?").run(installationId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return true;
+  }
+
+  uninstallPlugin(installationId: string): boolean {
+    const current = this.db.prepare("SELECT id FROM plugin_installations WHERE id = ? AND status = 'disabled'").get(installationId);
+    if (current === undefined) return false;
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      const updatedAt = now();
+      this.db.prepare("UPDATE plugin_installations SET status = 'uninstalled', updated_at = ? WHERE id = ?").run(updatedAt, installationId);
+      this.db.prepare("UPDATE applications SET enabled = 0 WHERE installation_id = ?").run(installationId);
+      this.revokeBrowserSessionsForInstallation(installationId);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");

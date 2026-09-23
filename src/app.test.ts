@@ -345,6 +345,12 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), false);
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 204);
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/uninstall`, headers: { cookie } })).statusCode, 409);
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/uninstall`, headers: { cookie } })).statusCode, 204);
+    const uninstalled = (await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.find((item: { id: string }) => item.id === installation.id);
+    assert.equal(uninstalled.status, "uninstalled");
+    assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 404);
   } finally {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });

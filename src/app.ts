@@ -871,6 +871,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/plugins/:id/uninstall", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id: string }).id;
+    if (!repository.uninstallPlugin(installationId)) return reply.code(409).send({ code: "CMH.PLUGIN.UNINSTALL_REQUIRES_DISABLED", messageKey: "errors.plugin.uninstallRequiresDisabled" });
+    mediaLibrary.revokePlaybackForInstallation(installationId);
+    revokeHlsForInstallation(database.db, installationId);
+    runtimeBroker.revokeInstallationCredentials(installationId);
+    jobExecutor.cancelInstallation(user.organizationId, installationId);
+    await supervisor.stop(installationId);
+    repository.audit(user.id, "plugin.uninstalled", installationId);
+    return reply.code(204).send();
+  });
+
   app.post("/api/apps", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
