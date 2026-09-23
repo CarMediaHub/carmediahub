@@ -34,6 +34,7 @@ import { BrowserWorkerManager } from "./browser-worker-manager.js";
 import { BrowserTaskExecutor } from "./browser-task-executor.js";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
 import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } from "./browser-task-handlers.js";
+import { createManagedBrowserWorkerOptionsResolver } from "./browser-task-runtime.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; }
 
@@ -117,9 +118,6 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
   const browserTaskExecutor = options.browserTaskExecutor ?? new BrowserTaskExecutor(repository);
   const browserTargetRegistry = options.browserTargetRegistry;
-  if (options.browserTaskExecutor === undefined && browserTargetRegistry !== undefined && options.browserWorkerOptionsResolver !== undefined && browserTargetRegistry.ids().length > 0) {
-    browserTaskExecutor.register("navigate-and-capture", createNavigateAndCaptureHandler(browserWorkerManager, options.browserWorkerOptionsResolver), { allowedTargets: browserTargetRegistry.ids() });
-  }
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
@@ -381,6 +379,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!supervisor.hasFactory(adapterPackage.packageId)) supervisor.register(createTrustedSharedAdapterFactory(adapterPackage));
   }
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
+  if (options.browserTaskExecutor === undefined && browserTargetRegistry !== undefined && browserTargetRegistry.ids().length > 0) {
+    const resolveOptions = options.browserWorkerOptionsResolver ?? createManagedBrowserWorkerOptionsResolver({ dataDir: options.dataDir, catalog, repository, targetRegistry: browserTargetRegistry });
+    browserTaskExecutor.register("navigate-and-capture", createNavigateAndCaptureHandler(browserWorkerManager, resolveOptions), { allowedTargets: browserTargetRegistry.ids() });
+  }
   const ffmpegRecord = repository.componentById("ffmpeg");
   const ffmpegCatalog = catalog.find((component) => component.id === "ffmpeg");
   const ffmpeg = ffmpegRecord === undefined ? undefined : { ...ffmpegRecord, ...(ffmpegCatalog === undefined ? {} : { provides: ffmpegCatalog.provides }) };
