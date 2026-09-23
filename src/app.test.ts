@@ -487,10 +487,13 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const entryCookie = String(entry.headers["set-cookie"]).split(";", 1)[0];
     const keyed = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie: `${cookie}; ${entryCookie}` } });
     assert.equal(keyed.json().entry, "key");
-    const stream = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/stream?id=${item.id}`, headers: { cookie, range: "bytes=1-3" } });
-    assert.equal(stream.statusCode, 206);
-    assert.equal(stream.headers["content-range"], "bytes 1-3/5");
-    assert.equal(stream.body, "ide");
+    await app.listen({ host: "127.0.0.1", port: 0 });
+    const address = app.server.address();
+    assert.ok(address && typeof address !== "string");
+    const stream = await fetch(`http://127.0.0.1:${address.port}/apps/wdr-media/${installationId}/stream?id=${item.id}`, { headers: { cookie: String(cookie), range: "bytes=1-3" } });
+    assert.equal(stream.status, 206);
+    assert.equal(stream.headers.get("content-range"), "bytes 1-3/5");
+    assert.equal(await stream.text(), "ide");
     const exportedData = await app.inject({ method: "GET", url: `/api/plugins/${installationId}/data/export`, headers: { cookie } });
     assert.equal(exportedData.statusCode, 200);
     assert.equal(exportedData.headers["cache-control"], "no-store");
