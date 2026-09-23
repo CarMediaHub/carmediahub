@@ -245,6 +245,37 @@ export class Repository {
       });
   }
 
+  claimBrowserTask(scope: ScopeContext): BrowserTask | undefined {
+    const timestamp = now();
+    const row = this.db.prepare(`UPDATE browser_tasks SET status = 'running', updated_at = ?
+      WHERE id = (SELECT task.id FROM browser_tasks task JOIN browser_sessions session ON session.id = task.session_id
+        WHERE task.organization_id = ? AND task.user_id = ? AND task.installation_id = ? AND task.status = 'queued'
+          AND session.status = 'active' AND session.expires_at > ? ORDER BY task.created_at ASC LIMIT 1)
+      AND status = 'queued' RETURNING id, session_id, kind, input_json, status, created_at, updated_at`)
+      .get(timestamp, scope.organizationId, scope.userId, scope.installationId, timestamp) as Record<string, string> | undefined;
+    return row === undefined ? undefined : this.browserTaskFromRow(row);
+  }
+
+  completeBrowserTask(scope: ScopeContext, taskId: string): BrowserTask | undefined { return this.transitionBrowserTask(scope, taskId, "succeeded"); }
+  failBrowserTask(scope: ScopeContext, taskId: string): BrowserTask | undefined { return this.transitionBrowserTask(scope, taskId, "failed"); }
+
+  private transitionBrowserTask(scope: ScopeContext, taskId: string, status: "succeeded" | "failed"): BrowserTask | undefined {
+    if (!/^browser_task_[0-9a-f-]{36}$/u.test(taskId)) return undefined;
+    const timestamp = now();
+    const changed = this.db.prepare("UPDATE browser_tasks SET status = ?, updated_at = ? WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'running'")
+      .run(status, timestamp, taskId, scope.organizationId, scope.userId, scope.installationId);
+    if (changed.changes !== 1) return undefined;
+    const row = this.db.prepare("SELECT id, session_id, kind, input_json, status, created_at, updated_at FROM browser_tasks WHERE id = ? AND organization_id = ? AND user_id = ? AND installation_id = ?")
+      .get(taskId, scope.organizationId, scope.userId, scope.installationId) as Record<string, string> | undefined;
+    return row === undefined ? undefined : this.browserTaskFromRow(row);
+  }
+
+  private browserTaskFromRow(row: Record<string, string>): BrowserTask {
+    let input: BrowserTask["input"] = {};
+    try { const parsed = JSON.parse(row.input_json ?? "{}"); if (parsed !== null && typeof parsed === "object") input = parsed as BrowserTask["input"]; } catch { input = {}; }
+    return { id: row.id ?? "", sessionId: row.session_id ?? "", kind: row.kind as BrowserTaskKind, status: row.status as BrowserTask["status"], input, createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
+  }
+
   cancelBrowserTask(scope: ScopeContext, taskId: string): BrowserTask | undefined {
     if (!/^browser_task_[0-9a-f-]{36}$/u.test(taskId)) return undefined;
     const task = this.browserTasks(scope).find((item) => item.id === taskId);
