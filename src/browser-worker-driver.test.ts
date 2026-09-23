@@ -15,7 +15,7 @@ test("browser worker driver launches only the verified browser-engine component"
   const executable = process.platform === "win32" ? "chromium.exe" : "chromium";
   fs.writeFileSync(path.join(location, executable), "browser-fixture");
   const checksum = crypto.createHash("sha256").update(fs.readFileSync(path.join(location, executable))).digest("hex");
-  let captured: { executablePath?: string; args?: readonly string[]; userDataDir?: string } | undefined;
+  let captured: { executablePath?: string; args?: readonly string[]; userDataDir?: string; acceptDownloads?: boolean; permissions?: readonly string[]; serviceWorkers?: string } | undefined;
   let closed = false;
   let routed = false;
   let unrouted = false;
@@ -30,11 +30,14 @@ test("browser worker driver launches only the verified browser-engine component"
       scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
       targetRegistry,
       targetId: "media",
-      runtime: { launchPersistentContext: async (userDataDir, options) => { captured = { executablePath: options.executablePath, args: options.args, userDataDir }; return fakeContext; } }
+      runtime: { launchPersistentContext: async (userDataDir, options) => { captured = { executablePath: options.executablePath, args: options.args, userDataDir, acceptDownloads: options.acceptDownloads, permissions: options.permissions, serviceWorkers: options.serviceWorkers }; return fakeContext; } }
     });
     assert.equal(captured?.executablePath, path.join(location, executable));
     assert.equal(captured?.userDataDir?.includes(path.join("browser", "sessions", "org", "user", "plugin_abc", "browser_session")), true);
     assert.equal(captured?.args?.includes("--mute-audio"), true);
+    assert.equal(captured?.acceptDownloads, false);
+    assert.deepEqual(captured?.permissions, []);
+    assert.equal(captured?.serviceWorkers, "block");
     assert.equal(routed, true);
     await handle.stop();
     assert.equal(closed, true);

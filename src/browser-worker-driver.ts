@@ -39,6 +39,7 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
     args: [...launch.args],
     headless: true,
     acceptDownloads: false,
+    permissions: [],
     serviceWorkers: "block"
   });
   let policy: Awaited<ReturnType<typeof installBrowserNetworkPolicy>>;
