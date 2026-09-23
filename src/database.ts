@@ -151,6 +151,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
       session_id TEXT NOT NULL REFERENCES browser_sessions(id),
       kind TEXT NOT NULL,
       input_json TEXT NOT NULL,
+      result_json TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -324,6 +325,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!userColumns.some((column) => column.name === "time_zone")) db.exec("ALTER TABLE users ADD COLUMN time_zone TEXT NOT NULL DEFAULT 'UTC'");
   if (!userColumns.some((column) => column.name === "theme")) db.exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'");
   if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
+  const browserTaskColumns = db.prepare("PRAGMA table_info(browser_tasks)").all() as Array<{ name: string }>;
+  if (!browserTaskColumns.some((column) => column.name === "result_json")) db.exec("ALTER TABLE browser_tasks ADD COLUMN result_json TEXT");
   const migration = db.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(CORE_SCHEMA_VERSION) as { version?: number } | undefined;
   if (migration?.version !== CORE_SCHEMA_VERSION) {
     db.prepare("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
