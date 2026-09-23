@@ -554,8 +554,24 @@ export class Repository {
 
   registerComponent(input: { id: string; version: string; executable: string; checksum: string }): void {
     if (input.executable.includes("..") || input.executable.startsWith("/") || /^[A-Za-z]:/.test(input.executable)) throw new Error("Managed component executable must be a relative path");
-    this.db.prepare("INSERT OR REPLACE INTO managed_components (id, version, executable, checksum, installed_at, health) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(input.id, input.version, input.executable, input.checksum, now(), "unknown");
+    const installedAt = now();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare(`INSERT INTO managed_components (id, version, executable, checksum, installed_at, health)
+        VALUES (?, ?, ?, ?, ?, 'unknown')
+        ON CONFLICT(id) DO UPDATE SET version = excluded.version, executable = excluded.executable,
+          checksum = excluded.checksum, installed_at = excluded.installed_at, health = 'unknown'`)
+        .run(input.id, input.version, input.executable, input.checksum, installedAt);
+      this.db.prepare(`INSERT INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health)
+        VALUES (?, ?, ?, ?, ?, 'unknown')
+        ON CONFLICT(component_id, version) DO UPDATE SET executable = excluded.executable,
+          checksum = excluded.checksum, installed_at = excluded.installed_at, health = 'unknown'`)
+        .run(input.id, input.version, input.executable, input.checksum, installedAt);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   bindService(input: { componentId: string; name: string; endpoint: string; installationId?: string }): void {
@@ -578,7 +594,37 @@ export class Repository {
   }
 
   updateComponentHealth(componentId: string, health: "healthy" | "unhealthy"): boolean {
-    return this.db.prepare("UPDATE managed_components SET health = ? WHERE id = ?").run(health, componentId).changes === 1;
+    const changed = this.db.prepare("UPDATE managed_components SET health = ? WHERE id = ?").run(health, componentId).changes === 1;
+    if (changed) {
+      const component = this.componentById(componentId);
+      if (component !== undefined) this.db.prepare("UPDATE managed_component_versions SET health = ? WHERE component_id = ? AND version = ?").run(health, componentId, component.version);
+    }
+    return changed;
+  }
+
+  componentVersions(componentId: string): Array<Record<string, string | number>> {
+    return this.db.prepare(`SELECT component_id, version, executable, checksum, installed_at, health,
+      CASE WHEN version = (SELECT version FROM managed_components WHERE id = ?) THEN 1 ELSE 0 END AS active
+      FROM managed_component_versions WHERE component_id = ? ORDER BY installed_at DESC`).all(componentId, componentId) as Array<Record<string, string | number>>;
+  }
+
+  componentVersionById(componentId: string, version: string): { id: string; version: string; executable: string; checksum: string; health: string } | undefined {
+    const row = this.db.prepare("SELECT component_id, version, executable, checksum, health FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string> | undefined;
+    return row === undefined ? undefined : { id: row.component_id ?? componentId, version: row.version ?? version, executable: row.executable ?? "", checksum: row.checksum ?? "", health: row.health ?? "unknown" };
+  }
+
+  updateComponentVersionHealth(componentId: string, version: string, health: "healthy" | "unhealthy"): boolean {
+    return this.db.prepare("UPDATE managed_component_versions SET health = ? WHERE component_id = ? AND version = ?").run(health, componentId, version).changes === 1;
+  }
+
+  activateComponentVersion(componentId: string, version: string): boolean {
+    const target = this.db.prepare("SELECT version, executable, checksum, health, installed_at FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string> | undefined;
+    if (target === undefined || target.health !== "healthy") return false;
+    const current = this.componentById(componentId);
+    if (current?.version === version) return true;
+    const result = this.db.prepare(`UPDATE managed_components SET version = ?, executable = ?, checksum = ?, installed_at = ?, health = ? WHERE id = ?`)
+      .run(version, target.executable ?? "", target.checksum ?? "", target.installed_at ?? now(), target.health, componentId);
+    return result.changes === 1;
   }
 
   serviceBindings(): Array<Record<string, string>> {

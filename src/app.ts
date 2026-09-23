@@ -1194,6 +1194,42 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { component: { id: componentId, health } };
   });
 
+  app.get("/api/components/:id/versions", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const componentId = (request.params as { id: string }).id;
+    if (repository.componentById(componentId) === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.NOT_FOUND", messageKey: "errors.component.notFound" });
+    return { versions: repository.componentVersions(componentId) };
+  });
+
+  app.post("/api/components/:id/versions/:version/health", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const params = request.params as { id: string; version: string };
+    const component = repository.componentVersionById(params.id, params.version);
+    if (component === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.VERSION_NOT_FOUND", messageKey: "errors.component.versionNotFound" });
+    let health: "healthy" | "unhealthy" = "unhealthy";
+    try {
+      const executable = resolveInstalledExecutable(options.dataDir, component);
+      const actual = await sha256File(executable);
+      const expected = component.checksum.startsWith("sha256:") ? component.checksum.slice("sha256:".length) : component.checksum;
+      if (/^[a-f0-9]{64}$/u.test(expected) && actual === expected) health = "healthy";
+    } catch { health = "unhealthy"; }
+    repository.updateComponentVersionHealth(params.id, params.version, health);
+    repository.audit(user.id, health === "healthy" ? "component.versionHealthChecked" : "component.versionHealthFailed", `${params.id}@${params.version}`);
+    return { component: { id: params.id, version: params.version, health } };
+  });
+
+  app.post("/api/components/:id/versions/:version/activate", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const params = request.params as { id: string; version: string };
+    if (repository.componentVersionById(params.id, params.version) === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.VERSION_NOT_FOUND", messageKey: "errors.component.versionNotFound" });
+    if (!repository.activateComponentVersion(params.id, params.version)) return reply.code(409).send({ code: "CMH.COMPONENT.VERSION_NOT_HEALTHY", messageKey: "errors.component.versionNotHealthy" });
+    repository.audit(user.id, "component.versionActivated", `${params.id}@${params.version}`);
+    return { component: repository.componentById(params.id) };
+  });
+
   app.all("/apps/*", async (request, reply) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;

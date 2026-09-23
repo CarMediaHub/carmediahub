@@ -175,6 +175,17 @@ export function openDatabase(dataDir: string): CoreDatabase {
       installed_at TEXT NOT NULL,
       health TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS managed_component_versions (
+      component_id TEXT NOT NULL REFERENCES managed_components(id) ON DELETE CASCADE,
+      version TEXT NOT NULL,
+      executable TEXT NOT NULL,
+      checksum TEXT NOT NULL,
+      installed_at TEXT NOT NULL,
+      health TEXT NOT NULL,
+      PRIMARY KEY (component_id, version)
+    );
+    CREATE INDEX IF NOT EXISTS managed_component_versions_index
+      ON managed_component_versions (component_id, installed_at DESC);
     CREATE TABLE IF NOT EXISTS media_transform_outputs (
       id TEXT PRIMARY KEY,
       organization_id TEXT NOT NULL REFERENCES organizations(id),
@@ -327,6 +338,10 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
   const browserTaskColumns = db.prepare("PRAGMA table_info(browser_tasks)").all() as Array<{ name: string }>;
   if (!browserTaskColumns.some((column) => column.name === "result_json")) db.exec("ALTER TABLE browser_tasks ADD COLUMN result_json TEXT");
+  db.exec(`
+    INSERT OR IGNORE INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health)
+      SELECT id, version, executable, checksum, installed_at, health FROM managed_components;
+  `);
   const migration = db.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(CORE_SCHEMA_VERSION) as { version?: number } | undefined;
   if (migration?.version !== CORE_SCHEMA_VERSION) {
     db.prepare("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
