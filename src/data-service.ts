@@ -3,6 +3,7 @@ import type { DataRecord, PluginDataMigration, PluginDataStore, ScopeContext } f
 
 const identifier = /^[a-z][a-z0-9_-]{0,63}$/u;
 const migrationName = /^[a-z][a-z0-9_.-]{0,127}$/u;
+const escapeLikePrefix = (value: string): string => value.replace(/[!%_]/gu, "!$&");
 
 function assertIdentifier(value: string, field: string): void {
   if (!identifier.test(value)) throw new Error(`${field} must be a lowercase identifier`);
@@ -93,8 +94,8 @@ export function createPluginDataStore(db: DatabaseSync, scope: ScopeContext): Pl
       const prefix = options.prefix ?? "";
       if (prefix.length > 0) assertIdentifier(prefix, "prefix");
       return (db.prepare(`SELECT record_key, value_json, updated_at FROM plugin_data
-        WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND collection = ? AND record_key LIKE ?
-        ORDER BY record_key LIMIT ?`).all(organizationId, userId, installationId, collection, `${prefix}%`, limit) as Array<{ record_key: string; value_json: string; updated_at: string }>)
+        WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND collection = ? AND record_key LIKE ? ESCAPE '!'
+        ORDER BY record_key LIMIT ?`).all(organizationId, userId, installationId, collection, `${escapeLikePrefix(prefix)}%`, limit) as Array<{ record_key: string; value_json: string; updated_at: string }>)
         .map((row) => ({ key: row.record_key, value: JSON.parse(row.value_json) as T, updatedAt: row.updated_at }));
     },
     async migrate(input: { version: number; name: string }): Promise<PluginDataMigration> {

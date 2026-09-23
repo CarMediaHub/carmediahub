@@ -30,7 +30,10 @@ test("persistent plugin data is isolated by user and installation", async () => 
     await first.put("settings", "layout", { compact: true });
     const withData = exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" });
     assert.deepEqual(withData.collections[0], { name: "settings", records: [{ key: "layout", value: { compact: true }, updatedAt: withData.collections[0]?.records[0]?.updatedAt }] });
-    assert.equal(deletePluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }), 1);
+    await first.put("settings", "part_alpha", { value: 1 });
+    await first.put("settings", "part-beta", { value: 2 });
+    assert.deepEqual((await first.list("settings", { prefix: "part_" })).map((record) => record.key), ["part_alpha"]);
+    assert.equal(deletePluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }), 3);
     assert.deepEqual(exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }).collections, []);
   } finally {
     database.close();

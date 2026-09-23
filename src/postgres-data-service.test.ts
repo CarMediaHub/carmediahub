@@ -34,6 +34,14 @@ test("PostgreSQL data adapter rejects undefined values before issuing SQL", asyn
   assert.equal(calls, 0);
 });
 
+test("PostgreSQL data adapter escapes literal list prefixes", async () => {
+  let values: readonly unknown[] = [];
+  const client: PostgresQueryClient = { async query<T>(text: string, input: readonly unknown[] = []) { if (text.includes("LIKE")) values = input; return { rows: [] as T[], rowCount: 0 }; } };
+  const store = createPostgresPluginDataStore(client, { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" });
+  await store.list("settings", { prefix: "part_" });
+  assert.equal(values[4], "part!_%");
+});
+
 test("PostgreSQL pool rejects incomplete config instead of reading PG* environment variables", () => {
   assert.throws(() => createPostgresPool({}), /explicit connectionString/);
   const pool = createPostgresPool({ host: "127.0.0.1", port: 5432, database: "cmh", user: "cmh" });

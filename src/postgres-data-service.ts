@@ -4,6 +4,7 @@ import { MAX_PLUGIN_DATA_EXPORT_BYTES, MAX_PLUGIN_DATA_EXPORT_RECORDS, type Plug
 
 const identifier = /^[a-z][a-z0-9_-]{0,63}$/u;
 const migrationName = /^[a-z][a-z0-9_.-]{0,127}$/u;
+const escapeLikePrefix = (value: string): string => value.replace(/[!%_]/gu, "!$&");
 
 function assertIdentifier(value: string, field: string): void {
   if (!identifier.test(value)) throw new Error(`${field} must be a lowercase identifier`);
@@ -133,9 +134,9 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
       const limit = Math.min(Math.max(options.limit ?? 100, 1), 1000);
       const result = await client.query<{ record_key: string; value_json: T; updated_at: string }>(
         `SELECT record_key, value_json, updated_at FROM carmediahub_plugin_data
-         WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 AND collection = $4 AND record_key LIKE $5
+         WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 AND collection = $4 AND record_key LIKE $5 ESCAPE '!'
          ORDER BY record_key LIMIT $6`,
-        [organizationId, userId, installationId, collection, `${prefix}%`, limit]
+        [organizationId, userId, installationId, collection, `${escapeLikePrefix(prefix)}%`, limit]
       );
       return result.rows.map((row) => ({ key: row.record_key, value: row.value_json, updatedAt: row.updated_at }));
     },
