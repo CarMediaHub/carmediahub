@@ -17,7 +17,7 @@ import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.
 import { WorkerSupervisor } from "./worker-supervisor.js";
 import { createTrustedNodeWorkerFactory, type TrustedWorkerPackage } from "./trusted-worker-factory.js";
 import { createTrustedSharedAdapterFactory, type TrustedSharedAdapterPackage } from "./trusted-shared-adapter-factory.js";
-import { installStagedPluginPackage } from "./plugin-package-installer.js";
+import { installStagedPluginPackage, verifyInstalledPluginPackage } from "./plugin-package-installer.js";
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 import { MediaLibraryService } from "./media-library-service.js";
 import { RemoteWebDavProvider } from "./remote-webdav-provider.js";
@@ -367,10 +367,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       return installation === undefined ? undefined : { packageId: installation.packageId, status: installation.status };
     }
   });
-  const registerVerifiedPluginRuntime = (verified: VerifiedPluginPackageRecord): void => {
-    if (supervisor.hasFactory(verified.packageId, verified.packageVersion)) return;
+  const registerVerifiedPluginRuntime = (verified: VerifiedPluginPackageRecord): boolean => {
+    if (!verifyInstalledPluginPackage(options.dataDir, verified)) return false;
+    if (supervisor.hasFactory(verified.packageId, verified.packageVersion)) return true;
     if (verified.workerEntry !== undefined) supervisor.register(createTrustedNodeWorkerFactory({ packageId: verified.packageId, packageVersion: verified.packageVersion, packageRoot: path.resolve(options.dataDir, verified.location), workerEntry: verified.workerEntry }));
     else if (verified.runtimeEntry !== undefined) supervisor.register(createTrustedSharedAdapterFactory({ packageId: verified.packageId, packageVersion: verified.packageVersion, packageRoot: path.resolve(options.dataDir, verified.location), runtimeEntry: verified.runtimeEntry }));
+    return true;
   };
   for (const verified of repository.verifiedPluginPackages()) registerVerifiedPluginRuntime(verified);
   for (const workerPackage of options.trustedWorkerPackages ?? []) {
@@ -1025,7 +1027,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (repository.pluginInstallationByPackage(release.manifest.id, release.manifest.version) !== undefined) return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
       const verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
       if (verified !== undefined) {
-        registerVerifiedPluginRuntime(verified);
+        if (!registerVerifiedPluginRuntime(verified)) throw new Error("Verified plugin package integrity check failed");
         const installation = repository.installPlugin(release.manifest);
         repository.audit(user.id, "plugin.package.recovered", `${verified.packageId}@${verified.packageVersion}`);
         return reply.code(201).send({ package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location }, installation });
@@ -1072,7 +1074,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
       }
       if (verified === undefined) throw new Error("Plugin upgrade package is not installed");
-      registerVerifiedPluginRuntime(verified);
+      if (!registerVerifiedPluginRuntime(verified)) throw new Error("Verified plugin package integrity check failed");
       await supervisor.stop(installationId);
       runtimeBroker.revokeInstallationCredentials(installationId);
       const upgraded = repository.upgradePlugin(installationId, release.manifest);

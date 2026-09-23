@@ -30,6 +30,21 @@ function collect(root: string, current = root, entries: string[] = []): string[]
   return entries;
 }
 
+/** Recomputes an installed package digest before a persisted runtime is trusted. */
+export function verifyInstalledPluginPackage(dataDir: string, input: { digest: string; location: string }): boolean {
+  if (!checksum.test(input.digest) || !/^plugins\/[A-Za-z0-9_./-]+$/u.test(input.location) || input.location.includes("..")) return false;
+  const root = path.resolve(dataDir, input.location);
+  const managedRoot = path.resolve(dataDir, "plugins") + path.sep;
+  if (!root.startsWith(managedRoot) || !fs.existsSync(root) || !fs.lstatSync(root).isDirectory() || fs.lstatSync(root).isSymbolicLink()) return false;
+  try {
+    const entries = collect(root).sort();
+    if (entries.length === 0) return false;
+    const hash = crypto.createHash("sha256");
+    for (const relative of entries) hash.update(`${relative}\0${fileDigest(path.join(root, relative))}\n`, "utf8");
+    return hash.digest("hex") === input.digest;
+  } catch { return false; }
+}
+
 /**
  * Accepts only a Core-owned staged directory and derives its digest from every
  * relative path and file content. The installed root is immutable by convention.

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { installStagedPluginPackage } from "./plugin-package-installer.js";
+import { installStagedPluginPackage, verifyInstalledPluginPackage } from "./plugin-package-installer.js";
 
 function digest(root: string): string {
   const files = ["ui/index.html", "worker.js"];
@@ -22,6 +22,9 @@ test("installs only an exact verified plugin package from Core staging", () => {
   try {
     const installed = installStagedPluginPackage(dataDir, { packageId: "wdr-media", version: "0.1.0", artifactId: "wdr-build", digest: digest(source) });
     assert.equal(fs.readFileSync(path.join(dataDir, installed.location, "worker.js"), "utf8"), "export {};\n");
+    assert.equal(verifyInstalledPluginPackage(dataDir, installed), true);
+    fs.writeFileSync(path.join(dataDir, installed.location, "worker.js"), "tampered\n");
+    assert.equal(verifyInstalledPluginPackage(dataDir, installed), false);
     assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "other-plugin", version: "0.1.0", artifactId: "wdr-build", digest: installed.digest, workerEntry: "./missing.js" }), /unavailable/);
     assert.throws(() => installStagedPluginPackage(dataDir, { packageId: "wdr-media", version: "0.1.0", artifactId: "../wdr-build", digest: installed.digest }));
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
