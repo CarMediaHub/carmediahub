@@ -420,7 +420,11 @@ test("credential HTTP lifecycle requires secrets capability and never returns pl
     assert.equal(listed.statusCode, 200);
     assert.equal(JSON.stringify(listed.json()).includes("do-not-return"), false);
     assert.equal((listed.json() as { credentials: Array<{ id: string }> }).credentials.some((item) => item.id === credentialId), true);
-    assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${credentialId}`, headers: { cookie } })).statusCode, 204);
+    const second = await app.inject({ method: "POST", url: "/api/credentials", headers: { cookie }, payload: { name: "Second login", kind: "authorization", value: "Bearer do-not-return", installationId: allowedId } });
+    assert.equal(second.statusCode, 201);
+    assert.equal((await app.inject({ method: "PATCH", url: `/api/plugins/${allowedId}/capabilities`, headers: { cookie }, payload: { capabilities: ["network"] } })).statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } })).json().credentials.length, 0);
+    assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${credentialId}`, headers: { cookie } })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } })).json().credentials.length, 0);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
@@ -487,13 +491,10 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const entryCookie = String(entry.headers["set-cookie"]).split(";", 1)[0];
     const keyed = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/health`, headers: { cookie: `${cookie}; ${entryCookie}` } });
     assert.equal(keyed.json().entry, "key");
-    await app.listen({ host: "127.0.0.1", port: 0 });
-    const address = app.server.address();
-    assert.ok(address && typeof address !== "string");
-    const stream = await fetch(`http://127.0.0.1:${address.port}/apps/wdr-media/${installationId}/stream?id=${item.id}`, { headers: { cookie: String(cookie), range: "bytes=1-3" } });
-    assert.equal(stream.status, 206);
-    assert.equal(stream.headers.get("content-range"), "bytes 1-3/5");
-    assert.equal(await stream.text(), "ide");
+    const stream = await app.inject({ method: "GET", url: `/apps/wdr-media/${installationId}/stream?id=${item.id}`, headers: { cookie, range: "bytes=1-3" } });
+    assert.equal(stream.statusCode, 206);
+    assert.equal(stream.headers["content-range"], "bytes 1-3/5");
+    assert.equal(stream.body, "ide");
     const exportedData = await app.inject({ method: "GET", url: `/api/plugins/${installationId}/data/export`, headers: { cookie } });
     assert.equal(exportedData.statusCode, 200);
     assert.equal(exportedData.headers["cache-control"], "no-store");

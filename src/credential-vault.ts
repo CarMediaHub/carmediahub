@@ -45,6 +45,26 @@ export class CredentialVault {
     return true;
   }
 
+  revokeInstallation(organizationId: string, installationId: string): number {
+    const timestamp = now();
+    const count = this.records.reduce((total, record) => {
+      if (record.organizationId === organizationId && record.installationId === installationId && record.revokedAt === null) { record.revokedAt = timestamp; return total + 1; }
+      return total;
+    }, 0);
+    if (count > 0) this.persist();
+    return count;
+  }
+
+  revokeUser(organizationId: string, userId: string): number {
+    const timestamp = now();
+    const count = this.records.reduce((total, record) => {
+      if (record.organizationId === organizationId && record.userId === userId && record.revokedAt === null) { record.revokedAt = timestamp; return total + 1; }
+      return total;
+    }, 0);
+    if (count > 0) this.persist();
+    return count;
+  }
+
   resolve(scope: ScopeContext, credentialId: string): { name: "cookie" | "authorization"; value: string } | undefined {
     const record = this.records.find((candidate) => candidate.id === credentialId && candidate.organizationId === scope.organizationId && candidate.userId === scope.userId && candidate.installationId === scope.installationId && candidate.revokedAt === null);
     if (record === undefined) return undefined;

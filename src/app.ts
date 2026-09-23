@@ -612,6 +612,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     mediaLibrary.revokePlaybackForUser((request.params as { id: string }).id);
     revokeHlsForUser(database.db, (request.params as { id: string }).id);
     runtimeBroker.revokeUserConnections((request.params as { id: string }).id);
+    credentialVault.revokeUser(user.organizationId, (request.params as { id: string }).id);
     jobExecutor.cancelUser(user.organizationId, (request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
@@ -732,9 +733,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const installationId = (request.params as { id: string }).id;
     const input = body<{ capabilities?: unknown }>(request);
     if (!Array.isArray(input?.capabilities) || input.capabilities.some((capability) => typeof capability !== "string")) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
+    const hadSecrets = repository.pluginHasCapability(installationId, "secrets");
     if (!repository.updatePluginCapabilities(installationId, input.capabilities as never[])) return reply.code(400).send({ code: "CMH.PLUGIN.CAPABILITIES_INVALID", messageKey: "errors.plugin.capabilitiesInvalid" });
     // Capability revocation must invalidate the Worker credential immediately.
     runtimeBroker.revokeInstallationCredentials(installationId);
+    if (hadSecrets && !input.capabilities.includes("secrets")) credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
@@ -890,6 +893,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     mediaLibrary.revokePlaybackForInstallation(installationId);
     revokeHlsForInstallation(database.db, installationId);
     runtimeBroker.revokeInstallationCredentials(installationId);
+    credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
@@ -914,6 +918,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     mediaLibrary.revokeForInstallation(installationId);
     revokeHlsForInstallation(database.db, installationId);
     runtimeBroker.revokeInstallationCredentials(installationId);
+    credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.uninstalled", installationId);
