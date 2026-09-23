@@ -391,6 +391,40 @@ test("admin task center exposes redacted organization jobs and cancels only its 
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("credential HTTP lifecycle requires secrets capability and never returns plaintext", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-credential-api-"));
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey] });
+  const sign = (manifest: Record<string, unknown>) => {
+    const keyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
+    return { keyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
+  };
+  const baseManifest = (id: string, capabilities: string[]) => ({ id, version: "0.1.0", sdk: "^0.1.0", name: { en: id, "zh-CN": id, ko: id }, description: { en: id, "zh-CN": id, ko: id }, category: "adapter", runtime: "isolated-worker", capabilities, routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const deniedInstall = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: sign(baseManifest("no-secrets", ["network"])) });
+    assert.equal(deniedInstall.statusCode, 201);
+    const deniedId = (deniedInstall.json() as { installation: { id: string } }).installation.id;
+    const allowedInstall = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: sign(baseManifest("with-secrets", ["network", "secrets"])) });
+    assert.equal(allowedInstall.statusCode, 201);
+    const allowedId = (allowedInstall.json() as { installation: { id: string } }).installation.id;
+    assert.equal((await app.inject({ method: "POST", url: "/api/credentials", headers: { cookie }, payload: { name: "BBC login", kind: "cookie", value: "session=do-not-return", installationId: deniedId } })).statusCode, 400);
+    const created = await app.inject({ method: "POST", url: "/api/credentials", headers: { cookie }, payload: { name: "BBC login", kind: "cookie", value: "session=do-not-return", installationId: allowedId } });
+    assert.equal(created.statusCode, 201);
+    assert.equal(JSON.stringify(created.json()).includes("do-not-return"), false);
+    const credentialId = (created.json() as { credential: { id: string } }).credential.id;
+    const listed = await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(JSON.stringify(listed.json()).includes("do-not-return"), false);
+    assert.equal((listed.json() as { credentials: Array<{ id: string }> }).credentials.some((item) => item.id === credentialId), true);
+    assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${credentialId}`, headers: { cookie } })).statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } })).json().credentials.length, 0);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("gateway starts the trusted WDR Worker and writes its response through the single public route", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
   const mediaRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-wdr-media-"));
