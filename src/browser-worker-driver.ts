@@ -27,6 +27,18 @@ export interface BrowserWorkerHandle {
   stop(): Promise<void>;
 }
 
+export async function navigateToTarget(handle: Pick<BrowserWorkerHandle, "context">, registry: BrowserTargetRegistry, targetId: string, relativePath = "/") {
+  const url = registry.resolveUrl(targetId, relativePath);
+  const page = await handle.context.newPage();
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    return page;
+  } catch (error) {
+    await page.close();
+    throw error;
+  }
+}
+
 /** Core-owned Playwright adapter. It exposes a context only to Core Worker code. */
 export async function startBrowserWorker(options: BrowserWorkerDriverOptions): Promise<BrowserWorkerHandle> {
   const executable = resolveInstalledExecutable(options.dataDir, options.component);

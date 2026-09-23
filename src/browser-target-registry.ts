@@ -34,6 +34,15 @@ export class BrowserTargetRegistry {
     try { normalized = normalizeOrigin(origin); } catch { return false; }
     return target.origins.includes(normalized);
   }
+
+  resolveUrl(id: string, relativePath = "/"): string {
+    const target = this.targets.get(id);
+    if (target === undefined) throw new Error("Browser target is not registered");
+    if (typeof relativePath !== "string" || !relativePath.startsWith("/") || relativePath.startsWith("//") || relativePath.includes("\\") || relativePath.split("/").includes("..") || relativePath.length > 2048) throw new Error("Browser target path is invalid");
+    const url = new URL(relativePath, target.origins[0]);
+    if (url.origin !== target.origins[0]) throw new Error("Browser target path escaped origin");
+    return url.toString();
+  }
 }
 
 function normalizeOrigin(value: string): string {

@@ -8,6 +8,9 @@ test("browser target registry stores logical IDs and normalized HTTPS origins", 
   assert.deepEqual(registry.get("media.example"), { id: "media.example", origins: ["https://media.example"] });
   assert.equal(registry.allowsOrigin("media.example", "https://media.example/"), true);
   assert.equal(registry.allowsOrigin("media.example", "https://other.example"), false);
+  assert.equal(registry.resolveUrl("media.example", "/library/video"), "https://media.example/library/video");
+  assert.throws(() => registry.resolveUrl("media.example", "https://other.example/escape"), /path is invalid/);
+  assert.throws(() => registry.resolveUrl("media.example", "/../escape"), /path is invalid/);
   const copy = registry.get("media.example")!;
   (copy.origins as string[]).push("https://other.example");
   assert.equal(registry.allowsOrigin("media.example", "https://other.example"), false);

@@ -82,3 +82,18 @@ test("browser worker driver has a Playwright Chromium runtime by default", async
     }), /unavailable/);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
+
+test("browser worker navigation resolves only a logical target and relative path", async () => {
+  const { navigateToTarget } = await import("./browser-worker-driver.js");
+  const registry = new BrowserTargetRegistry();
+  registry.register({ id: "media", origins: ["https://media.example"] });
+  let navigated = "";
+  let closed = false;
+  const page = { goto: async (url: string) => { navigated = url; }, close: async () => { closed = true; } };
+  const handle = { context: { newPage: async () => page } } as never;
+  const result = await navigateToTarget(handle, registry, "media", "/library");
+  assert.equal(result, page);
+  assert.equal(navigated, "https://media.example/library");
+  await assert.rejects(() => navigateToTarget(handle, registry, "media", "https://evil.example"), /path is invalid/);
+  assert.equal(closed, false);
+});
