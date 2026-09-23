@@ -167,6 +167,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (typeof input?.sessionId !== "string" || typeof input.asset !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid HLS asset request");
         return readHlsAsset(database.db, options.dataDir, scope, input.sessionId, input.asset, input.start, input.end);
       }
+      if (request.method === "mediaSource.list" || request.method === "mediaSource.stat" || request.method === "mediaSource.probe" || request.method === "mediaSource.createPlayback" || request.method === "mediaSource.read") {
+        if (!repository.pluginHasCapability(scope.installationId, "media-source")) throw new Error("Plugin media-source capability is not granted");
+        const input = request.params as { sourceHandle?: unknown; itemHandle?: unknown; sessionId?: unknown; start?: unknown; end?: unknown; limit?: unknown } | undefined;
+        if (request.method === "mediaSource.list") {
+          if (typeof input?.sourceHandle !== "string" || (input.limit !== undefined && typeof input.limit !== "number")) throw new Error("Invalid media source list request");
+          return mediaLibrary.listSource(scope, input.sourceHandle, input.limit ?? 200);
+        }
+        if (typeof input?.sourceHandle !== "string" || typeof input.itemHandle !== "string") throw new Error("Invalid media source item request");
+        if (request.method === "mediaSource.stat") return mediaLibrary.sourceStat(scope, input.sourceHandle, input.itemHandle);
+        if (request.method === "mediaSource.probe") return mediaLibrary.sourceProbe(scope, input.sourceHandle, input.itemHandle);
+        if (request.method === "mediaSource.createPlayback") return mediaLibrary.sourceCreatePlayback(scope, input.sourceHandle, input.itemHandle);
+        if (typeof input.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media source read request");
+        return mediaLibrary.sourceRead(scope, input.sourceHandle, input.itemHandle, input.sessionId, input.start, input.end);
+      }
       if (request.method === "network.request") {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
         const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown; credentialRef?: unknown } | undefined;

@@ -27,6 +27,11 @@ export interface MediaProbe { mediaId: string; contentType: string; size: number
 export interface MediaRead { data: string; completed: boolean; }
 export interface PlaybackScope { organizationId: string; userId: string; deviceId: string; installationId: string; }
 export interface PlaybackSession { sessionId: string; mediaId: string; expiresAt: string; }
+export interface MediaSourceItem { itemHandle: string; name: string; kind: "file"; size: number; contentType: string; updatedAt: string; }
+export interface MediaSourceListResult { items: MediaSourceItem[]; nextCursor?: string; }
+export interface MediaSourceStat { sourceHandle: string; itemHandle: string; item: MediaSourceItem; }
+export interface MediaSourceProbe { sourceHandle: string; itemHandle: string; contentType: string; size: number; seekable: boolean; availableModes: readonly MediaPlaybackMode[]; recommendedMode: MediaPlaybackMode; }
+export interface MediaSourcePlaybackSession { sessionId: string; sourceHandle: string; itemHandle: string; expiresAt: string; }
 export interface MediaSourceLocation { mediaId: string; path: string; size: number; contentType: string; }
 
 interface IndexedMediaItem extends MediaItem { relativePath: string; }
@@ -61,6 +66,37 @@ export class MediaLibraryService {
     const root = this.rootPath(organizationId, installationId, rootId);
     return this.index(root, rootId, limit).map(({ relativePath: _relativePath, ...item }) => item);
   }
+
+  /** Read-only source facade. The handle is derived from a root ID and never reveals its path. */
+  listSource(scope: PlaybackScope, sourceHandle: string, limit = 200): MediaSourceListResult {
+    const root = this.sourceRoot(scope, sourceHandle);
+    const items = this.index(this.rootPath(scope.organizationId, scope.installationId, root.id), root.id, limit)
+      .map((item) => ({ itemHandle: item.id, name: item.title, kind: "file" as const, size: item.size, contentType: item.contentType, updatedAt: item.updatedAt }));
+    return { items };
+  }
+
+  sourceStat(scope: PlaybackScope, sourceHandle: string, itemHandle: string): MediaSourceStat {
+    const item = this.sourceItem(scope, sourceHandle, itemHandle);
+    return { sourceHandle, itemHandle, item: { itemHandle: item.id, name: item.title, kind: "file", size: item.size, contentType: item.contentType, updatedAt: item.updatedAt } };
+  }
+
+  sourceProbe(scope: PlaybackScope, sourceHandle: string, itemHandle: string): MediaSourceProbe {
+    const item = this.sourceItem(scope, sourceHandle, itemHandle);
+    return { sourceHandle, itemHandle, contentType: item.contentType, size: item.size, seekable: item.contentType.startsWith("video/") || item.contentType.startsWith("audio/"), availableModes: this.transformsEnabled ? ["direct-range", "remux", "transcode"] : ["direct-range"], recommendedMode: "direct-range", };
+  }
+
+  sourceCreatePlayback(scope: PlaybackScope, sourceHandle: string, itemHandle: string): MediaSourcePlaybackSession {
+    this.sourceItem(scope, sourceHandle, itemHandle);
+    const playback = this.createPlayback(scope, itemHandle);
+    return { sessionId: playback.sessionId, sourceHandle, itemHandle, expiresAt: playback.expiresAt };
+  }
+
+  sourceRead(scope: PlaybackScope, sourceHandle: string, itemHandle: string, sessionId: string, start: number, end: number): MediaRead {
+    this.sourceItem(scope, sourceHandle, itemHandle);
+    return this.readWithPlayback(scope, sessionId, itemHandle, start, end);
+  }
+
+  sourceHandle(rootId: string): string { return `media_source_${keyedHash(`root\0${rootId}`, this.key)}`; }
 
   revoke(organizationId: string, rootId: string): boolean {
     const result = this.db.prepare("UPDATE media_roots SET revoked_at = ? WHERE id = ? AND organization_id = ? AND revoked_at IS NULL").run(now(), rootId, organizationId);
@@ -174,6 +210,20 @@ export class MediaLibraryService {
       if (item !== undefined) return item;
     }
     return undefined;
+  }
+
+  private sourceRoot(scope: PlaybackScope, sourceHandle: string): MediaRoot {
+    if (!/^media_source_[A-Za-z0-9_-]{20,128}$/u.test(sourceHandle)) throw new Error("Media source is unavailable");
+    const root = this.roots(scope.organizationId, scope.installationId).find((candidate) => this.sourceHandle(candidate.id) === sourceHandle);
+    if (root === undefined) throw new Error("Media source is unavailable");
+    return root;
+  }
+
+  private sourceItem(scope: PlaybackScope, sourceHandle: string, itemHandle: string): IndexedMediaItem {
+    const root = this.sourceRoot(scope, sourceHandle);
+    const item = this.index(this.rootPath(scope.organizationId, scope.installationId, root.id), root.id, 1000).find((candidate) => candidate.id === itemHandle);
+    if (item === undefined) throw new Error("Media source item is unavailable");
+    return item;
   }
 
   private rootPath(organizationId: string, installationId: string, rootId: string): string {

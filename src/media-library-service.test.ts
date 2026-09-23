@@ -22,6 +22,15 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
     database.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'user', 'hash', 'admin', 'en', 'now')").run();
     const service = new MediaLibraryService(database.db, Buffer.alloc(32, 1));
     const mediaRoot = service.addRoot("org", "plugin-a", "Road media", root);
+    const scope = { organizationId: "org", userId: "user", deviceId: "vehicle-a", installationId: "plugin-a" };
+    const sourceHandle = service.sourceHandle(mediaRoot.id);
+    const sourceListing = service.listSource(scope, sourceHandle);
+    assert.equal(sourceListing.items[0]?.name, "drive.mp4");
+    assert.equal("path" in (sourceListing.items[0] ?? {}), false);
+    assert.deepEqual(service.sourceProbe(scope, sourceHandle, sourceListing.items[0]!.itemHandle).availableModes, ["direct-range"]);
+    const sourcePlayback = service.sourceCreatePlayback(scope, sourceHandle, sourceListing.items[0]!.itemHandle);
+    assert.equal(Buffer.from(service.sourceRead(scope, sourceHandle, sourceListing.items[0]!.itemHandle, sourcePlayback.sessionId, 0, 4).data, "base64").toString(), "video");
+    assert.throws(() => service.listSource(scope, "https://internal.example/webdav"), /unavailable/);
     assert.deepEqual(service.roots("org"), [mediaRoot]);
     const items = service.list("org", "plugin-a", mediaRoot.id);
     assert.deepEqual(items.map((item) => ({ title: item.title, contentType: item.contentType, size: item.size })), [
@@ -29,7 +38,6 @@ test("managed media roots hide paths and ignore links or unsupported files", () 
       { title: "episode.mp4", contentType: "video/mp4", size: 7 }
     ]);
     assert.equal(Buffer.from(service.read("org", "plugin-a", items.find((item) => item.title === "episode.mp4")!.id, 0, 6).data, "base64").toString(), "episode");
-    const scope = { organizationId: "org", userId: "user", deviceId: "vehicle-a", installationId: "plugin-a" };
     const playback = service.createPlayback(scope, items[0]!.id);
     assert.deepEqual(service.probe(scope, items[0]!.id), {
       mediaId: items[0]!.id,
