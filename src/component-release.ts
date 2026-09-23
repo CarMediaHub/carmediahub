@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { installStagedComponent, type InstalledComponent } from "./component-installer.js";
-import type { ComponentCatalogItem } from "./components.js";
+import { currentPlatformKey, type ComponentCatalogItem } from "./components.js";
 
 const fingerprint = (key: string) => crypto.createHash("sha256").update(key).digest("hex").slice(0, 16);
 const base64 = /^[A-Za-z0-9+/]+={0,2}$/u;
@@ -58,6 +58,7 @@ export function verifyComponentRelease(signed: SignedComponentRelease, trustedPu
 export function installSignedComponentRelease(dataDir: string, catalog: readonly ComponentCatalogItem[], signed: SignedComponentRelease, trustedPublicKeys: readonly string[], platform: string): InstalledComponent {
   const release = verifyComponentRelease(signed, trustedPublicKeys);
   if (release.platform !== platform) throw new Error("Component release platform does not match this deployment");
+  if (platform !== currentPlatformKey()) throw new Error("Component release platform does not match the current host");
   const component = catalog.find((item) => item.id === release.componentId);
   if (component === undefined || !component.platforms.includes(release.platform)) throw new Error("Component release platform is not supported by the catalog");
   return installStagedComponent(dataDir, catalog, release);

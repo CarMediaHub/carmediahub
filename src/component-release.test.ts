@@ -31,9 +31,11 @@ test("signed component release requires a trusted Ed25519 signer and exact artif
     assert.throws(() => verifyComponentRelease(signed, []));
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, provenance: { ...release.provenance, sourceUrl: "http://insecure.example" } } }, [publicKey]), /source URL/);
     assert.throws(() => installSignedComponentRelease(dataDir, catalog, signed, [publicKey], "linux-arm64"), /does not match this deployment/);
-    const unsupportedPlatform = "darwin-x64";
-    const unsupported = signedRelease({ ...release, platform: unsupportedPlatform }, keys.privateKey);
-    assert.throws(() => installSignedComponentRelease(dataDir, catalog, unsupported, [publicKey], unsupportedPlatform), /not supported by the catalog/);
+    const unsupportedCatalog = catalog.map((item) => item.id === "ffmpeg" ? { ...item, platforms: ["linux-arm64"] } : item);
+    assert.throws(() => installSignedComponentRelease(dataDir, unsupportedCatalog, signed, [publicKey], currentPlatformKey()), /not supported by the catalog/);
+    const foreignPlatform = "darwin-x64";
+    const foreign = signedRelease({ ...release, platform: foreignPlatform }, keys.privateKey);
+    assert.throws(() => installSignedComponentRelease(dataDir, catalog, foreign, [publicKey], foreignPlatform), /current host/);
   } finally {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
