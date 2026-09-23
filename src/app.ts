@@ -827,6 +827,30 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, capabilities: repository.pluginCapabilities(installation.id), declaredCapabilities: repository.pluginDeclaredCapabilities(installation.id), worker: publicWorkerStatus(supervisor.status(installation.id)) })) };
   });
 
+  app.post("/api/plugins/:id/health", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id?: unknown }).id;
+    if (typeof installationId !== "string") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    const installation = repository.pluginInstallation(installationId);
+    if (installation === undefined || installation.status !== "installed") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    const methods = repository.pluginRouteMethods(installationId, "/health");
+    if (methods === undefined || !methods.includes("GET")) return reply.code(409).send({ code: "CMH.PLUGIN.HEALTH_UNSUPPORTED", messageKey: "errors.plugin.healthUnsupported" });
+    const scope = repository.runtimeScope(user.id, installationId, "admin-health", "admin", { entry: "navigation" });
+    if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+    try {
+      const worker = await supervisor.start(installationId, scope);
+      if (worker.state !== "running") return reply.code(503).send({ healthy: false, state: worker.state, diagnostic: "worker_unavailable" });
+      await runtimeBroker.waitForWorker(installationId, scope.userId, 5_000);
+      const response = await runtimeBroker.invoke(installationId, scope, { method: "GET", path: "/health", headers: { accept: "application/json" } }, 5_000);
+      const status = typeof (response as { status?: unknown })?.status === "number" ? (response as { status: number }).status : 0;
+      const healthy = status >= 200 && status < 300;
+      return reply.code(healthy ? 200 : 502).send({ healthy, status, worker: "running" });
+    } catch {
+      return reply.code(503).send({ healthy: false, diagnostic: "health_probe_failed" });
+    }
+  });
+
   app.patch("/api/plugins/:id/capabilities", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;

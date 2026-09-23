@@ -495,6 +495,9 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const install = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(install.statusCode, 201);
     const installationId = (install.json() as { installation: { id: string } }).installation.id;
+    const probe = await app.inject({ method: "POST", url: `/api/plugins/${installationId}/health`, headers: { cookie } });
+    assert.equal(probe.statusCode, 200);
+    assert.deepEqual(probe.json(), { healthy: true, status: 200, worker: "running" });
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/wdr-service", checksum: "sha256:test" } })).statusCode, 201);
     const scopedBinding = await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "wdr-service", name: "wdr-local", endpoint: "http://127.0.0.1:5244", installationId } });
     assert.equal(scopedBinding.statusCode, 201);
