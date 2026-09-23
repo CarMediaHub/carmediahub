@@ -12,7 +12,7 @@ test("WebDAV provider keeps credentials and upstream paths inside Core", async (
       return;
     }
     if (request.method === "HEAD") { response.writeHead(200, { "content-type": "video/mp4", "content-length": "5" }); response.end(); return; }
-    if (request.method === "GET") { if (request.headers.range !== "bytes=1-3") { response.writeHead(200, { "content-type": "video/mp4", "content-length": "5" }); response.end("ripped"); return; } response.writeHead(206, { "content-type": "video/mp4", "content-range": "bytes 1-3/5", "content-length": "3" }); response.end("rip"); return; }
+    if (request.method === "GET") { if (request.headers.range === "bytes=0-0") { response.writeHead(206, { "content-type": "video/mp4", "content-range": "bytes 1-1/5", "content-length": "1" }); response.end("r"); return; } if (request.headers.range !== "bytes=1-3") { response.writeHead(200, { "content-type": "video/mp4", "content-length": "5" }); response.end("ripped"); return; } response.writeHead(206, { "content-type": "video/mp4", "content-range": "bytes 1-3/5", "content-length": "3" }); response.end("rip"); return; }
     response.writeHead(405); response.end();
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

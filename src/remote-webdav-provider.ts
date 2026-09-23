@@ -110,7 +110,12 @@ export class RemoteWebDavProvider {
     if (response.status !== 206) throw new Error("WebDAV media range was not honored");
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > maxRange) throw new Error("WebDAV media response is too large");
-    const total = Number(response.headers.get("content-range")?.match(/\/([0-9]+)$/u)?.[1] ?? item.size ?? (start + bytes.length));
+    const range = response.headers.get("content-range")?.match(/^bytes (\d+)-(\d+)\/(\d+|\*)$/u);
+    if (range === null || range === undefined) throw new Error("WebDAV media range metadata is invalid");
+    const responseStart = Number(range[1]);
+    const responseEnd = Number(range[2]);
+    const total = range[3] === "*" ? item.size ?? (responseEnd + 1) : Number(range[3]);
+    if (!Number.isSafeInteger(responseStart) || !Number.isSafeInteger(responseEnd) || !Number.isSafeInteger(total) || responseStart !== start || responseEnd < responseStart || responseEnd > end || bytes.length !== responseEnd - responseStart + 1 || total <= responseEnd) throw new Error("WebDAV media range metadata is invalid");
     return { data: bytes.toString("base64"), completed: start + bytes.length >= total };
   }
 
