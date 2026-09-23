@@ -1,6 +1,8 @@
 import type { BrowserContext, BrowserType } from "playwright-core";
 import { resolveInstalledExecutable, type ComponentCatalogItem } from "./components.js";
 import { buildBrowserLaunchSpec, type BrowserLaunchSpec } from "./browser-engine-launcher.js";
+import { installBrowserNetworkPolicy } from "./browser-network-policy.js";
+import { BrowserTargetRegistry } from "./browser-target-registry.js";
 
 export interface BrowserWorkerScope {
   organizationId: string;
@@ -14,6 +16,8 @@ export interface BrowserWorkerDriverOptions {
   component: { id: string; version: string; executable: string; checksum: string };
   catalog: readonly ComponentCatalogItem[];
   scope: BrowserWorkerScope;
+  targetRegistry: BrowserTargetRegistry;
+  targetId: string;
   runtime?: Pick<BrowserType, "launchPersistentContext">;
 }
 
@@ -38,5 +42,8 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
     acceptDownloads: false,
     serviceWorkers: "block"
   });
-  return { context, launch, stop: () => context.close() };
+  let policy: Awaited<ReturnType<typeof installBrowserNetworkPolicy>>;
+  try { policy = await installBrowserNetworkPolicy(context, options.targetRegistry, options.targetId); }
+  catch (error) { await context.close(); throw error; }
+  return { context, launch, stop: async () => { await policy.remove(); await context.close(); } };
 }
