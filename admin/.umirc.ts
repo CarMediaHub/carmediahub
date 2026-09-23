@@ -17,6 +17,7 @@ export default defineConfig({
     { path: "/overview", component: "./Overview" },
     { path: "/components", component: "./Components" },
     { path: "/media", component: "./Media" },
+    { path: "/media-sources", component: "./MediaSources" },
     { path: "/keys", component: "./Keys" },
     { path: "/security", component: "./Security" },
     { path: "/users", component: "./Users" },
