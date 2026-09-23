@@ -656,7 +656,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     credentialVault.revokeUser(user.organizationId, (request.params as { id: string }).id);
     jobExecutor.cancelUser(user.organizationId, (request.params as { id: string }).id);
     browserTaskExecutor.cancelUser(user.organizationId, (request.params as { id: string }).id);
-    await browserWorkerManager.stopUser((request.params as { id: string }).id);
+    await browserWorkerManager.stopUser(user.organizationId, (request.params as { id: string }).id);
     repository.audit(user.id, "user.revoked", (request.params as { id: string }).id);
     return reply.code(204).send();
   });

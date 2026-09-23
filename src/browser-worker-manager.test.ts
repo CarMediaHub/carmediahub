@@ -86,6 +86,17 @@ test("browser worker manager stops all workers for a revoked user", async () => 
   const manager = new BrowserWorkerManager(async () => fakeHandle(() => { stops += 1; }));
   await manager.acquire(options("media"));
   await manager.acquire({ ...options("media"), scope: { ...scope, sessionId: "second" } });
-  assert.equal(await manager.stopUser(scope.userId), 2);
+  assert.equal(await manager.stopUser(scope.organizationId, scope.userId), 2);
   assert.equal(stops, 2);
+});
+
+test("browser worker manager does not cross organization user boundaries", async () => {
+  let stops = 0;
+  const manager = new BrowserWorkerManager(async () => fakeHandle(() => { stops += 1; }));
+  await manager.acquire(options("media"));
+  await manager.acquire({ ...options("media"), scope: { ...scope, organizationId: "other-org" } });
+  assert.equal(await manager.stopUser(scope.organizationId, scope.userId), 1);
+  assert.equal(stops, 1);
+  assert.equal(manager.has({ ...scope, organizationId: "other-org" }), true);
+  await manager.stopAll();
 });
