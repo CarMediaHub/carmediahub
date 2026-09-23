@@ -351,6 +351,10 @@ test("registers SDK-validated plugin installations and disables their applicatio
     const uninstalled = (await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.find((item: { id: string }) => item.id === installation.id);
     assert.equal(uninstalled.status, "uninstalled");
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 404);
+    const reinstall = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
+    assert.equal(reinstall.statusCode, 201);
+    assert.notEqual((reinstall.json() as { installation: { id: string } }).installation.id, installation.id);
+    assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.filter((item: { packageId: string }) => item.packageId === "wdr-media").length, 2);
   } finally {
     await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
