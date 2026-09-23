@@ -88,6 +88,20 @@ test("browser worker driver has a Playwright Chromium runtime by default", async
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("browser worker driver rejects a modified managed browser executable", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-driver-digest-"));
+  const location = path.join(dataDir, "components", "chromium", "1.0.0");
+  fs.mkdirSync(location, { recursive: true });
+  const executable = process.platform === "win32" ? "chromium.exe" : "chromium";
+  fs.writeFileSync(path.join(location, executable), "original");
+  const checksum = crypto.createHash("sha256").update("original").digest("hex");
+  fs.writeFileSync(path.join(location, executable), "modified");
+  const registry = new BrowserTargetRegistry(); registry.register({ id: "media", origins: ["https://media.example"] });
+  try {
+    await assert.rejects(() => startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", runtime: { launchPersistentContext: async () => { throw new Error("must not launch"); } } }), /digest mismatch/);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("browser worker navigation resolves only a logical target and relative path", async () => {
   const { navigateToTarget } = await import("./browser-worker-driver.js");
   const registry = new BrowserTargetRegistry();
