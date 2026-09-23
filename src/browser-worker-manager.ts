@@ -4,6 +4,8 @@ import { startBrowserWorker } from "./browser-worker-driver.js";
 export type BrowserWorkerStarter = (options: BrowserWorkerDriverOptions) => Promise<BrowserWorkerHandle>;
 
 interface ManagedWorker {
+  readonly sessionId: string;
+  readonly installationId: string;
   readonly targetId: string;
   readonly handle: BrowserWorkerHandle;
 }
@@ -22,7 +24,7 @@ export class BrowserWorkerManager {
       return existing.handle;
     }
     const handle = await this.starter(options);
-    this.workers.set(key, { targetId: options.targetId, handle });
+    this.workers.set(key, { sessionId: options.scope.sessionId, installationId: options.scope.installationId, targetId: options.targetId, handle });
     return handle;
   }
 
@@ -35,6 +37,19 @@ export class BrowserWorkerManager {
     this.workers.delete(key);
     await worker.handle.stop();
     return true;
+  }
+
+  async stopSession(sessionId: string): Promise<boolean> {
+    const entries = [...this.workers.entries()].filter(([, worker]) => worker.sessionId === sessionId);
+    for (const [key, worker] of entries) { this.workers.delete(key); await worker.handle.stop(); }
+    return entries.length > 0;
+  }
+
+  async stopInstallation(installationId: string): Promise<number> {
+    const entries = [...this.workers.entries()].filter(([, worker]) => worker.installationId === installationId);
+    for (const [key] of entries) this.workers.delete(key);
+    await Promise.all(entries.map(([, worker]) => worker.handle.stop()));
+    return entries.length;
   }
 
   async stopAll(): Promise<void> {

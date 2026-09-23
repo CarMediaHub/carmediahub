@@ -30,8 +30,9 @@ import { CredentialVault } from "./credential-vault.js";
 import { JobExecutor } from "./job-executor.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
+import { BrowserWorkerManager } from "./browser-worker-manager.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -110,6 +111,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobs = new PluginJobService(database.db);
   jobs.recoverInterrupted();
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
+  const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
@@ -265,7 +267,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
         const id = (request.params as { id?: unknown } | undefined)?.id;
         if (typeof id !== "string") throw new Error("Invalid browser session ID");
-        return { revoked: repository.revokeBrowserSession(scope, id) };
+        const revoked = repository.revokeBrowserSession(scope, id);
+        if (revoked) await browserWorkerManager.stopSession(id);
+        return { revoked };
       }
       if (request.method === "browser.task.enqueue") {
         if (!repository.pluginHasCapability(scope.installationId, "browser")) throw new Error("Plugin browser capability is not granted");
@@ -394,6 +398,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   await runtimeBroker.start();
   app.addHook("onClose", async () => {
+    await browserWorkerManager.stopAll();
     await supervisor.stopAll();
     await runtimeBroker.stop();
     database.close();
@@ -842,6 +847,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const sessionId = (request.params as { id?: unknown }).id;
     if (typeof sessionId !== "string" || !repository.revokeBrowserSessionForOrganization(user.organizationId, sessionId)) return reply.code(404).send({ code: "CMH.BROWSER.SESSION_NOT_FOUND", messageKey: "errors.browser.sessionNotFound" });
+    await browserWorkerManager.stopSession(sessionId);
     repository.audit(user.id, "browser.session.revoked", sessionId);
     return { revoked: true };
   });

@@ -42,3 +42,12 @@ test("browser worker manager isolates scopes and stops all workers idempotently"
   assert.equal(stops, 2);
   assert.equal(manager.has(scope), false);
 });
+
+test("browser worker manager can stop a session without exposing its scope", async () => {
+  let stops = 0;
+  const manager = new BrowserWorkerManager(async () => fakeHandle(() => { stops += 1; }));
+  await manager.acquire(options("media"));
+  assert.equal(await manager.stopSession(scope.sessionId), true);
+  assert.equal(await manager.stopSession(scope.sessionId), false);
+  assert.equal(stops, 1);
+});
