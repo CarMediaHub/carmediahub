@@ -27,7 +27,7 @@ export interface MediaProbe { mediaId: string; contentType: string; size: number
 export interface MediaRead { data: string; completed: boolean; }
 export interface PlaybackScope { organizationId: string; userId: string; deviceId: string; installationId: string; }
 export interface PlaybackSession { sessionId: string; mediaId: string; expiresAt: string; }
-export interface MediaSourceItem { itemHandle: string; name: string; kind: "file"; size: number; contentType: string; updatedAt: string; }
+export interface MediaSourceItem { itemHandle: string; name: string; kind: "directory" | "file"; size?: number; contentType?: string; updatedAt?: string; }
 export interface MediaSourceListResult { items: MediaSourceItem[]; nextCursor?: string; }
 export interface MediaSourceStat { sourceHandle: string; itemHandle: string; item: MediaSourceItem; }
 export interface MediaSourceProbe { sourceHandle: string; itemHandle: string; contentType: string; size: number; seekable: boolean; availableModes: readonly MediaPlaybackMode[]; recommendedMode: MediaPlaybackMode; }
