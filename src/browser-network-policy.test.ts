@@ -8,7 +8,8 @@ test("browser network policy continues registered HTTPS origins and aborts every
   registry.register({ id: "media", origins: ["https://media.example"] });
   let handler: ((route: any) => Promise<void>) | undefined;
   let removed = false;
-  const context = { route: async (_pattern: string, value: (route: any) => Promise<void>) => { handler = value; }, unroute: async () => { removed = true; } };
+  let wsHandler: ((socket: any) => void) | undefined;
+  const context = { route: async (_pattern: string, value: (route: any) => Promise<void>) => { handler = value; }, unroute: async () => { removed = true; }, routeWebSocket: async (_pattern: string, value: (socket: any) => void) => { wsHandler = value; } };
   const policy = await installBrowserNetworkPolicy(context, registry, "media");
   let continued = 0;
   let aborted = 0;
@@ -18,8 +19,15 @@ test("browser network policy continues registered HTTPS origins and aborts every
   await handler!(route("https://other.example/escape"));
   assert.equal(continued, 1);
   assert.equal(aborted, 2);
+  let wsClosed = 0;
+  wsHandler!({ url: () => "wss://media.example/socket", close: () => undefined });
+  wsHandler!({ url: () => "wss://other.example/socket", close: () => { wsClosed += 1; } });
+  assert.equal(wsClosed, 1);
   await policy.remove();
   assert.equal(removed, true);
+  let closedAfterRemove = 0;
+  wsHandler!({ url: () => "wss://media.example/socket", close: () => { closedAfterRemove += 1; } });
+  assert.equal(closedAfterRemove, 1);
 });
 
 test("browser network policy rejects unknown targets", async () => {
