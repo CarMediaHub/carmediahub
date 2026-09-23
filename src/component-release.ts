@@ -58,5 +58,7 @@ export function verifyComponentRelease(signed: SignedComponentRelease, trustedPu
 export function installSignedComponentRelease(dataDir: string, catalog: readonly ComponentCatalogItem[], signed: SignedComponentRelease, trustedPublicKeys: readonly string[], platform: string): InstalledComponent {
   const release = verifyComponentRelease(signed, trustedPublicKeys);
   if (release.platform !== platform) throw new Error("Component release platform does not match this deployment");
+  const component = catalog.find((item) => item.id === release.componentId);
+  if (component === undefined || !component.platforms.includes(release.platform)) throw new Error("Component release platform is not supported by the catalog");
   return installStagedComponent(dataDir, catalog, release);
 }

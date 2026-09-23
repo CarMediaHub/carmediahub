@@ -30,6 +30,10 @@ test("signed component release requires a trusted Ed25519 signer and exact artif
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, version: "7.0.1" } }, [publicKey]));
     assert.throws(() => verifyComponentRelease(signed, []));
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, provenance: { ...release.provenance, sourceUrl: "http://insecure.example" } } }, [publicKey]), /source URL/);
+    assert.throws(() => installSignedComponentRelease(dataDir, catalog, signed, [publicKey], "linux-arm64"), /does not match this deployment/);
+    const unsupportedPlatform = "darwin-x64";
+    const unsupported = signedRelease({ ...release, platform: unsupportedPlatform }, keys.privateKey);
+    assert.throws(() => installSignedComponentRelease(dataDir, catalog, unsupported, [publicKey], unsupportedPlatform), /not supported by the catalog/);
   } finally {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
