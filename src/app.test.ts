@@ -781,7 +781,7 @@ test("administrator manages Core-owned media roots without exposing their paths"
 
 test("administrator registers and revokes a scoped remote media source", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-remote-source-api-"));
-  const app = await createApp({ dataDir });
+  let app = await createApp({ dataDir });
   try {
     await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
@@ -799,6 +799,11 @@ test("administrator registers and revokes a scoped remote media source", async (
     const handle = (created.json() as { source: { sourceHandle: string } }).source.sourceHandle;
     const listed = await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } });
     assert.equal((listed.json() as { sources: unknown[] }).sources.length, 1);
+    await app.close();
+    app = await createApp({ dataDir });
+    const restored = await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } });
+    assert.equal(restored.statusCode, 200);
+    assert.equal((restored.json() as { sources: unknown[] }).sources.length, 1);
     assert.equal((await app.inject({ method: "POST", url: `/api/media-sources/${handle}/revoke?installationId=plugin_media_source`, headers: { cookie } })).statusCode, 204);
     assert.equal(((await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } })).json() as { sources: unknown[] }).sources.length, 0);
   } finally { await app.close(); try { fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch { /* Windows may release a transient SQLite handle after the test tick. */ } }
