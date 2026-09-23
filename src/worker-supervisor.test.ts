@@ -73,3 +73,23 @@ test("Supervisor selects the factory matching the installed package version", as
   await supervisor.start("plugin_one", scope);
   assert.deepEqual(selected, ["2"]);
 });
+
+test("Supervisor ignores a stale crash callback after stop", async () => {
+  let crash: ((error: Error) => void) | undefined;
+  let installationLookups = 0;
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => { installationLookups += 1; return { packageId: "trusted-package", status: "installed" }; },
+    idleTimeoutMs: 60_000,
+    schedule: (callback, delay) => { if (delay < 60_000) throw new Error("stale crash scheduled a restart"); return { callback, delay }; },
+    cancel: () => undefined,
+  });
+  supervisor.register({ packageId: "trusted-package", async start() { return { stop() {}, onCrash(listener) { crash = listener; } }; } });
+  await supervisor.start("plugin_one", scope);
+  await supervisor.stop("plugin_one");
+  const lookupsAfterStop = installationLookups;
+  crash!(new Error("late exit"));
+  assert.equal(installationLookups, lookupsAfterStop);
+  assert.equal(supervisor.status("plugin_one").state, "stopped");
+});
