@@ -5,7 +5,7 @@ export interface ComponentCatalogItem {
   id: string;
   displayName: string;
   kind: "service" | "media-tool" | "utility" | "network-service";
-  provides: readonly ("storage-service" | "webdav" | "media-processing" | "archive" | "network-egress")[];
+  provides: readonly ("storage-service" | "webdav" | "media-processing" | "archive" | "network-egress" | "browser-engine")[];
   version: string;
   executable: string;
   platforms: readonly string[];
@@ -22,7 +22,7 @@ export function loadComponentCatalog(projectRoot: string): readonly ComponentCat
   for (const component of raw.components) {
     if (!/^[a-z][a-z0-9-]+$/.test(component.id)) throw new Error(`Invalid component id: ${component.id}`);
     if (path.isAbsolute(component.executable) || component.executable.includes("..") || component.executable.includes("\\")) throw new Error(`Unsafe component path: ${component.id}`);
-    if (!Array.isArray(component.provides) || component.provides.length === 0 || new Set(component.provides).size !== component.provides.length || component.provides.some((role) => !["storage-service", "webdav", "media-processing", "archive", "network-egress"].includes(role))) throw new Error(`Invalid component roles: ${component.id}`);
+    if (!Array.isArray(component.provides) || component.provides.length === 0 || new Set(component.provides).size !== component.provides.length || component.provides.some((role) => !["storage-service", "webdav", "media-processing", "archive", "network-egress", "browser-engine"].includes(role))) throw new Error(`Invalid component roles: ${component.id}`);
   }
   return raw.components;
 }

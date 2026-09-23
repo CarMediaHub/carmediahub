@@ -55,6 +55,17 @@
       "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
       "sha256": null,
       "status": "catalog-only"
+    },
+    {
+      "id": "chromium",
+      "displayName": "Chromium Browser Engine",
+      "kind": "service",
+      "provides": ["browser-engine"],
+      "version": "not-installed",
+      "executable": "chromium/chromium",
+      "platforms": ["windows-x64", "linux-x64", "linux-arm64"],
+      "sha256": null,
+      "status": "catalog-only"
     }
   ]
 }

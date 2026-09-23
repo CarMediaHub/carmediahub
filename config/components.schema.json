@@ -13,7 +13,7 @@
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" },
           "displayName": { "type": "string" },
           "kind": { "enum": ["service", "media-tool", "utility", "network-service"] },
-          "provides": { "type": "array", "items": { "enum": ["storage-service", "webdav", "media-processing", "archive", "network-egress"] }, "minItems": 1, "uniqueItems": true },
+          "provides": { "type": "array", "items": { "enum": ["storage-service", "webdav", "media-processing", "archive", "network-egress", "browser-engine"] }, "minItems": 1, "uniqueItems": true },
           "version": { "type": "string" },
           "executable": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)[^\\\\]+$" },
           "platforms": { "type": "array", "items": { "type": "string" }, "minItems": 1 },

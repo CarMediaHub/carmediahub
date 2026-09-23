@@ -7,9 +7,9 @@ import { componentExecutableName, currentPlatformKey, loadComponentCatalog, reso
 
 test("loads the built-in component catalog without environment discovery", () => {
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
-  assert.deepEqual(catalog.map((item) => item.id), ["alist", "rclone", "ffmpeg", "sevenzip", "mihomo"]);
+  assert.deepEqual(catalog.map((item) => item.id), ["alist", "rclone", "ffmpeg", "sevenzip", "mihomo", "chromium"]);
   assert.deepEqual(Object.fromEntries(catalog.map((item) => [item.id, item.provides])), {
-    alist: ["storage-service"], rclone: ["storage-service", "webdav"], ffmpeg: ["media-processing"], sevenzip: ["archive"], mihomo: ["network-egress"]
+    alist: ["storage-service"], rclone: ["storage-service", "webdav"], ffmpeg: ["media-processing"], sevenzip: ["archive"], mihomo: ["network-egress"], chromium: ["browser-engine"]
   });
   assert.ok(catalog[2]!.platforms.includes(currentPlatformKey()));
   assert.ok(resolveManagedExecutable("C:/cmh-data", catalog[2]!).endsWith(`components\\ffmpeg\\ffmpeg${process.platform === "win32" ? ".exe" : ""}`) || resolveManagedExecutable("C:/cmh-data", catalog[2]!).endsWith(`components/ffmpeg/ffmpeg${process.platform === "win32" ? ".exe" : ""}`));
