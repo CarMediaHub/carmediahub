@@ -684,7 +684,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/components", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings() };
+    return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings(), bindingGrants: repository.serviceBindingGrants() };
   });
 
   app.get("/api/plugins", async (request, reply) => {

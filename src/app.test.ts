@@ -413,8 +413,12 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/wdr-service", checksum: "sha256:test" } })).statusCode, 201);
     const scopedBinding = await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "wdr-service", name: "wdr-local", endpoint: "http://127.0.0.1:5244", installationId } });
     assert.equal(scopedBinding.statusCode, 201);
-    const listedBindings = (await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ name: string; installation_id: string | null }>;
+    const componentView = (await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json() as { bindings: Array<{ name: string; installation_id: string | null }>; bindingGrants: Array<{ bindingId: string; scope: string; installationId: string | null; authorizedInstallations: string[] }> };
+    const listedBindings = componentView.bindings;
     assert.deepEqual(listedBindings.find((binding) => binding.name === "wdr-local")?.installation_id, installationId);
+    const scopedGrant = componentView.bindingGrants.find((grant) => grant.installationId === installationId);
+    assert.deepEqual(scopedGrant?.scope, "installation");
+    assert.deepEqual(scopedGrant?.authorizedInstallations, []);
     const root = await app.inject({ method: "POST", url: "/api/media-roots", headers: { cookie }, payload: { installationId, name: "WDR media", path: mediaRoot } });
     const rootId = root.json().root.id as string;
     const item = (await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie } })).json().items[0] as { id: string };

@@ -513,6 +513,33 @@ export class Repository {
     return this.db.prepare("SELECT id, component_id, name, endpoint, installation_id, created_at FROM service_bindings ORDER BY name").all() as Array<Record<string, string>>;
   }
 
+  serviceBindingGrants(): Array<{ bindingId: string; name: string; scope: "global" | "installation"; installationId: string | null; authorizedInstallations: string[] }> {
+    const bindings = this.serviceBindings();
+    const installations = this.db.prepare("SELECT id, status, manifest_json FROM plugin_installations WHERE status = 'installed'").all() as Array<{ id?: string; manifest_json?: string }>;
+    return bindings.map((binding) => {
+      if (typeof binding.id !== "string" || typeof binding.name !== "string") throw new Error("Invalid persisted service binding");
+      const installationId = binding.installation_id ?? null;
+      const authorizedInstallations = installationId === null
+        ? installations.filter((installation) => {
+          if (installation.id === undefined || installation.manifest_json === undefined) return false;
+          try {
+            const manifest = JSON.parse(installation.manifest_json) as { serviceBindings?: unknown };
+            return Array.isArray(manifest.serviceBindings) && manifest.serviceBindings.includes(binding.name);
+          } catch {
+            return false;
+          }
+        }).map((installation) => installation.id as string)
+        : [];
+      return {
+        bindingId: binding.id,
+        name: binding.name,
+        scope: installationId === null ? "global" : "installation",
+        installationId,
+        authorizedInstallations,
+      };
+    });
+  }
+
   serviceBindingById(bindingId: string): { id: string; endpoint: string } | undefined {
     const row = this.db.prepare("SELECT id, endpoint FROM service_bindings WHERE id = ?").get(bindingId) as { id?: string; endpoint?: string } | undefined;
     return row?.id !== undefined && row.endpoint !== undefined ? { id: row.id, endpoint: row.endpoint } : undefined;
