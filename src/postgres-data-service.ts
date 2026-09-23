@@ -106,13 +106,15 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
     },
     async put<T>(collection: string, key: string, value: T): Promise<DataRecord<T>> {
       const values = address(collection, key);
+      const valueJson = JSON.stringify(value);
+      if (valueJson === undefined) throw new Error("Plugin data value must be JSON serializable");
       const updatedAt = new Date().toISOString();
       await client.query(
         `INSERT INTO carmediahub_plugin_data (organization_id, user_id, installation_id, collection, record_key, value_json, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
          ON CONFLICT (organization_id, user_id, installation_id, collection, record_key)
          DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = EXCLUDED.updated_at`,
-        [...values, JSON.stringify(value), updatedAt]
+        [...values, valueJson, updatedAt]
       );
       return { key, value, updatedAt };
     },

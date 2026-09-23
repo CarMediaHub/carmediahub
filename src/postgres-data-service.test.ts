@@ -26,6 +26,14 @@ test("PostgreSQL data adapter rejects unsafe logical identifiers", async () => {
   await assert.rejects(() => store.list("history", { prefix: "bad/prefix" }));
 });
 
+test("PostgreSQL data adapter rejects undefined values before issuing SQL", async () => {
+  let calls = 0;
+  const client: PostgresQueryClient = { async query() { calls += 1; return { rows: [], rowCount: 0 }; } };
+  const store = createPostgresPluginDataStore(client, { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" });
+  await assert.rejects(() => store.put("settings", "missing", undefined), /JSON serializable/);
+  assert.equal(calls, 0);
+});
+
 test("PostgreSQL pool rejects incomplete config instead of reading PG* environment variables", () => {
   assert.throws(() => createPostgresPool({}), /explicit connectionString/);
   const pool = createPostgresPool({ host: "127.0.0.1", port: 5432, database: "cmh", user: "cmh" });
