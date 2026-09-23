@@ -19,9 +19,19 @@ export function loadComponentCatalog(projectRoot: string): readonly ComponentCat
   const location = path.join(projectRoot, "config", "components.json");
   const raw = JSON.parse(fs.readFileSync(location, "utf8")) as CatalogFile;
   if (raw.schemaVersion !== 1 || !Array.isArray(raw.components)) throw new Error("Unsupported component catalog");
+  const ids = new Set<string>();
   for (const component of raw.components) {
     if (!/^[a-z][a-z0-9-]+$/.test(component.id)) throw new Error(`Invalid component id: ${component.id}`);
+    if (ids.has(component.id)) throw new Error(`Duplicate component id: ${component.id}`);
+    ids.add(component.id);
+    if (typeof component.displayName !== "string" || component.displayName.trim().length === 0 || component.displayName.length > 120) throw new Error(`Invalid component display name: ${component.id}`);
+    if (!["service", "media-tool", "utility", "network-service"].includes(component.kind)) throw new Error(`Invalid component kind: ${component.id}`);
     if (path.isAbsolute(component.executable) || component.executable.includes("..") || component.executable.includes("\\")) throw new Error(`Unsafe component path: ${component.id}`);
+    if (!/^([a-z0-9][a-z0-9-]*\/)+[a-z0-9._-]+$/u.test(component.executable)) throw new Error(`Invalid component executable: ${component.id}`);
+    if (!Array.isArray(component.platforms) || component.platforms.length === 0 || new Set(component.platforms).size !== component.platforms.length || component.platforms.some((platform) => !/^(windows|linux|darwin)-(x64|arm64)$/u.test(platform))) throw new Error(`Invalid component platforms: ${component.id}`);
+    if (component.version !== "not-installed" && !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(component.version)) throw new Error(`Invalid component version: ${component.id}`);
+    if (component.sha256 !== null && !/^[a-f0-9]{64}$/u.test(component.sha256)) throw new Error(`Invalid component checksum: ${component.id}`);
+    if (!["catalog-only", "installed", "unhealthy", "disabled"].includes(component.status)) throw new Error(`Invalid component status: ${component.id}`);
     if (!Array.isArray(component.provides) || component.provides.length === 0 || new Set(component.provides).size !== component.provides.length || component.provides.some((role) => !["storage-service", "webdav", "media-processing", "archive", "network-egress", "browser-engine"].includes(role))) throw new Error(`Invalid component roles: ${component.id}`);
   }
   return raw.components;

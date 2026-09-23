@@ -69,3 +69,17 @@ test("resolves installed executables only for a catalog-granted role", () => {
     assert.throws(() => resolveInstalledExecutableForRole(dataDir, catalog, record, "media-processing"), /does not provide/);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
+
+test("rejects malformed managed component catalog metadata", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-catalog-"));
+  try {
+    fs.mkdirSync(path.join(root, "config"), { recursive: true });
+    const valid = { id: "fixture", displayName: "Fixture", kind: "service", provides: ["archive"], version: "not-installed", executable: "fixture/fixture", platforms: ["linux-x64"], sha256: null, status: "catalog-only" };
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [valid, valid] }));
+    assert.throws(() => loadComponentCatalog(root), /Duplicate component id/);
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, platforms: ["linux-x86"] }] }));
+    assert.throws(() => loadComponentCatalog(root), /Invalid component platforms/);
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, sha256: "bad" }] }));
+    assert.throws(() => loadComponentCatalog(root), /Invalid component checksum/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
