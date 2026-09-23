@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-function packageList() { const args = ["list", "--json", "--prod", "--depth", "Infinity"]; return process.platform === "win32" ? execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `pnpm ${args.join(" ")}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) : execFileSync("pnpm", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); }
+function packageList() { const args = ["list", "--json", "--prod", "--depth", "Infinity"]; return process.platform === "win32" ? execFileSync("cmd.exe", ["/d", "/s", "/c", `pnpm ${args.join(" ")}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) : execFileSync("pnpm", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); }
 function packageJson(location) {
   try { return JSON.parse(fs.readFileSync(path.join(location, "package.json"), "utf8")); } catch { return {}; }
 }
