@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { Readable } from "node:stream";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
@@ -1171,32 +1172,32 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       });
       const start = await stream.start;
       const allowedHeaders = new Set(["content-type", "content-length", "content-range", "accept-ranges", "cache-control", "etag", "last-modified"]);
-      reply.hijack();
-      reply.raw.statusCode = start.status;
+      reply.code(start.status);
       for (const [name, value] of Object.entries(start.headers ?? {})) {
-        if (allowedHeaders.has(name.toLowerCase()) && !name.includes("\r") && !name.includes("\n")) reply.raw.setHeader(name, value);
+        if (allowedHeaders.has(name.toLowerCase()) && !name.includes("\r") && !name.includes("\n")) reply.header(name, value);
       }
       const abort = () => stream.cancel("Client disconnected");
       // IncomingMessage close also fires after a normally completed request body;
       // only `aborted` means the client actually cancelled the request.
       request.raw.once("aborted", abort);
-      try {
-        for await (const chunk of stream) {
-          if (!streamLease.consume(chunk.length)) {
-            stream.cancel("Gateway stream byte quota exceeded");
-            if (!reply.raw.destroyed) reply.raw.destroy();
-            return reply;
-          }
-          if (request.method !== "HEAD" && !reply.raw.destroyed) reply.raw.write(chunk);
-        }
-        if (!reply.raw.destroyed) reply.raw.end();
-      } catch {
-        if (!reply.raw.destroyed) reply.raw.destroy();
-      } finally {
+      if (request.method === "HEAD") {
         request.raw.off("aborted", abort);
+        stream.cancel("HEAD request");
         streamLease.release();
+        return reply.send();
       }
-      return reply;
+      const body = Readable.from((async function* () {
+        try {
+          for await (const chunk of stream) {
+            if (!streamLease.consume(chunk.length)) { stream.cancel("Gateway stream byte quota exceeded"); throw new Error("Gateway stream byte quota exceeded"); }
+            yield chunk;
+          }
+        } finally {
+          request.raw.off("aborted", abort);
+          streamLease.release();
+        }
+      })());
+      return reply.send(body);
     } catch {
       streamLease.release();
       return reply.code(503).send({ code: "CMH.GATEWAY.WORKER_UNAVAILABLE", messageKey: "errors.gateway.workerUnavailable", retryable: true });
