@@ -29,7 +29,7 @@ test("sets security headers for Core-owned responses without imposing CSP on plu
     const plugin = await app.inject({ method: "GET", url: "/apps/example/content" });
     assert.equal(plugin.headers["x-content-type-options"], "nosniff");
     assert.equal(plugin.headers["content-security-policy"], undefined);
-  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+  } finally { await app.close(); try { fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch { /* Windows may release a transient SQLite handle after the test tick. */ } }
 });
 
 test("exposes safe liveness, readiness, and diagnostic probes", async () => {
@@ -777,6 +777,31 @@ test("administrator manages Core-owned media roots without exposing their paths"
     assert.equal((await app.inject({ method: "POST", url: `/api/media-roots/${rootId}/revoke`, headers: { cookie: login.headers["set-cookie"] } })).statusCode, 204);
     assert.equal((await app.inject({ method: "GET", url: `/api/media-roots/${rootId}/items`, headers: { cookie: login.headers["set-cookie"] } })).statusCode, 404);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); fs.rmSync(mediaRoot, { recursive: true, force: true }); }
+});
+
+test("administrator registers and revokes a scoped remote media source", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-remote-source-api-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const database = openDatabase(dataDir);
+    const user = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
+    database.db.prepare("INSERT INTO plugin_installations (id, package_id, package_version, runtime, manifest_json, granted_capabilities, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run("plugin_media_source", "media-source-example", "0.1.0", "isolated-worker", JSON.stringify({ id: "media-source-example", capabilities: ["media-source"], serviceBindings: ["dav"] }), JSON.stringify(["media-source"]), "installed", new Date().toISOString(), new Date().toISOString());
+    database.db.prepare("INSERT INTO managed_components (id, version, executable, checksum, installed_at, health) VALUES (?, ?, ?, ?, ?, ?)").run("rclone", "fixture", "rclone", "fixture", new Date().toISOString(), "healthy");
+    database.db.prepare("INSERT INTO service_bindings (id, component_id, name, endpoint, installation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)").run("binding_dav", "rclone", "dav", "http://127.0.0.1:5244/", null, new Date().toISOString());
+    database.close();
+    const created = await app.inject({ method: "POST", url: "/api/media-sources", headers: { cookie }, payload: { installationId: "plugin_media_source", name: "Trip storage", binding: "dav", rootPath: "/dav/" } });
+    assert.equal(created.statusCode, 201);
+    assert.doesNotMatch(created.body, /5244/u);
+    assert.doesNotMatch(created.body, /endpoint/u);
+    const handle = (created.json() as { source: { sourceHandle: string } }).source.sourceHandle;
+    const listed = await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } });
+    assert.equal((listed.json() as { sources: unknown[] }).sources.length, 1);
+    assert.equal((await app.inject({ method: "POST", url: `/api/media-sources/${handle}/revoke?installationId=plugin_media_source`, headers: { cookie } })).statusCode, 204);
+    assert.equal(((await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } })).json() as { sources: unknown[] }).sources.length, 0);
+  } finally { await app.close(); try { fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch { /* Windows may release a transient SQLite handle after the test tick. */ } }
 });
 
 test("authenticated transform playback route enforces Range and expiry", async () => {

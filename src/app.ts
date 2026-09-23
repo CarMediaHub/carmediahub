@@ -19,6 +19,7 @@ import { createTrustedSharedAdapterFactory, type TrustedSharedAdapterPackage } f
 import { installStagedPluginPackage } from "./plugin-package-installer.js";
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 import { MediaLibraryService } from "./media-library-service.js";
+import { RemoteWebDavProvider } from "./remote-webdav-provider.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 import { HistoryService } from "./history-service.js";
 import { CatalogService } from "./catalog-service.js";
@@ -99,6 +100,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const repository = new Repository(database.db, serverKey);
   const credentialVault = new CredentialVault(options.dataDir, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
+  const remoteMediaSources = new RemoteWebDavProvider(
+    (name, installationId) => repository.serviceBindingByName(name, installationId),
+    (scope, credentialRef) => credentialVault.resolve({ ...scope, deploymentId: "core", sessionId: "media-source" }, credentialRef),
+    database.db
+  );
+  remoteMediaSources.restore();
   const jobs = new PluginJobService(database.db);
   jobs.recoverInterrupted();
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
@@ -172,14 +179,24 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { sourceHandle?: unknown; itemHandle?: unknown; sessionId?: unknown; start?: unknown; end?: unknown; limit?: unknown } | undefined;
         if (request.method === "mediaSource.list") {
           if (typeof input?.sourceHandle !== "string" || (input.limit !== undefined && typeof input.limit !== "number")) throw new Error("Invalid media source list request");
+          if (input.sourceHandle.startsWith("remote_source_")) return remoteMediaSources.list(scope, input.sourceHandle, input.limit ?? 200);
           return mediaLibrary.listSource(scope, input.sourceHandle, input.limit ?? 200);
         }
+        if (request.method === "mediaSource.read") {
+          if (typeof input?.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media source read request");
+          if (input.sessionId.startsWith("remote_playback_")) return remoteMediaSources.read(scope, input.sessionId, input.start, input.end);
+          if (typeof input.sourceHandle !== "string" || typeof input.itemHandle !== "string") throw new Error("Invalid media source item request");
+          return mediaLibrary.sourceRead(scope, input.sourceHandle, input.itemHandle, input.sessionId, input.start, input.end);
+        }
         if (typeof input?.sourceHandle !== "string" || typeof input.itemHandle !== "string") throw new Error("Invalid media source item request");
+        if (input.sourceHandle.startsWith("remote_source_")) {
+          if (request.method === "mediaSource.stat") return remoteMediaSources.stat(scope, input.sourceHandle, input.itemHandle);
+          if (request.method === "mediaSource.probe") return remoteMediaSources.probe(scope, input.sourceHandle, input.itemHandle);
+          return remoteMediaSources.createPlayback(scope, input.sourceHandle, input.itemHandle);
+        }
         if (request.method === "mediaSource.stat") return mediaLibrary.sourceStat(scope, input.sourceHandle, input.itemHandle);
         if (request.method === "mediaSource.probe") return mediaLibrary.sourceProbe(scope, input.sourceHandle, input.itemHandle);
-        if (request.method === "mediaSource.createPlayback") return mediaLibrary.sourceCreatePlayback(scope, input.sourceHandle, input.itemHandle);
-        if (typeof input.sessionId !== "string" || typeof input.start !== "number" || typeof input.end !== "number") throw new Error("Invalid media source read request");
-        return mediaLibrary.sourceRead(scope, input.sourceHandle, input.itemHandle, input.sessionId, input.start, input.end);
+        return mediaLibrary.sourceCreatePlayback(scope, input.sourceHandle, input.itemHandle);
       }
       if (request.method === "network.request") {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
@@ -674,6 +691,42 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     if (!mediaLibrary.revoke(user.organizationId, (request.params as { id: string }).id)) return reply.code(404).send({ code: "CMH.MEDIA_ROOT.NOT_FOUND", messageKey: "errors.mediaRoot.notFound" });
     repository.audit(user.id, "mediaRoot.revoked", (request.params as { id: string }).id);
+    return reply.code(204).send();
+  });
+
+  app.get("/api/media-sources", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.query as { installationId?: string }).installationId;
+    if (typeof installationId !== "string") return reply.code(400).send({ code: "CMH.MEDIA_SOURCE.INVALID", messageKey: "errors.mediaSource.invalid" });
+    return { sources: remoteMediaSources.listRegistered({ organizationId: user.organizationId, userId: user.id, deviceId: "admin", installationId }) };
+  });
+
+  app.post("/api/media-sources", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ installationId?: unknown; name?: unknown; binding?: unknown; rootPath?: unknown; credentialRef?: unknown }>(request);
+      if (typeof input.installationId !== "string" || typeof input.name !== "string" || typeof input.binding !== "string" || typeof input.rootPath !== "string" || (input.credentialRef !== undefined && typeof input.credentialRef !== "string")) throw new Error("Invalid media source");
+      const installation = repository.pluginInstallation(input.installationId);
+      if (installation?.status !== "installed" || !repository.pluginHasCapability(input.installationId, "media-source")) throw new Error("Media source capability is unavailable");
+      if (input.credentialRef !== undefined && credentialVault.resolve({ deploymentId: "core", organizationId: user.organizationId, userId: user.id, deviceId: "admin", sessionId: "media-source", installationId: input.installationId }, input.credentialRef) === undefined) throw new Error("Credential is unavailable");
+      const source = remoteMediaSources.register({ organizationId: user.organizationId, userId: user.id, deviceId: "admin", installationId: input.installationId }, { name: input.name, binding: input.binding, rootPath: input.rootPath, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) });
+      repository.audit(user.id, "mediaSource.created", source.sourceHandle);
+      return reply.code(201).send({ source: { sourceHandle: source.sourceHandle, name: input.name.trim(), binding: source.binding, rootPath: source.rootPath } });
+    } catch {
+      return reply.code(400).send({ code: "CMH.MEDIA_SOURCE.INVALID", messageKey: "errors.mediaSource.invalid" });
+    }
+  });
+
+  app.post("/api/media-sources/:handle/revoke", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const sourceHandle = (request.params as { handle?: unknown }).handle;
+    const installationId = (request.query as { installationId?: string }).installationId;
+    if (typeof sourceHandle !== "string" || typeof installationId !== "string") return reply.code(400).send({ code: "CMH.MEDIA_SOURCE.INVALID", messageKey: "errors.mediaSource.invalid" });
+    if (!remoteMediaSources.revoke({ organizationId: user.organizationId, userId: user.id, deviceId: "admin", installationId }, sourceHandle)) return reply.code(404).send({ code: "CMH.MEDIA_SOURCE.NOT_FOUND", messageKey: "errors.mediaSource.notFound" });
+    repository.audit(user.id, "mediaSource.revoked", sourceHandle);
     return reply.code(204).send();
   });
 

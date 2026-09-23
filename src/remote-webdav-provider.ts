@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import type { PlaybackScope, MediaSourceItem, MediaSourceListResult, MediaSourceProbe, MediaSourceStat, MediaSourcePlaybackSession, MediaRead } from "./media-library-service.js";
 
 export interface RemoteWebDavBinding { endpoint: string; }
@@ -21,13 +22,38 @@ export class RemoteWebDavProvider {
   private readonly items = new Map<string, { scope: PlaybackScope; sourceHandle: string; item: RemoteItem }>();
   private readonly sessions = new Map<string, { scope: PlaybackScope; sourceHandle: string; itemHandle: string; expiresAt: number }>();
 
-  constructor(private readonly resolveBinding: (name: string, installationId: string) => RemoteWebDavBinding | undefined, private readonly resolveCredential: (scope: PlaybackScope, ref: string) => RemoteWebDavCredential | undefined) {}
+  constructor(private readonly resolveBinding: (name: string, installationId: string) => RemoteWebDavBinding | undefined, private readonly resolveCredential: (scope: PlaybackScope, ref: string) => RemoteWebDavCredential | undefined, private readonly db?: DatabaseSync) {}
 
-  register(scope: PlaybackScope, input: { binding: string; rootPath: string; credentialRef?: string }): RemoteWebDavSource {
+  register(scope: PlaybackScope, input: { binding: string; rootPath: string; credentialRef?: string; sourceHandle?: string; name?: string }): RemoteWebDavSource {
     if (!/^[a-z][a-z0-9-]{0,63}$/u.test(input.binding) || !input.rootPath.startsWith("/") || input.rootPath.includes("\\") || input.rootPath.split("/").includes("..")) throw new Error("Invalid WebDAV source");
-    const source: RemoteWebDavSource = { sourceHandle: `remote_source_${crypto.randomBytes(32).toString("base64url")}`, binding: input.binding, rootPath: this.normalizePath(input.rootPath), ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) };
+    const source: RemoteWebDavSource = { sourceHandle: input.sourceHandle ?? `remote_source_${crypto.randomBytes(32).toString("base64url")}`, binding: input.binding, rootPath: this.normalizePath(input.rootPath), ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) };
+    if (!sourceHandlePattern.test(source.sourceHandle)) throw new Error("Invalid WebDAV source handle");
     this.sources.set(this.scopeKey(scope, source.sourceHandle), { scope, source });
+    if (this.db !== undefined) this.db.prepare("INSERT INTO remote_media_sources (id, organization_id, user_id, installation_id, name, binding, root_path, source_handle, credential_ref, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(`remote_source_${crypto.randomUUID()}`, scope.organizationId, scope.userId, scope.installationId, input.name?.trim() || "Remote media", source.binding, source.rootPath, source.sourceHandle, input.credentialRef ?? null, new Date().toISOString());
     return source;
+  }
+
+  restore(): void {
+    if (this.db === undefined) return;
+    const rows = this.db.prepare("SELECT organization_id, user_id, installation_id, binding, root_path, source_handle, credential_ref FROM remote_media_sources WHERE revoked_at IS NULL").all() as Array<Record<string, string | null>>;
+    for (const row of rows) {
+      if (typeof row.organization_id !== "string" || typeof row.user_id !== "string" || typeof row.installation_id !== "string" || typeof row.binding !== "string" || typeof row.root_path !== "string" || typeof row.source_handle !== "string") continue;
+      const scope: PlaybackScope = { organizationId: row.organization_id, userId: row.user_id, deviceId: "restored", installationId: row.installation_id };
+      const source: RemoteWebDavSource = { sourceHandle: row.source_handle, binding: row.binding, rootPath: row.root_path, ...(row.credential_ref === null ? {} : { credentialRef: row.credential_ref }) };
+      this.sources.set(this.scopeKey(scope, source.sourceHandle), { scope, source });
+    }
+  }
+
+  revoke(scope: PlaybackScope, sourceHandle: string): boolean {
+    this.source(scope, sourceHandle);
+    this.sources.delete(this.scopeKey(scope, sourceHandle));
+    if (this.db === undefined) return true;
+    return this.db.prepare("UPDATE remote_media_sources SET revoked_at = ? WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND source_handle = ? AND revoked_at IS NULL").run(new Date().toISOString(), scope.organizationId, scope.userId, scope.installationId, sourceHandle).changes === 1;
+  }
+
+  listRegistered(scope: PlaybackScope): Array<{ sourceHandle: string; name: string; binding: string; createdAt: string }> {
+    if (this.db === undefined) return [];
+    return (this.db.prepare("SELECT source_handle, name, binding, created_at FROM remote_media_sources WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND revoked_at IS NULL ORDER BY created_at DESC").all(scope.organizationId, scope.userId, scope.installationId) as Array<Record<string, string>>).map((row) => ({ sourceHandle: row.source_handle ?? "", name: row.name ?? "", binding: row.binding ?? "", createdAt: row.created_at ?? "" }));
   }
 
   async list(scope: PlaybackScope, sourceHandle: string, limit?: number): Promise<MediaSourceListResult> {

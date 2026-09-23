@@ -104,6 +104,20 @@ export function openDatabase(dataDir: string): CoreDatabase {
       created_at TEXT NOT NULL,
       revoked_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS remote_media_sources (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      installation_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      binding TEXT NOT NULL,
+      root_path TEXT NOT NULL,
+      source_handle TEXT NOT NULL UNIQUE,
+      credential_ref TEXT,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS remote_media_sources_scope_index ON remote_media_sources (organization_id, user_id, installation_id, revoked_at);
     CREATE TABLE IF NOT EXISTS playback_sessions (
       token_hash TEXT PRIMARY KEY,
       organization_id TEXT NOT NULL,
