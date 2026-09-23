@@ -17,6 +17,24 @@ test("uses explicit configuration rather than environment variables", () => {
   assert.equal(parseConfig(["--cookie-secure"]).cookieSecure, true);
 });
 
+test("production Core source does not read process environment variables", () => {
+  const sourceRoot = path.resolve(process.cwd(), "src");
+  const files: string[] = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(location);
+      else if (entry.isFile() && location.endsWith(".ts") && !location.endsWith(".test.ts")) files.push(location);
+    }
+  };
+  visit(sourceRoot);
+  const offenders = files.filter((location) => {
+    const source = fs.readFileSync(location, "utf8");
+    return /(?:process\.env|Deno\.env|Bun\.env)/u.test(source);
+  });
+  assert.deepEqual(offenders, [], `production source must not read OS environment variables: ${offenders.join(", ")}`);
+});
+
 test("rejects invalid or incomplete deployment options", () => {
   assert.throws(() => parseConfig(["--port", "0"]), /between 1 and 65535/);
   assert.throws(() => parseConfig(["--port", "70000"]), /between 1 and 65535/);
