@@ -5,6 +5,7 @@ import type { PlaybackScope, MediaSourceItem, MediaSourceListResult, MediaSource
 export interface RemoteWebDavBinding { endpoint: string; }
 export interface RemoteWebDavCredential { name: "cookie" | "authorization"; value: string; }
 export interface RemoteWebDavSource { sourceHandle: string; binding: string; rootPath: string; credentialRef?: string; }
+export interface RemoteWebDavHealth { healthy: boolean; status: "ok" | "unavailable"; diagnostic: "none" | "binding" | "credential" | "upstream"; }
 interface RemoteItem { itemHandle: string; name: string; kind: "directory" | "file"; size?: number; contentType?: string; updatedAt?: string; href: string; }
 
 const maxRange = 262_144;
@@ -63,6 +64,18 @@ export class RemoteWebDavProvider {
     const parsed = this.parseMultiStatus(await response.text(), source.rootPath);
     const items = parsed.slice(0, safeLimit(limit)).map((item) => this.exposeItem(scope, sourceHandle, item));
     return { items };
+  }
+
+  async health(scope: PlaybackScope, sourceHandle: string): Promise<RemoteWebDavHealth> {
+    try {
+      const source = this.source(scope, sourceHandle);
+      const response = await this.request(scope, source, "PROPFIND", source.rootPath, { Depth: "0" });
+      return response.status === 207 ? { healthy: true, status: "ok", diagnostic: "none" } : { healthy: false, status: "unavailable", diagnostic: "upstream" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const diagnostic = message.includes("binding") ? "binding" : message.includes("credential") ? "credential" : "upstream";
+      return { healthy: false, status: "unavailable", diagnostic };
+    }
   }
 
   async stat(scope: PlaybackScope, sourceHandle: string, itemHandle: string): Promise<MediaSourceStat> {

@@ -29,6 +29,7 @@ test("WebDAV provider keeps credentials and upstream paths inside Core", async (
     assert.equal(listing.items.length, 1);
     assert.equal(listing.items[0]?.name, "trip.mp4");
     assert.equal("href" in (listing.items[0] ?? {}), false);
+    assert.deepEqual(await provider.health(scope, source.sourceHandle), { healthy: true, status: "ok", diagnostic: "none" });
     const playback = await provider.createPlayback(scope, source.sourceHandle, listing.items[0]!.itemHandle);
     assert.deepEqual(await provider.probe(scope, source.sourceHandle, listing.items[0]!.itemHandle), { sourceHandle: source.sourceHandle, itemHandle: listing.items[0]!.itemHandle, contentType: "video/mp4", size: 5, seekable: true, availableModes: ["direct-range"], recommendedMode: "direct-range" });
     assert.equal(Buffer.from((await provider.read(scope, playback.sessionId, 1, 3)).data, "base64").toString(), "rip");

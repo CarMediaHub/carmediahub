@@ -730,6 +730,16 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/media-sources/:handle/health", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const sourceHandle = (request.params as { handle?: unknown }).handle;
+    const installationId = (request.query as { installationId?: string }).installationId;
+    if (typeof sourceHandle !== "string" || typeof installationId !== "string") return reply.code(400).send({ code: "CMH.MEDIA_SOURCE.INVALID", messageKey: "errors.mediaSource.invalid" });
+    try { return await remoteMediaSources.health({ organizationId: user.organizationId, userId: user.id, deviceId: "admin", installationId }, sourceHandle); }
+    catch { return reply.code(404).send({ code: "CMH.MEDIA_SOURCE.NOT_FOUND", messageKey: "errors.mediaSource.notFound" }); }
+  });
+
   const transformOutputHandler = async (request: FastifyRequest, reply: { code(status: number): typeof reply; send(body?: unknown): unknown; header(name: string, value: string): typeof reply; type(value: string): typeof reply }) => {
     const user = await requireUser(request, reply);
     if (user === undefined) return undefined;
