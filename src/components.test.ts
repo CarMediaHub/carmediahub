@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import test from "node:test";
 import path from "node:path";
-import { componentExecutableName, currentPlatformKey, loadComponentCatalog, resolveInstalledExecutable, resolveManagedExecutable } from "./components.js";
+import { componentExecutableName, currentPlatformKey, loadComponentCatalog, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
 
 test("loads the built-in component catalog without environment discovery", () => {
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
@@ -54,4 +54,18 @@ test("rejects executable and parent directory symlinks", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
     fs.rmSync(outside, { recursive: true, force: true });
   }
+});
+
+test("resolves installed executables only for a catalog-granted role", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-role-"));
+  try {
+    const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
+    const location = path.join(dataDir, "components", "chromium", "1.0.0");
+    fs.mkdirSync(location, { recursive: true });
+    const executable = process.platform === "win32" ? "chromium.exe" : "chromium";
+    fs.writeFileSync(path.join(location, executable), "browser");
+    const record = { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}` };
+    assert.equal(resolveInstalledExecutableForRole(dataDir, catalog, record, "browser-engine"), path.join(location, executable));
+    assert.throws(() => resolveInstalledExecutableForRole(dataDir, catalog, record, "media-processing"), /does not provide/);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

@@ -44,6 +44,13 @@ export function resolveInstalledExecutable(dataDir: string, installed: { id: str
   return resolved;
 }
 
+/** Resolve an installed executable only when the catalog grants the requested platform role. */
+export function resolveInstalledExecutableForRole(dataDir: string, catalog: readonly ComponentCatalogItem[], installed: { id: string; version: string; executable: string }, role: ComponentCatalogItem["provides"][number]): string {
+  const component = catalog.find((item) => item.id === installed.id);
+  if (component === undefined || !component.provides.includes(role)) throw new Error(`Component ${installed.id} does not provide ${role}`);
+  return resolveInstalledExecutable(dataDir, installed);
+}
+
 function isRegularPathWithoutLinks(root: string, resolved: string): boolean {
   if (!fs.existsSync(root) || fs.lstatSync(root).isSymbolicLink()) return false;
   const relative = path.relative(root, resolved);
