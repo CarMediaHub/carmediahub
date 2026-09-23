@@ -41,3 +41,27 @@ test("browser worker driver launches only the verified browser-engine component"
     assert.equal(unrouted, true);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
+
+test("browser worker driver closes the context when network policy setup fails", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-driver-fail-"));
+  const location = path.join(dataDir, "components", "chromium", "1.0.0");
+  fs.mkdirSync(location, { recursive: true });
+  const executable = process.platform === "win32" ? "chromium.exe" : "chromium";
+  fs.writeFileSync(path.join(location, executable), "browser-fixture");
+  const checksum = crypto.createHash("sha256").update(fs.readFileSync(path.join(location, executable))).digest("hex");
+  let closed = false;
+  const fakeContext = { close: async () => { closed = true; }, route: async () => undefined, unroute: async () => undefined } as never;
+  const registry = new BrowserTargetRegistry();
+  try {
+    await assert.rejects(() => startBrowserWorker({
+      dataDir,
+      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum },
+      catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
+      scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
+      targetRegistry: registry,
+      targetId: "missing",
+      runtime: { launchPersistentContext: async () => fakeContext }
+    }), /not registered/);
+    assert.equal(closed, true);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
