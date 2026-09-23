@@ -407,6 +407,32 @@ export class Repository {
     return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : row.status === "uninstalled" ? "uninstalled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
+  upgradePlugin(installationId: string, manifest: PluginManifest): PluginInstallationRecord | undefined {
+    const current = this.pluginInstallation(installationId);
+    if (current === undefined || current.status !== "installed" || current.packageId !== manifest.id || current.runtime !== manifest.runtime || current.packageVersion === manifest.version) return undefined;
+    const verified = this.verifiedPluginPackage(manifest.id, manifest.version);
+    if (verified === undefined) return undefined;
+    const currentRow = this.db.prepare("SELECT granted_capabilities FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { granted_capabilities?: string | null } | undefined;
+    let granted = manifest.capabilities;
+    try {
+      const previous = currentRow?.granted_capabilities === null || currentRow?.granted_capabilities === undefined ? this.pluginCapabilities(installationId) : JSON.parse(currentRow.granted_capabilities);
+      if (Array.isArray(previous)) granted = manifest.capabilities.filter((capability) => previous.includes(capability));
+    } catch { granted = []; }
+    const updatedAt = now();
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      this.db.prepare("UPDATE plugin_installations SET package_version = ?, manifest_json = ?, granted_capabilities = ?, updated_at = ? WHERE id = ? AND status = 'installed'")
+        .run(manifest.version, JSON.stringify(manifest), JSON.stringify(granted), updatedAt, installationId);
+      this.db.prepare("UPDATE applications SET name = ?, category = ?, vehicle_supported = ? WHERE installation_id = ?")
+        .run(manifest.name.en, manifest.category, manifest.ui?.vehicleSupported ? 1 : 0, installationId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return { id: installationId, packageId: manifest.id, packageVersion: manifest.version, runtime: manifest.runtime, status: "installed", createdAt: current.createdAt, updatedAt };
+  }
+
   pluginHasCapability(installationId: string, capability: string): boolean {
     const row = this.db.prepare("SELECT manifest_json, granted_capabilities FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string; granted_capabilities?: string | null } | undefined;
     if (row?.manifest_json === undefined) return false;

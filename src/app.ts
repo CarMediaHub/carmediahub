@@ -1050,6 +1050,41 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  app.post("/api/plugins/:id/upgrade", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const installationId = (request.params as { id: string }).id;
+    const current = repository.pluginInstallation(installationId);
+    try {
+      if (current === undefined || current.status !== "installed") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
+      if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
+      const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
+      if (release.manifest.id !== current.packageId || release.manifest.runtime !== current.runtime || release.manifest.version === current.packageVersion) throw new Error("Plugin upgrade target is incompatible");
+      let verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
+      if (verified !== undefined && verified.digest !== release.artifact.digest) throw new Error("Plugin upgrade package digest mismatch");
+      if (verified === undefined) {
+        const workerEntry = release.manifest.worker?.entry;
+        const runtimeEntry = release.manifest.runtimeEntry?.entry;
+        if (release.manifest.runtime === "isolated-worker" && workerEntry === undefined) throw new Error("Isolated plugin package has no worker entry");
+        const installed = installStagedPluginPackage(options.dataDir, { packageId: release.manifest.id, version: release.manifest.version, artifactId: release.artifact.id, digest: release.artifact.digest, ...(workerEntry === undefined ? {} : { workerEntry }), ...(runtimeEntry === undefined ? {} : { runtimeEntry }) });
+        if (workerEntry !== undefined) repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, workerEntry });
+        else if (runtimeEntry !== undefined) repository.registerVerifiedPluginPackage({ packageId: installed.packageId, packageVersion: installed.version, digest: installed.digest, location: installed.location, runtimeEntry });
+        verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
+      }
+      if (verified === undefined) throw new Error("Plugin upgrade package is not installed");
+      registerVerifiedPluginRuntime(verified);
+      await supervisor.stop(installationId);
+      runtimeBroker.revokeInstallationCredentials(installationId);
+      const upgraded = repository.upgradePlugin(installationId, release.manifest);
+      if (upgraded === undefined) throw new Error("Plugin upgrade was rejected");
+      repository.audit(user.id, "plugin.upgraded", `${installationId}:${upgraded.packageVersion}`);
+      return { installation: upgraded, package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location } };
+    } catch (error) {
+      if (error instanceof Error && error.message === "Plugin upgrade package is not installed") return reply.code(409).send({ code: "CMH.PLUGIN.PACKAGE_NOT_INSTALLED", messageKey: "errors.plugin.packageNotInstalled" });
+      return reply.code(400).send({ code: "CMH.PLUGIN.UPGRADE_INVALID", messageKey: "errors.plugin.upgradeInvalid" });
+    }
+  });
+
   app.post("/api/plugins/:id/disable", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;

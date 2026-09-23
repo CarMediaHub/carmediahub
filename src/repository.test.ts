@@ -42,6 +42,23 @@ test("verified plugin package records retain multiple versions", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("plugin upgrade keeps installation identity and data scope", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-upgrade-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const manifest = { id: "upgrade-plugin", version: "1.0.0", sdk: "^0.1.0", name: { en: "Upgrade", "zh-CN": "升级", ko: "업그레이드" }, description: { en: "Upgrade", "zh-CN": "升级", ko: "업그레이드" }, category: "official", runtime: "isolated-worker", capabilities: ["history"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const installation = repository.installPlugin(manifest);
+    repository.registerVerifiedPluginPackage({ packageId: manifest.id, packageVersion: "2.0.0", digest: "b".repeat(64), location: "plugins/upgrade-plugin/2.0.0/hash", workerEntry: "./worker.js" });
+    const upgraded = repository.upgradePlugin(installation.id, { ...manifest, version: "2.0.0", capabilities: ["history", "media"] });
+    assert.equal(upgraded?.id, installation.id);
+    assert.equal(upgraded?.packageVersion, "2.0.0");
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["history"]);
+    assert.equal(repository.applications().filter((app) => app.installationId === installation.id).length, 1);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("expired browser sessions cancel queued tasks during reconciliation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-expiry-"));
   const database = openDatabase(dataDir);
