@@ -744,7 +744,7 @@ test("administrator installs only a signed staged plugin package", async () => {
     assert.equal((await restarted.inject({ method: "GET", url: "/api/plugins", headers: { cookie: restartedLogin.headers["set-cookie"] } })).json().installations.length, 1);
     await restarted.close();
   } finally {
-    if (app.server.listening) await app.close();
+    await app.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });

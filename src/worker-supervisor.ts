@@ -92,7 +92,13 @@ export class WorkerSupervisor {
       worker.handle = handle;
       worker.state = "running";
       worker.lastError = undefined;
-      handle.onCrash?.((error) => this.crashed(installationId, scope, error));
+      handle.onCrash?.((error) => {
+        // A process may emit its final exit event after stop() has detached
+        // it, including while Core is closing its database. Ignore stale
+        // callbacks from handles no longer owned by this supervisor.
+        if (this.workers.get(installationId)?.handle !== handle) return;
+        this.crashed(installationId, scope, error);
+      });
       this.touchIdle(installationId);
       return this.status(installationId);
     } catch (error) {

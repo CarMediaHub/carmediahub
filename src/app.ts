@@ -364,7 +364,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     issueCredential: (scope) => runtimeBroker.issueCredential(scope),
     installation: (installationId) => {
       const installation = repository.pluginInstallation(installationId);
-      return installation === undefined ? undefined : { packageId: installation.packageId, status: installation.status };
+      return installation === undefined ? undefined : { packageId: installation.packageId, packageVersion: installation.packageVersion, status: installation.status };
     }
   });
   const registerVerifiedPluginRuntime = (verified: VerifiedPluginPackageRecord): boolean => {
