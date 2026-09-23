@@ -547,6 +547,7 @@ export class Repository {
 
   bindService(input: { componentId: string; name: string; endpoint: string; installationId?: string }): void {
     if (!/^[a-z][a-z0-9-]{1,63}$/u.test(input.componentId) || input.name.trim().length === 0 || input.name.trim().length > 80 || input.endpoint.length > 2048 || (input.installationId !== undefined && !/^plugin_[A-Za-z0-9-]+$/u.test(input.installationId))) throw new Error("Invalid service binding identity");
+    if (this.componentById(input.componentId) === undefined) throw new Error("Managed component is not registered");
     if (input.installationId !== undefined && this.pluginInstallation(input.installationId)?.status !== "installed") throw new Error("Plugin installation is not enabled");
     const endpoint = new URL(input.endpoint);
     if (!(endpoint.protocol === "http:" || endpoint.protocol === "https:") || endpoint.username !== "" || endpoint.password !== "" || endpoint.search !== "" || endpoint.hash !== "" || endpoint.hostname === "" || (endpoint.port !== "" && (!/^\d+$/u.test(endpoint.port) || Number(endpoint.port) < 1 || Number(endpoint.port) > 65535))) throw new Error("Invalid service binding endpoint");

@@ -25,6 +25,7 @@ test("service bindings are scoped to the declared plugin installation", () => {
     assert.deepEqual(repository.serviceBindingByName("shared-service-name", secondInstallation.id), { endpoint: "http://127.0.0.1:5245/" });
     assert.deepEqual(repository.serviceBindingByName("adapter-one-service", installation.id), { endpoint: "http://127.0.0.1:5244/" });
     assert.equal(repository.serviceBindingByName("adapter-one-service", "plugin_other"), undefined);
+    assert.throws(() => repository.bindService({ componentId: "unknown", name: "unknown-service", endpoint: "http://127.0.0.1:5244" }), /not registered/);
     assert.throws(() => repository.bindService({ componentId: "alist", name: "disabled-service", endpoint: "http://127.0.0.1:5244", installationId: "plugin_missing" }));
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
