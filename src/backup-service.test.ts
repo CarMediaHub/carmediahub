@@ -16,14 +16,16 @@ test("creates and verifies an atomic offline Core snapshot", () => {
   fs.writeFileSync(path.join(dataDir, "carmediahub.sqlite-wal"), "wal-state");
   fs.writeFileSync(path.join(dataDir, "carmediahub.sqlite-shm"), "shm-state");
   fs.writeFileSync(path.join(dataDir, "secrets", "session-hmac.key"), "secret");
+  fs.writeFileSync(path.join(dataDir, "secrets", "credentials.json"), "encrypted-credentials");
   fs.writeFileSync(path.join(dataDir, "plugins", "wdr", "1.0.0", "manifest.json"), "{}\n");
   const manifest = createBackupSnapshot(dataDir, destination);
-  assert.equal(manifest.files.length, 5);
+  assert.equal(manifest.files.length, 6);
   assert.deepEqual(verifyBackupSnapshot(destination), manifest);
   assert.equal(fs.existsSync(`${destination}.tmp`), false);
   const restored = path.join(root, "restored");
   restoreBackupSnapshot(destination, restored);
   assert.equal(fs.readFileSync(path.join(restored, "carmediahub.sqlite"), "utf8"), "sqlite-state");
+  assert.equal(fs.readFileSync(path.join(restored, "secrets", "credentials.json"), "utf8"), "encrypted-credentials");
   assert.equal(fs.readFileSync(path.join(restored, "plugins", "wdr", "1.0.0", "manifest.json"), "utf8"), "{}\n");
 });
 
