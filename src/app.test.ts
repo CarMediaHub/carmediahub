@@ -632,6 +632,55 @@ test("routes the Mihomo Web Bridge through a scoped Core service binding", async
   }
 });
 
+test("routes the AList Web Bridge directory API through a scoped Core service binding", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-alist-bridge-"));
+  let receivedBody = "";
+  let receivedHeaders: Record<string, string | string[] | undefined> = {};
+  const upstream = http.createServer((request, response) => {
+    if (request.url !== "/api/fs/list" || request.method !== "POST") { response.writeHead(404); response.end(); return; }
+    receivedHeaders = request.headers;
+    request.setEncoding("utf8");
+    request.on("data", (chunk: string) => { receivedBody += chunk; });
+    request.on("end", () => { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ code: 200, data: { content: [{ name: "drive.mp4" }] } })); });
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const address = upstream.address();
+  assert.ok(address !== null && typeof address !== "string");
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const packageRoot = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "plugins", "adapters", "alist-web-bridge", "src");
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages: [{ packageId: "alist-web-bridge", packageRoot, workerEntry: "./worker.js" }] });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const manifest = { id: "alist-web-bridge", version: "0.1.0", sdk: "^0.1.0", name: { en: "AList Web Bridge", "zh-CN": "AList Web 兼容桥", ko: "AList Web 브리지" }, description: { en: "Bounded bridge", "zh-CN": "受限桥接", ko: "제한된 브리지" }, category: "adapter", runtime: "isolated-worker", capabilities: ["gateway", "network"], serviceBindings: ["alist-web"], routes: [{ path: "/", methods: ["GET", "HEAD"] }, { path: "/health", methods: ["GET", "HEAD"] }, { path: "/proxy", methods: ["GET", "HEAD", "POST"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const keyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
+    const release = { keyId, manifest, signature: crypto.sign(null, canonicalPluginManifest(manifest), pluginKeyPair.privateKey).toString("base64") };
+    const installed = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
+    assert.equal(installed.statusCode, 201);
+    const installationId = (installed.json() as { installation: { id: string } }).installation.id;
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "alist-web", endpoint: `http://127.0.0.1:${address.port}`, installationId } })).statusCode, 201);
+    const response = await app.inject({ method: "POST", url: `/apps/alist-web-bridge/${installationId}/proxy?path=%2Fapi%2Ffs%2Flist`, headers: { cookie, accept: "application/json", authorization: "must-not-forward", "content-type": "application/json" }, payload: { path: "/", password: "operator-input" } });
+    assert.equal(response.statusCode, 200);
+    const encodedPayload = JSON.parse(response.rawPayload.toString("utf8")) as { type?: string; data?: number[] };
+    assert.equal(encodedPayload.type, "Buffer");
+    assert.deepEqual(JSON.parse(Buffer.from(encodedPayload.data ?? []).toString("utf8")), { code: 200, data: { content: [{ name: "drive.mp4" }] } });
+    assert.equal(receivedBody, JSON.stringify({ path: "/", password: "operator-input" }));
+    assert.equal(receivedHeaders.authorization, undefined);
+    assert.equal(receivedHeaders.cookie, undefined);
+    assert.equal(receivedHeaders["content-type"], "application/json");
+    const denied = await app.inject({ method: "POST", url: `/apps/alist-web-bridge/${installationId}/proxy?path=%2Fapi%2Fadmin%2Fusers`, headers: { cookie }, payload: {} });
+    assert.equal(denied.statusCode, 403);
+    assert.equal(denied.json().code, "CMH.ALIST.POST_PATH_NOT_ALLOWED");
+  } finally {
+    await app.close();
+    await new Promise<void>((resolve, reject) => upstream.close((error) => error === undefined ? resolve() : reject(error)));
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("administrator installs only a signed staged plugin package", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
   const pair = crypto.generateKeyPairSync("ed25519");
