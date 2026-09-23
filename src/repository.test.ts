@@ -37,12 +37,15 @@ test("plugin bindings prefer an installation override and fall back to a Core gl
     repository.bootstrap("admin", "correct horse battery staple", "en");
     repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" });
     repository.bindService({ componentId: "alist", name: "shared-service", endpoint: "http://127.0.0.1:5244" });
-    assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_missing"), { endpoint: "http://127.0.0.1:5244/" });
-    const manifest = { id: "adapter-override", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_missing"), undefined);
+    const manifest = { id: "adapter-override", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], serviceBindings: ["shared-service"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
     const installation = repository.installPlugin(manifest);
     repository.bindService({ componentId: "alist", name: "shared-service", endpoint: "http://127.0.0.1:5245", installationId: installation.id });
     assert.deepEqual(repository.serviceBindingByName("shared-service", installation.id), { endpoint: "http://127.0.0.1:5245/" });
-    assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_other"), { endpoint: "http://127.0.0.1:5244/" });
+    const approvedFallback = repository.installPlugin({ ...manifest, id: "adapter-fallback" });
+    assert.deepEqual(repository.serviceBindingByName("shared-service", approvedFallback.id), { endpoint: "http://127.0.0.1:5244/" });
+    const unapproved = repository.installPlugin({ ...manifest, id: "adapter-unapproved", serviceBindings: [] });
+    assert.deepEqual(repository.serviceBindingByName("shared-service", unapproved.id), undefined);
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

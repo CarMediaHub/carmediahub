@@ -521,9 +521,23 @@ export class Repository {
   serviceBindingByName(name: string, installationId?: string): { endpoint: string } | undefined {
     const row = installationId === undefined
       ? this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id IS NULL").get(name)
-      : this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND (installation_id = ? OR installation_id IS NULL) ORDER BY CASE WHEN installation_id = ? THEN 0 ELSE 1 END LIMIT 1").get(name, installationId, installationId);
+      : this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id = ?").get(name, installationId);
+    if (row === undefined && installationId !== undefined && this.pluginAllowsGlobalBinding(installationId, name)) {
+      return this.serviceBindingByName(name);
+    }
     const typed = row as { endpoint?: string } | undefined;
     return typed?.endpoint === undefined ? undefined : { endpoint: typed.endpoint };
+  }
+
+  private pluginAllowsGlobalBinding(installationId: string, name: string): boolean {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ? AND status = 'installed'").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return false;
+    try {
+      const manifest = JSON.parse(row.manifest_json) as { serviceBindings?: unknown };
+      return Array.isArray(manifest.serviceBindings) && manifest.serviceBindings.includes(name);
+    } catch {
+      return false;
+    }
   }
 
   revokeServiceBinding(bindingId: string): boolean {
