@@ -1028,7 +1028,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (allowedHeaders.has(name.toLowerCase()) && !name.includes("\r") && !name.includes("\n")) reply.raw.setHeader(name, value);
       }
       const abort = () => stream.cancel("Client disconnected");
-      request.raw.once("close", abort);
+      // IncomingMessage close also fires after a normally completed request body;
+      // only `aborted` means the client actually cancelled the request.
+      request.raw.once("aborted", abort);
       try {
         for await (const chunk of stream) {
           if (!streamLease.consume(chunk.length)) {
@@ -1042,7 +1044,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       } catch {
         if (!reply.raw.destroyed) reply.raw.destroy();
       } finally {
-        request.raw.off("close", abort);
+        request.raw.off("aborted", abort);
         streamLease.release();
       }
       return reply;
