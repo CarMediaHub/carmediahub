@@ -5,6 +5,7 @@ import type { TrustedWorkerFactory, TrustedWorkerStart, WorkerHandle } from "./w
 
 export interface TrustedWorkerPackage {
   packageId: string;
+  packageVersion?: string;
   packageRoot: string;
   workerEntry: string;
 }
@@ -27,6 +28,7 @@ export function createTrustedNodeWorkerFactory(input: TrustedWorkerPackage): Tru
   if (!fs.existsSync(runner)) throw new Error("Core worker runner is unavailable");
   return {
     packageId: input.packageId,
+    packageVersion: input.packageVersion,
     async start(start: TrustedWorkerStart): Promise<WorkerHandle> {
       const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { shell: false, windowsHide: true, stdio: ["pipe", "ignore", "ignore"] });
       child.stdin.end(JSON.stringify({ runtimeCredential: start.runtimeCredential }));

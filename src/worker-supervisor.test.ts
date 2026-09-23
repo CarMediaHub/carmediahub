@@ -60,3 +60,16 @@ test("Supervisor retries crashes with bounded backoff and disables stopped insta
   crash!(new Error("second exit"));
   assert.equal(supervisor.status("plugin_one").state, "failed");
 });
+
+test("Supervisor selects the factory matching the installed package version", async () => {
+  const selected: string[] = [];
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "versioned-package", packageVersion: "2.0.0", status: "installed" })
+  });
+  supervisor.register({ packageId: "versioned-package", packageVersion: "1.0.0", async start() { selected.push("1"); return { stop() {} }; } });
+  supervisor.register({ packageId: "versioned-package", packageVersion: "2.0.0", async start() { selected.push("2"); return { stop() {} }; } });
+  await supervisor.start("plugin_one", scope);
+  assert.deepEqual(selected, ["2"]);
+});

@@ -6,6 +6,7 @@ import type { TrustedWorkerFactory, TrustedWorkerStart, WorkerHandle } from "./w
 
 export interface TrustedSharedAdapterPackage {
   packageId: string;
+  packageVersion?: string;
   packageRoot: string;
   runtimeEntry: string;
 }
@@ -35,6 +36,7 @@ export function createTrustedSharedAdapterFactory(input: TrustedSharedAdapterPac
   const entry = resolveEntry(input);
   return {
     packageId: input.packageId,
+    packageVersion: input.packageVersion,
     async start(start: TrustedWorkerStart): Promise<WorkerHandle> {
       const loaded = await loader(pathToFileURL(entry).href) as Partial<SharedAdapterModule> & { default?: Partial<SharedAdapterModule> };
       const module = typeof loaded.startWorker === "function" ? loaded : loaded.default;

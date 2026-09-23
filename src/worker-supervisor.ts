@@ -16,13 +16,14 @@ export interface TrustedWorkerStart {
 
 export interface TrustedWorkerFactory {
   readonly packageId: string;
+  readonly packageVersion?: string | undefined;
   start(input: TrustedWorkerStart): Promise<WorkerHandle>;
 }
 
 export interface WorkerSupervisorOptions {
   endpoint: string;
   issueCredential(scope: RuntimeCredentialScope): string;
-  installation(installationId: string): { packageId: string; status: "installed" | "disabled" | "uninstalled" } | undefined;
+  installation(installationId: string): { packageId: string; packageVersion?: string; status: "installed" | "disabled" | "uninstalled" } | undefined;
   idleTimeoutMs?: number;
   maxRestartAttempts?: number;
   schedule?(callback: () => void, delayMs: number): unknown;
@@ -55,13 +56,16 @@ export class WorkerSupervisor {
 
   constructor(private readonly options: WorkerSupervisorOptions) {}
 
+  private factoryKey(packageId: string, packageVersion?: string): string { return `${packageId}@${packageVersion ?? "*"}`; }
+
   register(factory: TrustedWorkerFactory): void {
-    if (this.factories.has(factory.packageId)) throw new Error(`Worker factory already registered: ${factory.packageId}`);
-    this.factories.set(factory.packageId, factory);
+    const key = this.factoryKey(factory.packageId, factory.packageVersion);
+    if (this.factories.has(key)) throw new Error(`Worker factory already registered: ${key}`);
+    this.factories.set(key, factory);
   }
 
-  hasFactory(packageId: string): boolean {
-    return this.factories.has(packageId);
+  hasFactory(packageId: string, packageVersion?: string): boolean {
+    return this.factories.has(this.factoryKey(packageId, packageVersion)) || (packageVersion !== undefined && this.factories.has(this.factoryKey(packageId)));
   }
 
   status(installationId: string): WorkerStatus {
@@ -74,7 +78,7 @@ export class WorkerSupervisor {
     const installation = this.options.installation(installationId);
     if (installation === undefined || installation.status !== "installed") return { installationId, state: "disabled", attempts: 0 };
     if (scope.installationId !== installationId) throw new Error("Worker scope does not match installation");
-    const factory = this.factories.get(installation.packageId);
+    const factory = this.factories.get(this.factoryKey(installation.packageId, installation.packageVersion)) ?? this.factories.get(this.factoryKey(installation.packageId));
     if (factory === undefined) return { installationId, state: "failed", attempts: 0, lastError: "No trusted worker factory is registered" };
     const current = this.workers.get(installationId);
     if (current?.state === "running" || current?.state === "starting") {
