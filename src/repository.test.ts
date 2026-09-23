@@ -59,6 +59,24 @@ test("plugin upgrade keeps installation identity and data scope", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("plugin rollback restores the previous manifest and grants", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-rollback-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const previous = { id: "rollback-plugin", version: "1.0.0", sdk: "^0.1.0", name: { en: "Rollback", "zh-CN": "回滚", ko: "롤백" }, description: { en: "Rollback", "zh-CN": "回滚", ko: "롤백" }, category: "official", runtime: "isolated-worker", capabilities: ["history"], routes: [{ path: "/health", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const installation = repository.installPlugin(previous);
+    repository.registerVerifiedPluginPackage({ packageId: previous.id, packageVersion: "2.0.0", digest: "b".repeat(64), location: "plugins/rollback-plugin/2.0.0/hash", workerEntry: "./worker.js" });
+    repository.upgradePlugin(installation.id, { ...previous, version: "2.0.0", name: { ...previous.name, en: "Broken" } });
+    assert.equal(repository.pluginManifest(installation.id)?.version, "2.0.0");
+    const restored = repository.rollbackPlugin(installation.id, previous, ["history"]);
+    assert.equal(restored?.packageVersion, "1.0.0");
+    assert.equal(repository.pluginManifest(installation.id)?.name.en, "Rollback");
+    assert.deepEqual(repository.pluginCapabilities(installation.id), ["history"]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("expired browser sessions cancel queued tasks during reconciliation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-expiry-"));
   const database = openDatabase(dataDir);

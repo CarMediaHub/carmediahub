@@ -401,6 +401,12 @@ export class Repository {
     return { id: row.id ?? "", packageId: row.package_id ?? "", packageVersion: row.package_version ?? "", runtime: row.runtime ?? "", status: row.status === "disabled" ? "disabled" : row.status === "uninstalled" ? "uninstalled" : "installed", createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "" };
   }
 
+  pluginManifest(installationId: string): PluginManifest | undefined {
+    const row = this.db.prepare("SELECT manifest_json FROM plugin_installations WHERE id = ?").get(installationId) as { manifest_json?: string } | undefined;
+    if (row?.manifest_json === undefined) return undefined;
+    try { return JSON.parse(row.manifest_json) as PluginManifest; } catch { return undefined; }
+  }
+
   pluginInstallationByPackage(packageId: string, packageVersion: string): PluginInstallationRecord | undefined {
     const row = this.db.prepare("SELECT id, package_id, package_version, runtime, status, created_at, updated_at FROM plugin_installations WHERE package_id = ? AND package_version = ? ORDER BY created_at DESC LIMIT 1").get(packageId, packageVersion) as Record<string, string> | undefined;
     if (row === undefined) return undefined;
@@ -423,6 +429,26 @@ export class Repository {
     try {
       this.db.prepare("UPDATE plugin_installations SET package_version = ?, manifest_json = ?, granted_capabilities = ?, updated_at = ? WHERE id = ? AND status = 'installed'")
         .run(manifest.version, JSON.stringify(manifest), JSON.stringify(granted), updatedAt, installationId);
+      this.db.prepare("UPDATE applications SET name = ?, category = ?, vehicle_supported = ? WHERE installation_id = ?")
+        .run(manifest.name.en, manifest.category, manifest.ui?.vehicleSupported ? 1 : 0, installationId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return { id: installationId, packageId: manifest.id, packageVersion: manifest.version, runtime: manifest.runtime, status: "installed", createdAt: current.createdAt, updatedAt };
+  }
+
+  rollbackPlugin(installationId: string, manifest: PluginManifest, grantedCapabilities: readonly string[]): PluginInstallationRecord | undefined {
+    const current = this.pluginInstallation(installationId);
+    if (current === undefined || current.status !== "installed" || current.packageId !== manifest.id || current.runtime !== manifest.runtime) return undefined;
+    const declared = new Set(manifest.capabilities);
+    if (grantedCapabilities.some((capability) => !declared.has(capability as never))) return undefined;
+    const updatedAt = now();
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      this.db.prepare("UPDATE plugin_installations SET package_version = ?, manifest_json = ?, granted_capabilities = ?, updated_at = ? WHERE id = ? AND status = 'installed'")
+        .run(manifest.version, JSON.stringify(manifest), JSON.stringify([...grantedCapabilities]), updatedAt, installationId);
       this.db.prepare("UPDATE applications SET name = ?, category = ?, vehicle_supported = ? WHERE installation_id = ?")
         .run(manifest.name.en, manifest.category, manifest.ui?.vehicleSupported ? 1 : 0, installationId);
       this.db.exec("COMMIT;");

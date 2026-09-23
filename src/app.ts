@@ -1081,6 +1081,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const installationId = (request.params as { id: string }).id;
     const current = repository.pluginInstallation(installationId);
+    const previousManifest = current === undefined ? undefined : repository.pluginManifest(installationId);
+    const previousCapabilities = current === undefined ? [] : repository.pluginCapabilities(installationId);
     try {
       if (current === undefined || current.status !== "installed") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
@@ -1103,6 +1105,33 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       runtimeBroker.revokeInstallationCredentials(installationId);
       const upgraded = repository.upgradePlugin(installationId, release.manifest);
       if (upgraded === undefined) throw new Error("Plugin upgrade was rejected");
+      const healthMethods = repository.pluginRouteMethods(installationId, "/health");
+      if (healthMethods?.includes("GET") === true) {
+        const probeScope = repository.runtimeScope(user.id, installationId, "upgrade-health", "admin", { entry: "navigation" });
+        let probeHealthy = false;
+        if (probeScope !== undefined) {
+          try {
+            const worker = await supervisor.start(installationId, probeScope);
+            if (worker.state === "running") {
+              await runtimeBroker.waitForWorker(installationId, probeScope.userId, 5_000);
+              const response = await runtimeBroker.invoke(installationId, probeScope, { method: "GET", path: "/health", headers: { accept: "application/json" } }, 5_000);
+              const status = typeof (response as { status?: unknown })?.status === "number" ? (response as { status: number }).status : 0;
+              probeHealthy = status >= 200 && status < 300;
+            }
+          } catch { probeHealthy = false; }
+        }
+        if (!probeHealthy && previousManifest !== undefined) {
+          await supervisor.stop(installationId);
+          runtimeBroker.revokeInstallationCredentials(installationId);
+          const restored = repository.rollbackPlugin(installationId, previousManifest, previousCapabilities);
+          if (restored !== undefined) {
+            const previousPackage = repository.verifiedPluginPackage(previousManifest.id, previousManifest.version);
+            if (previousPackage !== undefined) registerVerifiedPluginRuntime(previousPackage);
+          }
+          repository.audit(user.id, "plugin.upgrade.rollback", installationId);
+          return reply.code(502).send({ code: "CMH.PLUGIN.UPGRADE_HEALTH_FAILED", messageKey: "errors.plugin.upgradeHealthFailed", retryable: true });
+        }
+      }
       repository.audit(user.id, "plugin.upgraded", `${installationId}:${upgraded.packageVersion}`);
       return { installation: upgraded, package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location } };
     } catch (error) {
