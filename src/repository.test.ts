@@ -14,9 +14,9 @@ test("managed component versions require health before activation and preserve r
   try {
     const repository = new Repository(database.db, ensureServerKey(dataDir));
     repository.bootstrap("admin", "correct horse battery staple", "en");
-    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: "sha256:v1" });
+    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: `sha256:${"a".repeat(64)}` });
     assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
-    repository.registerComponent({ id: "alist", version: "2.0.0", executable: "alist/2.0.0/alist", checksum: "sha256:v2" });
+    repository.registerComponent({ id: "alist", version: "2.0.0", executable: "alist/2.0.0/alist", checksum: `sha256:${"b".repeat(64)}` });
     assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
     assert.equal(repository.activateComponentVersion("alist", "2.0.0"), false);
     assert.equal(repository.updateComponentVersionHealth("alist", "2.0.0", "healthy"), true);
@@ -26,6 +26,22 @@ test("managed component versions require health before activation and preserve r
     assert.equal(repository.activateComponentVersion("alist", "1.0.0"), true);
     assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
     assert.deepEqual(repository.componentVersions("alist").map((item) => item.version).sort(), ["1.0.0", "2.0.0"]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("rejects component records without a verifiable identity or checksum", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-validation-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const valid = { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "a".repeat(64) };
+    assert.throws(() => repository.registerComponent({ ...valid, id: "../alist" }), /identity/);
+    assert.throws(() => repository.registerComponent({ ...valid, version: "latest" }), /identity/);
+    assert.throws(() => repository.registerComponent({ ...valid, checksum: "not-a-digest" }), /identity/);
+    assert.throws(() => repository.registerComponent({ ...valid, executable: "alist\\alist" }), /relative path/);
+    repository.registerComponent(valid);
+    assert.equal(repository.componentById("alist")?.version, "1.0.0");
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
@@ -101,7 +117,7 @@ test("service bindings are scoped to the declared plugin installation", () => {
   try {
     const repository = new Repository(database.db, ensureServerKey(dataDir));
     repository.bootstrap("admin", "correct horse battery staple", "en");
-    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" });
+    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "c".repeat(64) });
     const manifest = { id: "adapter-one", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
     const installation = repository.installPlugin(manifest);
     repository.bindService({ componentId: "alist", name: "adapter-one-service", endpoint: "http://127.0.0.1:5244", installationId: installation.id });
@@ -123,7 +139,7 @@ test("plugin bindings prefer an installation override and fall back to a Core gl
   try {
     const repository = new Repository(database.db, ensureServerKey(dataDir));
     repository.bootstrap("admin", "correct horse battery staple", "en");
-    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" });
+    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "c".repeat(64) });
     repository.bindService({ componentId: "alist", name: "shared-service", endpoint: "http://127.0.0.1:5244" });
     assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_missing"), undefined);
     const manifest = { id: "adapter-override", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], serviceBindings: ["shared-service"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;

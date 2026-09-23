@@ -134,7 +134,7 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.deepEqual(upload.json(), { bytes: 65536 });
     const oversizedUpload = await app.inject({ method: "POST", url: "/api/diagnostics/speed/upload", headers: { cookie, "content-type": "application/octet-stream", "content-length": "32768" }, payload: Buffer.alloc(32768, 0) });
     assert.equal(oversizedUpload.statusCode, 400);
-    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "local-alist", endpoint: "http://127.0.0.1:5244" } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "health-check", endpoint: "http://127.0.0.1:1" } })).statusCode, 201);
     const health = await app.inject({ method: "POST", url: "/api/service-bindings/unknown/health", headers: { cookie } });
@@ -348,7 +348,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
     const applicationId = (await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.find((item: { installationId: string }) => item.installationId === installation.id).id as string;
     assert.equal((await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId } })).statusCode, 201);
-    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/bin", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/bin", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "wdr-service", name: "wdr-local", endpoint: "http://127.0.0.1:5244", installationId: installation.id } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/uninstall`, headers: { cookie } })).statusCode, 409);
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
@@ -498,7 +498,7 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     const probe = await app.inject({ method: "POST", url: `/api/plugins/${installationId}/health`, headers: { cookie } });
     assert.equal(probe.statusCode, 200);
     assert.deepEqual(probe.json(), { healthy: true, status: 200, worker: "running" });
-    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/wdr-service", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/wdr-service", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     const scopedBinding = await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "wdr-service", name: "wdr-local", endpoint: "http://127.0.0.1:5244", installationId } });
     assert.equal(scopedBinding.statusCode, 201);
     const componentView = (await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json() as { bindings: Array<{ name: string; installation_id: string | null }>; bindingGrants: Array<{ bindingId: string; scope: string; installationId: string | null; authorizedInstallations: string[] }> };
@@ -636,7 +636,7 @@ test("routes the Mihomo Web Bridge through a scoped Core service binding", async
     const installed = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(installed.statusCode, 201);
     const installationId = (installed.json() as { installation: { id: string } }).installation.id;
-    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "mihomo", version: "1.0.0", executable: "mihomo/mihomo", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "mihomo", version: "1.0.0", executable: "mihomo/mihomo", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "mihomo", name: "mihomo-web", endpoint: `http://127.0.0.1:${address.port}`, installationId } })).statusCode, 201);
     const response = await app.inject({ method: "GET", url: `/apps/mihomo-web-bridge/${installationId}/proxy?path=%2Fconfigs`, headers: { cookie, accept: "application/json", authorization: "must-not-forward" } });
     assert.equal(response.statusCode, 200);
@@ -681,7 +681,7 @@ test("routes the AList Web Bridge directory API through a scoped Core service bi
     const installed = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
     assert.equal(installed.statusCode, 201);
     const installationId = (installed.json() as { installation: { id: string } }).installation.id;
-    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "alist-web", endpoint: `http://127.0.0.1:${address.port}`, installationId } })).statusCode, 201);
     const response = await app.inject({ method: "POST", url: `/apps/alist-web-bridge/${installationId}/proxy?path=%2Fapi%2Ffs%2Flist`, headers: { cookie, accept: "application/json", authorization: "must-not-forward", "content-type": "application/json" }, payload: { path: "/", password: "operator-input" } });
     assert.equal(response.statusCode, 200);

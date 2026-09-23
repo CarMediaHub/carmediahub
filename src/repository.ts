@@ -6,6 +6,9 @@ import type { BrowserSession, BrowserSessionRequest, BrowserTask, BrowserTaskKin
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
 const validLocale = (locale: string): locale is "en" | "zh-CN" | "ko" => locale === "en" || locale === "zh-CN" || locale === "ko";
+const componentId = /^[a-z][a-z0-9-]{1,63}$/u;
+const componentVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+const componentChecksum = /^(?:sha256:)?[a-f0-9]{64}$/u;
 
 export interface UserRecord { id: string; username: string; role: string; locale: string; timeZone: string; theme: "light" | "dark" | "system"; density: "comfortable" | "compact"; organizationId: string; }
 export interface SessionContext { user: UserRecord; sessionId: string; deviceLabel: string; }
@@ -605,7 +608,8 @@ export class Repository {
   }
 
   registerComponent(input: { id: string; version: string; executable: string; checksum: string }): void {
-    if (input.executable.includes("..") || input.executable.startsWith("/") || /^[A-Za-z]:/.test(input.executable)) throw new Error("Managed component executable must be a relative path");
+    if (!componentId.test(input.id) || !componentVersion.test(input.version) || !componentChecksum.test(input.checksum)) throw new Error("Invalid managed component identity");
+    if (input.executable.length === 0 || input.executable.length > 512 || input.executable.includes("..") || input.executable.includes("\\") || input.executable.includes("\0") || input.executable.startsWith("/") || /^[A-Za-z]:/.test(input.executable)) throw new Error("Managed component executable must be a relative path");
     const installedAt = now();
     this.db.exec("BEGIN IMMEDIATE");
     try {
