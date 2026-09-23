@@ -19,7 +19,9 @@ test("browser worker driver launches only the verified browser-engine component"
   let closed = false;
   let routed = false;
   let unrouted = false;
-  const fakeContext = { close: async () => { closed = true; }, route: async () => { routed = true; }, unroute: async () => { unrouted = true; } } as never;
+  let pageClosed = false;
+  const fakePage = { goto: async () => undefined, close: async () => { pageClosed = true; }, once: () => undefined };
+  const fakeContext = { close: async () => { closed = true; }, route: async () => { routed = true; }, unroute: async () => { unrouted = true; }, newPage: async () => fakePage } as never;
   try {
     const targetRegistry = new BrowserTargetRegistry();
     targetRegistry.register({ id: "media", origins: ["https://media.example"] });
@@ -39,9 +41,12 @@ test("browser worker driver launches only the verified browser-engine component"
     assert.deepEqual(captured?.permissions, []);
     assert.equal(captured?.serviceWorkers, "block");
     assert.equal(routed, true);
+    const page = await handle.navigate("media", "/library");
+    assert.equal(page, fakePage);
     await handle.stop();
     assert.equal(closed, true);
     assert.equal(unrouted, true);
+    assert.equal(pageClosed, true);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

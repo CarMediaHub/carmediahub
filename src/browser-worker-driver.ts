@@ -24,6 +24,7 @@ export interface BrowserWorkerDriverOptions {
 export interface BrowserWorkerHandle {
   readonly context: BrowserContext;
   readonly launch: BrowserLaunchSpec;
+  navigate(targetId: string, relativePath?: string): Promise<Awaited<ReturnType<BrowserContext["newPage"]>>>;
   stop(): Promise<void>;
 }
 
@@ -57,5 +58,14 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   let policy: Awaited<ReturnType<typeof installBrowserNetworkPolicy>>;
   try { policy = await installBrowserNetworkPolicy(context, options.targetRegistry, options.targetId); }
   catch (error) { await context.close(); throw error; }
-  return { context, launch, stop: async () => { await policy.remove(); await context.close(); } };
+  const pages = new Set<Awaited<ReturnType<BrowserContext["newPage"]>>>();
+  let stopped = false;
+  const navigate = async (targetId: string, relativePath = "/") => {
+    if (stopped) throw new Error("Browser worker is stopped");
+    const page = await navigateToTarget({ context }, options.targetRegistry, targetId, relativePath);
+    pages.add(page);
+    page.once("close", () => pages.delete(page));
+    return page;
+  };
+  return { context, launch, navigate, stop: async () => { if (stopped) return; stopped = true; await policy.remove(); await Promise.all([...pages].map((page) => page.close().catch(() => undefined))); pages.clear(); await context.close(); } };
 }
