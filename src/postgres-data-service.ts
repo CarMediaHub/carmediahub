@@ -1,5 +1,6 @@
 import { Pool, type PoolConfig, type QueryResultRow } from "pg";
 import type { DataRecord, PluginDataMigration, PluginDataStore, ScopeContext } from "@carmediahub/sdk";
+import { MAX_PLUGIN_DATA_EXPORT_BYTES, MAX_PLUGIN_DATA_EXPORT_RECORDS, type PluginDataExport } from "./data-service.js";
 
 const identifier = /^[a-z][a-z0-9_-]{0,63}$/u;
 const migrationName = /^[a-z][a-z0-9_.-]{0,127}$/u;
@@ -47,6 +48,42 @@ CREATE TABLE IF NOT EXISTS carmediahub_plugin_data_migrations (
 
 export async function ensurePostgresPluginDataSchema(client: PostgresQueryClient): Promise<void> {
   await client.query(POSTGRES_PLUGIN_DATA_SCHEMA);
+}
+
+export async function exportPostgresPluginData(client: PostgresQueryClient, scope: ScopeContext): Promise<PluginDataExport> {
+  const [organizationId, userId, installationId] = scopeValues(scope);
+  const rows = (await client.query<{ collection: string; record_key: string; value_json: unknown; updated_at: string }>(
+    "SELECT collection, record_key, value_json, updated_at FROM carmediahub_plugin_data WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 ORDER BY collection, record_key LIMIT $4",
+    [organizationId, userId, installationId, MAX_PLUGIN_DATA_EXPORT_RECORDS + 1]
+  )).rows;
+  if (rows.length > MAX_PLUGIN_DATA_EXPORT_RECORDS) throw new Error("Plugin data export exceeds record limit");
+  const grouped = new Map<string, DataRecord[]>();
+  for (const row of rows) {
+    const records = grouped.get(row.collection) ?? [];
+    records.push({ key: row.record_key, value: row.value_json, updatedAt: row.updated_at });
+    grouped.set(row.collection, records);
+  }
+  const migrations = (await client.query<{ version: number; name: string; applied_at: string }>(
+    "SELECT version, name, applied_at FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 ORDER BY version",
+    [organizationId, userId, installationId]
+  )).rows.map((row) => ({ version: row.version, name: row.name, appliedAt: row.applied_at }));
+  const result: PluginDataExport = { exportedAt: new Date().toISOString(), scope: { organizationId, userId, installationId }, migrations, collections: [...grouped.entries()].map(([name, records]) => ({ name, records })) };
+  if (Buffer.byteLength(JSON.stringify(result), "utf8") > MAX_PLUGIN_DATA_EXPORT_BYTES) throw new Error("Plugin data export exceeds byte limit");
+  return result;
+}
+
+export async function deletePostgresPluginData(client: PostgresQueryClient, scope: ScopeContext): Promise<number> {
+  const [organizationId, userId, installationId] = scopeValues(scope);
+  await client.query("BEGIN");
+  try {
+    const deleted = await client.query("DELETE FROM carmediahub_plugin_data WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", [organizationId, userId, installationId]);
+    await client.query("DELETE FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", [organizationId, userId, installationId]);
+    await client.query("COMMIT");
+    return deleted.rowCount ?? 0;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 }
 
 /** Core-only PostgreSQL adapter. The client is created by Core; plugins never see it. */

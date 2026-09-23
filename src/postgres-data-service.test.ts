@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPostgresPluginDataStore, createPostgresPool, ensurePostgresPluginDataSchema, type PostgresQueryClient } from "./postgres-data-service.js";
+import { createPostgresPluginDataStore, createPostgresPool, deletePostgresPluginData, ensurePostgresPluginDataSchema, exportPostgresPluginData, type PostgresQueryClient } from "./postgres-data-service.js";
 
 test("PostgreSQL data adapter keeps scope in every parameterized operation", async () => {
   const queries: Array<{ text: string; values: readonly unknown[] }> = [];
@@ -30,4 +30,23 @@ test("PostgreSQL pool rejects incomplete config instead of reading PG* environme
   assert.throws(() => createPostgresPool({}), /explicit connectionString/);
   const pool = createPostgresPool({ host: "127.0.0.1", port: 5432, database: "cmh", user: "cmh" });
   void pool.end();
+});
+
+test("PostgreSQL plugin data export and deletion preserve scope and transaction boundaries", async () => {
+  const queries: Array<{ text: string; values: readonly unknown[] }> = [];
+  const client: PostgresQueryClient = {
+    async query<T>(text: string, values: readonly unknown[] = []) {
+      queries.push({ text, values });
+      if (text.startsWith("SELECT collection")) return { rows: [{ collection: "settings", record_key: "layout", value_json: { compact: true }, updated_at: "2026-01-01T00:00:00.000Z" } as T], rowCount: 1 };
+      if (text.startsWith("SELECT version")) return { rows: [{ version: 1, name: "initial", applied_at: "2026-01-01T00:00:00.000Z" } as T], rowCount: 1 };
+      if (text.startsWith("DELETE FROM carmediahub_plugin_data")) return { rows: [], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    }
+  };
+  const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" } as const;
+  const exported = await exportPostgresPluginData(client, scope);
+  assert.deepEqual(exported.collections[0]?.records[0]?.value, { compact: true });
+  assert.equal(await deletePostgresPluginData(client, scope), 1);
+  assert.deepEqual(queries.slice(-4).map((query) => query.text), ["BEGIN", "DELETE FROM carmediahub_plugin_data WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", "DELETE FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", "COMMIT"]);
+  assert.deepEqual(queries.find((query) => query.text.startsWith("SELECT collection"))?.values, ["org", "user", "plugin", 10001]);
 });
