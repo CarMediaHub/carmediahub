@@ -37,5 +37,23 @@ export class BrowserTaskExecutor {
     const completed: BrowserTask[] = []; for (let index = 0; index < maxTasks; index += 1) { const task = await this.runOnce(scope); if (task === undefined) break; completed.push(task); } return completed;
   }
   cancel(scope: ScopeContext, taskId: string): BrowserTask | undefined { this.active.get(this.key(scope, taskId))?.abort(); return this.repository.cancelBrowserTask(scope, taskId); }
+  cancelSession(scope: ScopeContext, sessionId: string): number {
+    let cancelled = 0;
+    for (const task of this.repository.browserTasks(scope)) {
+      if (task.sessionId === sessionId && (task.status === "queued" || task.status === "running")) {
+        this.cancel(scope, task.id); cancelled += 1;
+      }
+    }
+    return cancelled;
+  }
+  cancelInstallation(organizationId: string, installationId: string): number {
+    let cancelled = 0;
+    for (const task of this.repository.browserTasksForOrganization(organizationId)) {
+      if (task.installationId !== installationId || (task.status !== "queued" && task.status !== "running")) continue;
+      const scope = { deploymentId: "core", organizationId, userId: task.userId, deviceId: "core", sessionId: "core", installationId };
+      this.cancel(scope, task.id); cancelled += 1;
+    }
+    return cancelled;
+  }
   private key(scope: ScopeContext, taskId: string): string { return `${scope.organizationId}\0${scope.userId}\0${scope.installationId}\0${taskId}`; }
 }

@@ -31,8 +31,9 @@ import { JobExecutor } from "./job-executor.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
 import { BrowserWorkerManager } from "./browser-worker-manager.js";
+import { BrowserTaskExecutor } from "./browser-task-executor.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -112,6 +113,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   jobs.recoverInterrupted();
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
   const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
+  const browserTaskExecutor = options.browserTaskExecutor ?? new BrowserTaskExecutor(repository);
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
@@ -268,7 +270,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const id = (request.params as { id?: unknown } | undefined)?.id;
         if (typeof id !== "string") throw new Error("Invalid browser session ID");
         const revoked = repository.revokeBrowserSession(scope, id);
-        if (revoked) await browserWorkerManager.stopSession(id);
+        if (revoked) { browserTaskExecutor.cancelSession(scope, id); await browserWorkerManager.stopSession(id); }
         return { revoked };
       }
       if (request.method === "browser.task.enqueue") {
@@ -824,6 +826,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     if (hadSecrets && !input.capabilities.includes("secrets")) credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    browserTaskExecutor.cancelInstallation(user.organizationId, installationId);
     await browserWorkerManager.stopInstallation(installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
@@ -848,6 +851,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const sessionId = (request.params as { id?: unknown }).id;
     if (typeof sessionId !== "string" || !repository.revokeBrowserSessionForOrganization(user.organizationId, sessionId)) return reply.code(404).send({ code: "CMH.BROWSER.SESSION_NOT_FOUND", messageKey: "errors.browser.sessionNotFound" });
+    const session = repository.browserSessionsForOrganization(user.organizationId).find((item) => item.id === sessionId);
+    if (session !== undefined) browserTaskExecutor.cancelSession({ deploymentId: "core", organizationId: user.organizationId, userId: session.userId, deviceId: "core", sessionId: "core", installationId: session.installationId }, sessionId);
     await browserWorkerManager.stopSession(sessionId);
     repository.audit(user.id, "browser.session.revoked", sessionId);
     return { revoked: true };
@@ -1013,6 +1018,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    browserTaskExecutor.cancelInstallation(user.organizationId, installationId);
     await browserWorkerManager.stopInstallation(installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
@@ -1039,6 +1045,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    browserTaskExecutor.cancelInstallation(user.organizationId, installationId);
     await browserWorkerManager.stopInstallation(installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.uninstalled", installationId);
