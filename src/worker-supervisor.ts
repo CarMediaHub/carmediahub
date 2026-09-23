@@ -69,10 +69,13 @@ export class WorkerSupervisor {
   }
 
   status(installationId: string): WorkerStatus {
-    const worker = this.workers.get(installationId);
+    const workers = [...this.workers.entries()].filter(([key]) => key === installationId || key.startsWith(`${installationId}:`)).map(([, worker]) => worker);
+    const worker = workers.find((candidate) => candidate.state === "running") ?? workers.find((candidate) => candidate.state === "starting") ?? workers.find((candidate) => candidate.state === "backoff") ?? workers.find((candidate) => candidate.state === "failed");
     const installation = this.options.installation(installationId);
-    return { installationId, state: installation?.status === "disabled" || installation?.status === "uninstalled" ? "disabled" : worker?.state ?? "stopped", attempts: worker?.attempts ?? 0, ...(worker?.lastError === undefined ? {} : { lastError: worker.lastError }) };
+    return { installationId, state: installation?.status === "disabled" || installation?.status === "uninstalled" ? "disabled" : worker?.state ?? "stopped", attempts: workers.reduce((total, candidate) => total + candidate.attempts, 0), ...(worker?.lastError === undefined ? {} : { lastError: worker.lastError }) };
   }
+
+  private workerKey(installationId: string, scope: RuntimeCredentialScope): string { return `${installationId}:${scope.organizationId}:${scope.userId}`; }
 
   async start(installationId: string, scope: RuntimeCredentialScope): Promise<WorkerStatus> {
     const installation = this.options.installation(installationId);
@@ -80,13 +83,14 @@ export class WorkerSupervisor {
     if (scope.installationId !== installationId) throw new Error("Worker scope does not match installation");
     const factory = this.factories.get(this.factoryKey(installation.packageId, installation.packageVersion)) ?? this.factories.get(this.factoryKey(installation.packageId));
     if (factory === undefined) return { installationId, state: "failed", attempts: 0, lastError: "No trusted worker factory is registered" };
-    const current = this.workers.get(installationId);
+    const key = this.workerKey(installationId, scope);
+    const current = this.workers.get(key);
     if (current?.state === "running" || current?.state === "starting") {
-      this.touchIdle(installationId);
+      this.touchIdle(key);
       return this.status(installationId);
     }
     const worker: ManagedWorker = { state: "starting", attempts: current?.attempts ?? 0 };
-    this.workers.set(installationId, worker);
+    this.workers.set(key, worker);
     try {
       const handle = await factory.start({ installationId, endpoint: this.options.endpoint, runtimeCredential: this.options.issueCredential(scope), scope });
       worker.handle = handle;
@@ -96,30 +100,35 @@ export class WorkerSupervisor {
         // A process may emit its final exit event after stop() has detached
         // it, including while Core is closing its database. Ignore stale
         // callbacks from handles no longer owned by this supervisor.
-        if (this.workers.get(installationId)?.handle !== handle) return;
-        this.crashed(installationId, scope, error);
+        if (this.workers.get(key)?.handle !== handle) return;
+        this.crashed(key, installationId, scope, error);
       });
-      this.touchIdle(installationId);
+      this.touchIdle(key);
       return this.status(installationId);
     } catch (error) {
-      return this.crashed(installationId, scope, error instanceof Error ? error : new Error("Worker start failed"));
+      return this.crashed(key, installationId, scope, error instanceof Error ? error : new Error("Worker start failed"));
     }
   }
 
   async stop(installationId: string): Promise<WorkerStatus> {
-    const worker = this.workers.get(installationId);
-    if (worker === undefined) return this.status(installationId);
-    this.clearIdle(worker);
-    const handle = worker.handle;
-    worker.handle = undefined;
-    worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "stopped";
-    await handle?.stop();
+    const keys = [...this.workers.keys()].filter((key) => key === installationId || key.startsWith(`${installationId}:`));
+    for (const key of keys) {
+      const worker = this.workers.get(key);
+      if (worker === undefined) continue;
+      this.clearIdle(worker);
+      const handle = worker.handle;
+      worker.handle = undefined;
+      worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "stopped";
+      await handle?.stop();
+    }
     return this.status(installationId);
   }
 
   async disable(installationId: string): Promise<void> {
-    const worker = this.workers.get(installationId);
-    if (worker !== undefined) {
+    const keys = [...this.workers.keys()].filter((key) => key === installationId || key.startsWith(`${installationId}:`));
+    for (const key of keys) {
+      const worker = this.workers.get(key);
+      if (worker === undefined) continue;
       this.clearIdle(worker);
       const handle = worker.handle;
       worker.handle = undefined;
@@ -129,15 +138,24 @@ export class WorkerSupervisor {
   }
 
   async stopAll(): Promise<void> {
-    await Promise.all([...this.workers.keys()].map((installationId) => this.stop(installationId)));
+    const installationIds = new Set([...this.workers.keys()].map((key) => key.split(":", 1)[0]));
+    await Promise.all([...installationIds].map((installationId) => this.stop(installationId)));
   }
 
-  private touchIdle(installationId: string): void {
-    const worker = this.workers.get(installationId);
+  private touchIdle(key: string): void {
+    const worker = this.workers.get(key);
     if (worker === undefined || worker.state !== "running") return;
     this.clearIdle(worker);
     const schedule = this.options.schedule ?? setTimeout;
-    worker.idleTimer = schedule(() => { void this.stop(installationId); }, this.options.idleTimeoutMs ?? 60_000);
+    worker.idleTimer = schedule(() => {
+      const current = this.workers.get(key);
+      if (current === undefined) return;
+      this.clearIdle(current);
+      const handle = current.handle;
+      current.handle = undefined;
+      current.state = "stopped";
+      void handle?.stop();
+    }, this.options.idleTimeoutMs ?? 60_000);
   }
 
   private clearIdle(worker: ManagedWorker): void {
@@ -147,8 +165,8 @@ export class WorkerSupervisor {
     worker.idleTimer = undefined;
   }
 
-  private crashed(installationId: string, scope: RuntimeCredentialScope, error: Error): WorkerStatus {
-    const worker = this.workers.get(installationId) ?? { state: "failed", attempts: 0 };
+  private crashed(key: string, installationId: string, scope: RuntimeCredentialScope, error: Error): WorkerStatus {
+    const worker = this.workers.get(key) ?? { state: "failed", attempts: 0 };
     this.clearIdle(worker);
     worker.handle = undefined;
     worker.attempts += 1;
@@ -156,11 +174,11 @@ export class WorkerSupervisor {
     const maximum = this.options.maxRestartAttempts ?? 3;
     if (worker.attempts > maximum || this.options.installation(installationId)?.status !== "installed") {
       worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "failed";
-      this.workers.set(installationId, worker);
+      this.workers.set(key, worker);
       return this.status(installationId);
     }
     worker.state = "backoff";
-    this.workers.set(installationId, worker);
+    this.workers.set(key, worker);
     const delay = Math.min(1_000 * 2 ** (worker.attempts - 1), 30_000);
     (this.options.schedule ?? setTimeout)(() => { void this.start(installationId, scope); }, delay);
     return this.status(installationId);

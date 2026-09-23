@@ -93,3 +93,18 @@ test("Supervisor ignores a stale crash callback after stop", async () => {
   assert.equal(installationLookups, lookupsAfterStop);
   assert.equal(supervisor.status("plugin_one").state, "stopped");
 });
+
+test("Supervisor runs one isolated Worker per user scope", async () => {
+  const started: string[] = [];
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: (current) => current.userId,
+    installation: () => ({ packageId: "trusted-package", status: "installed" })
+  });
+  supervisor.register({ packageId: "trusted-package", async start(input) { started.push(input.scope.userId); return { stop() {} }; } });
+  await supervisor.start("plugin_one", scope);
+  await supervisor.start("plugin_one", { ...scope, userId: "user-two", sessionId: "session-two" });
+  assert.deepEqual(started.sort(), ["user", "user-two"]);
+  await supervisor.stop("plugin_one");
+  assert.equal(supervisor.status("plugin_one").state, "stopped");
+});
