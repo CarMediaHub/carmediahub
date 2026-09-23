@@ -8,6 +8,27 @@ import { openDatabase } from "./database.js";
 import { Repository } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 
+test("managed component versions require health before activation and preserve rollback history", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-rollback-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: "sha256:v1" });
+    assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
+    repository.registerComponent({ id: "alist", version: "2.0.0", executable: "alist/2.0.0/alist", checksum: "sha256:v2" });
+    assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
+    assert.equal(repository.activateComponentVersion("alist", "2.0.0"), false);
+    assert.equal(repository.updateComponentVersionHealth("alist", "2.0.0", "healthy"), true);
+    assert.equal(repository.activateComponentVersion("alist", "2.0.0"), true);
+    assert.deepEqual(repository.componentById("alist")?.version, "2.0.0");
+    assert.equal(repository.updateComponentVersionHealth("alist", "1.0.0", "healthy"), true);
+    assert.equal(repository.activateComponentVersion("alist", "1.0.0"), true);
+    assert.deepEqual(repository.componentById("alist")?.version, "1.0.0");
+    assert.deepEqual(repository.componentVersions("alist").map((item) => item.version).sort(), ["1.0.0", "2.0.0"]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("expired browser sessions cancel queued tasks during reconciliation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-expiry-"));
   const database = openDatabase(dataDir);

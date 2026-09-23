@@ -557,11 +557,11 @@ export class Repository {
     const installedAt = now();
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db.prepare(`INSERT INTO managed_components (id, version, executable, checksum, installed_at, health)
-        VALUES (?, ?, ?, ?, ?, 'unknown')
-        ON CONFLICT(id) DO UPDATE SET version = excluded.version, executable = excluded.executable,
-          checksum = excluded.checksum, installed_at = excluded.installed_at, health = 'unknown'`)
-        .run(input.id, input.version, input.executable, input.checksum, installedAt);
+      const current = this.db.prepare("SELECT id FROM managed_components WHERE id = ?").get(input.id);
+      if (current === undefined) {
+        this.db.prepare("INSERT INTO managed_components (id, version, executable, checksum, installed_at, health) VALUES (?, ?, ?, ?, ?, 'unknown')")
+          .run(input.id, input.version, input.executable, input.checksum, installedAt);
+      }
       this.db.prepare(`INSERT INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health)
         VALUES (?, ?, ?, ?, ?, 'unknown')
         ON CONFLICT(component_id, version) DO UPDATE SET executable = excluded.executable,
