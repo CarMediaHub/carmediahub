@@ -30,7 +30,7 @@ import { executeNetworkRequest } from "./network-service.js";
 import { CredentialVault } from "./credential-vault.js";
 import { JobExecutor } from "./job-executor.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
-import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
+import type { DisplayMode, DisplayModeResult, PluginJob, ScopeContext } from "@carmediahub/sdk";
 import { BrowserWorkerManager } from "./browser-worker-manager.js";
 import { BrowserTaskExecutor } from "./browser-task-executor.js";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
@@ -38,7 +38,13 @@ import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } fr
 import { createManagedBrowserWorkerOptionsResolver } from "./browser-task-runtime.js";
 import { loadBrowserTargetRegistry } from "./browser-target-config.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; displayModeRequester?: (scope: ScopeContext, mode: DisplayMode) => Promise<DisplayModeResult> | DisplayModeResult; }
+
+export async function requestDisplayMode(options: Pick<AppOptions, "displayModeRequester">, scope: ScopeContext, display: DisplayContext, mode: DisplayMode): Promise<DisplayModeResult> {
+  if (mode === "fullscreen" && !display.fullscreenAvailable) return { mode, accepted: false, reason: "unsupported" };
+  if (options.displayModeRequester === undefined) return { mode, accepted: mode === "normal", ...(mode === "fullscreen" ? { reason: "user-action-required" as const } : {}) };
+  return options.displayModeRequester(scope, mode);
+}
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }
 
@@ -334,8 +340,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "display")) throw new Error("Plugin display capability is not granted");
         const input = request.params as { mode?: unknown } | undefined;
         if (input?.mode !== "normal" && input?.mode !== "fullscreen") throw new Error("Invalid display mode");
-        if (input.mode === "fullscreen" && !scope.display.fullscreenAvailable) return { mode: input.mode, accepted: false, reason: "unsupported" };
-        return { mode: input.mode, accepted: true };
+        return requestDisplayMode(options, scope, scope.display, input.mode);
       }
       if (request.method === "notifications.publish") {
         if (!repository.pluginHasCapability(scope.installationId, "events")) throw new Error("Plugin events capability is not granted");
