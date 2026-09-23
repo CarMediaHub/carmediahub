@@ -521,7 +521,7 @@ export class Repository {
   serviceBindingByName(name: string, installationId?: string): { endpoint: string } | undefined {
     const row = installationId === undefined
       ? this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id IS NULL").get(name)
-      : this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND installation_id = ?").get(name, installationId);
+      : this.db.prepare("SELECT endpoint FROM service_bindings WHERE name = ? AND (installation_id = ? OR installation_id IS NULL) ORDER BY CASE WHEN installation_id = ? THEN 0 ELSE 1 END LIMIT 1").get(name, installationId, installationId);
     const typed = row as { endpoint?: string } | undefined;
     return typed?.endpoint === undefined ? undefined : { endpoint: typed.endpoint };
   }

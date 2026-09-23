@@ -29,6 +29,23 @@ test("service bindings are scoped to the declared plugin installation", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("plugin bindings prefer an installation override and fall back to a Core global binding", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-binding-fallback-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    repository.registerComponent({ id: "alist", version: "1.0.0", executable: "alist/alist", checksum: "sha256:test" });
+    repository.bindService({ componentId: "alist", name: "shared-service", endpoint: "http://127.0.0.1:5244" });
+    assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_missing"), { endpoint: "http://127.0.0.1:5244/" });
+    const manifest = { id: "adapter-override", version: "0.1.0", sdk: "^0.1.0", name: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, description: { en: "Adapter", "zh-CN": "适配器", ko: "어댑터" }, category: "adapter", runtime: "isolated-worker", capabilities: ["network"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } } as const;
+    const installation = repository.installPlugin(manifest);
+    repository.bindService({ componentId: "alist", name: "shared-service", endpoint: "http://127.0.0.1:5245", installationId: installation.id });
+    assert.deepEqual(repository.serviceBindingByName("shared-service", installation.id), { endpoint: "http://127.0.0.1:5245/" });
+    assert.deepEqual(repository.serviceBindingByName("shared-service", "plugin_other"), { endpoint: "http://127.0.0.1:5244/" });
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("capability grants can only be reduced from the manifest declaration", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-capability-grant-"));
   const database = openDatabase(dataDir);
