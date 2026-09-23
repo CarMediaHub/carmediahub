@@ -5,6 +5,7 @@ export type BrowserWorkerStarter = (options: BrowserWorkerDriverOptions) => Prom
 
 interface ManagedWorker {
   readonly sessionId: string;
+  readonly userId: string;
   readonly installationId: string;
   readonly targetId: string;
   readonly handle: BrowserWorkerHandle;
@@ -35,7 +36,7 @@ export class BrowserWorkerManager {
     let handle: BrowserWorkerHandle;
     try { handle = await start; }
     finally { this.pending.delete(key); }
-    this.workers.set(key, { sessionId: options.scope.sessionId, installationId: options.scope.installationId, targetId: options.targetId, handle });
+    this.workers.set(key, { sessionId: options.scope.sessionId, userId: options.scope.userId, installationId: options.scope.installationId, targetId: options.targetId, handle });
     return handle;
   }
 
@@ -66,6 +67,15 @@ export class BrowserWorkerManager {
     const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[2] === installationId).map(([, promise]) => promise.catch(() => undefined));
     await Promise.all(pending);
     const entries = [...this.workers.entries()].filter(([, worker]) => worker.installationId === installationId);
+    for (const [key] of entries) this.workers.delete(key);
+    await Promise.all(entries.map(([, worker]) => worker.handle.stop()));
+    return entries.length;
+  }
+
+  async stopUser(userId: string): Promise<number> {
+    const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[1] === userId).map(([, promise]) => promise.catch(() => undefined));
+    await Promise.all(pending);
+    const entries = [...this.workers.entries()].filter(([, worker]) => worker.userId === userId);
     for (const [key] of entries) this.workers.delete(key);
     await Promise.all(entries.map(([, worker]) => worker.handle.stop()));
     return entries.length;

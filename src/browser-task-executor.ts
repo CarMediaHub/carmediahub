@@ -55,5 +55,14 @@ export class BrowserTaskExecutor {
     }
     return cancelled;
   }
+  cancelUser(organizationId: string, userId: string): number {
+    let cancelled = 0;
+    for (const task of this.repository.browserTasksForOrganization(organizationId)) {
+      if (task.userId !== userId || (task.status !== "queued" && task.status !== "running")) continue;
+      const scope = { deploymentId: "core", organizationId, userId, deviceId: "core", sessionId: "core", installationId: task.installationId };
+      this.cancel(scope, task.id); cancelled += 1;
+    }
+    return cancelled;
+  }
   private key(scope: ScopeContext, taskId: string): string { return `${scope.organizationId}\0${scope.userId}\0${scope.installationId}\0${taskId}`; }
 }
