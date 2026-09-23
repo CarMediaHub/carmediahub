@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "id": "media-example",
+      "origins": ["https://media.example"]
+    }
+  ]
+}

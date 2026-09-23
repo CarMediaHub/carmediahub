@@ -35,6 +35,7 @@ import { BrowserTaskExecutor } from "./browser-task-executor.js";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
 import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } from "./browser-task-handlers.js";
 import { createManagedBrowserWorkerOptionsResolver } from "./browser-task-runtime.js";
+import { loadBrowserTargetRegistry } from "./browser-target-config.js";
 
 export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; }
 
@@ -117,7 +118,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
   const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
   const browserTaskExecutor = options.browserTaskExecutor ?? new BrowserTaskExecutor(repository);
-  const browserTargetRegistry = options.browserTargetRegistry;
+  const browserTargetRegistry = options.browserTargetRegistry ?? loadBrowserTargetRegistry(options.dataDir);
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
