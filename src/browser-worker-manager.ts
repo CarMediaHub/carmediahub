@@ -56,18 +56,18 @@ export class BrowserWorkerManager {
     return true;
   }
 
-  async stopSession(sessionId: string): Promise<boolean> {
-    const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[3] === sessionId).map(([, promise]) => promise.catch(() => undefined));
+  async stopSession(organizationId: string, sessionId: string): Promise<boolean> {
+    const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[0] === organizationId && key.split("\0")[3] === sessionId).map(([, promise]) => promise.catch(() => undefined));
     await Promise.all(pending);
-    const entries = [...this.workers.entries()].filter(([, worker]) => worker.sessionId === sessionId);
+    const entries = [...this.workers.entries()].filter(([, worker]) => worker.organizationId === organizationId && worker.sessionId === sessionId);
     for (const [key, worker] of entries) { this.workers.delete(key); await worker.handle.stop(); }
     return entries.length > 0;
   }
 
-  async stopInstallation(installationId: string): Promise<number> {
-    const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[2] === installationId).map(([, promise]) => promise.catch(() => undefined));
+  async stopInstallation(organizationId: string, installationId: string): Promise<number> {
+    const pending = [...this.pending.entries()].filter(([key]) => key.split("\0")[0] === organizationId && key.split("\0")[2] === installationId).map(([, promise]) => promise.catch(() => undefined));
     await Promise.all(pending);
-    const entries = [...this.workers.entries()].filter(([, worker]) => worker.installationId === installationId);
+    const entries = [...this.workers.entries()].filter(([, worker]) => worker.organizationId === organizationId && worker.installationId === installationId);
     for (const [key] of entries) this.workers.delete(key);
     await Promise.all(entries.map(([, worker]) => worker.handle.stop()));
     return entries.length;

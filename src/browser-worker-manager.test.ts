@@ -47,8 +47,8 @@ test("browser worker manager can stop a session without exposing its scope", asy
   let stops = 0;
   const manager = new BrowserWorkerManager(async () => fakeHandle(() => { stops += 1; }));
   await manager.acquire(options("media"));
-  assert.equal(await manager.stopSession(scope.sessionId), true);
-  assert.equal(await manager.stopSession(scope.sessionId), false);
+  assert.equal(await manager.stopSession(scope.organizationId, scope.sessionId), true);
+  assert.equal(await manager.stopSession(scope.organizationId, scope.sessionId), false);
   assert.equal(stops, 1);
 });
 
@@ -98,5 +98,16 @@ test("browser worker manager does not cross organization user boundaries", async
   assert.equal(await manager.stopUser(scope.organizationId, scope.userId), 1);
   assert.equal(stops, 1);
   assert.equal(manager.has({ ...scope, organizationId: "other-org" }), true);
+  await manager.stopAll();
+});
+
+test("browser worker manager does not cross organization session or installation boundaries", async () => {
+  let stops = 0;
+  const manager = new BrowserWorkerManager(async () => fakeHandle(() => { stops += 1; }));
+  await manager.acquire(options("media"));
+  await manager.acquire({ ...options("media"), scope: { ...scope, organizationId: "other-org" } });
+  assert.equal(await manager.stopSession("other-org", scope.sessionId), true);
+  assert.equal(await manager.stopInstallation("other-org", scope.installationId), 0);
+  assert.equal(stops, 1);
   await manager.stopAll();
 });
