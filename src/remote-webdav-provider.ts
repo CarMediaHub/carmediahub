@@ -107,7 +107,7 @@ export class RemoteWebDavProvider {
     const source = this.source(scope, session.sourceHandle);
     const item = this.item(scope, session.sourceHandle, session.itemHandle);
     const response = await this.request(scope, source, "GET", item.href, { Range: `bytes=${start}-${end}` });
-    if (response.status !== 206 && response.status !== 200) throw new Error("WebDAV media read failed");
+    if (response.status !== 206) throw new Error("WebDAV media range was not honored");
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > maxRange) throw new Error("WebDAV media response is too large");
     const total = Number(response.headers.get("content-range")?.match(/\/([0-9]+)$/u)?.[1] ?? item.size ?? (start + bytes.length));
@@ -146,7 +146,7 @@ export class RemoteWebDavProvider {
       if (!directory && !Number.isSafeInteger(length)) continue;
       const modified = tag(block, "getlastmodified");
       const item: RemoteItem = { itemHandle: `remote_item_${crypto.randomBytes(32).toString("base64url")}`, name: name.slice(0, 160), kind: directory ? "directory" : "file", href: this.normalizePath(decoded) };
-      if (!directory) { item.size = Math.max(length, 0); item.contentType = "application/octet-stream"; }
+      if (!directory) { item.size = Math.max(length, 0); item.contentType = tag(block, "getcontenttype")?.split(";", 1)[0] ?? "application/octet-stream"; }
       if (modified !== undefined) item.updatedAt = modified;
       results.push(item);
     }
