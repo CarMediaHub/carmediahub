@@ -23,7 +23,6 @@ export function buildBrowserLaunchSpec(dataDir: string, scope: { organizationId:
       "--disable-extensions",
       "--disable-sync",
       "--disable-background-networking",
-      "--remote-debugging-pipe",
       `--user-data-dir=${userDataDir}`
     ])
   };

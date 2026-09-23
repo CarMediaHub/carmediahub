@@ -9,7 +9,7 @@ test("browser launch spec is silent, isolated and pipe-based", () => {
   const spec = buildBrowserLaunchSpec("C:/cmh-data", scope);
   assert.equal(spec.userDataDir, path.resolve("C:/cmh-data", "browser", "sessions", "org", "user", "plugin_abc", "browser_session"));
   assert.equal(spec.args.includes("--mute-audio"), true);
-  assert.equal(spec.args.includes("--remote-debugging-pipe"), true);
+  assert.equal(spec.args.some((arg) => arg.startsWith("--remote-debugging-")), false);
   assert.equal(spec.args.some((arg) => arg.startsWith("--remote-debugging-port=")), false);
   assert.equal(spec.args.some((arg) => arg.startsWith("--user-data-dir=")), true);
 });
