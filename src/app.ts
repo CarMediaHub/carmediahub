@@ -1350,10 +1350,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const routeMethods = repository.pluginRouteMethods(application.installationId, relativePath);
     if (routeMethods === undefined) {
       streamLease.release();
+      drainLease.release();
       return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
     }
     if (!routeMethods.includes(request.method)) {
       streamLease.release();
+      drainLease.release();
       return reply.code(405).header("allow", routeMethods.join(", ")).send({ code: "CMH.GATEWAY.METHOD_NOT_ALLOWED", messageKey: "errors.gateway.methodNotAllowed" });
     }
     try {
