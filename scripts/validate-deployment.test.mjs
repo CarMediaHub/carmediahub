@@ -17,6 +17,11 @@ test("rejects an auxiliary service and a public host port", () => {
   assert.throws(() => validateDeployment(`${compose.replace("services:\n  core:", "services:\n  postgres:\n    image: postgres\n  core:")}\n`, dockerfile), /Compose must define Core|auxiliary services/u);
 });
 
+test("rejects a drifting build context or unmanaged data mount", () => {
+  assert.throws(() => validateDeployment(compose.replace("context: ..", "context: ."), dockerfile), /sibling workspace context/u);
+  assert.throws(() => validateDeployment(compose.replace("carmediahub-data:/var/lib/carmediahub", "./data:/app/data"), dockerfile), /managed Core data directory/u);
+});
+
 test("rejects implicit environment and a non-Core entrypoint", () => {
   assert.throws(() => validateDeployment(compose, `${dockerfile}\nENV PATH=/usr/local/bin\nENTRYPOINT ["sh"]\n`), /implicit PATH|entrypoint/u);
 });

@@ -6,8 +6,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export function validateDeployment(compose, dockerfile) {
   const fail = (message) => { throw new Error(`Deployment validation failed: ${message}`); };
   if (!/^services:\s*\r?\n\s+core:\s*$/mu.test(compose)) fail("Compose must define Core as the service entry");
+  if (!/build:\s*\r?\n\s+context:\s+\.\.\s*\r?\n\s+dockerfile:\s+carmediahub\/Dockerfile/u.test(compose)) fail("Compose must build from the sibling workspace context and explicit Core Dockerfile");
   if (/^\s{2,}(postgres|postgresql|broker|plugin|worker)\s*:/mu.test(compose)) fail("Compose must not publish auxiliary services before their runtime contract is wired");
   if (!/127\.0\.0\.1:8787:8787/u.test(compose)) fail("Core port must bind to loopback by default");
+  if (!/volumes:\s*\r?\n\s+- carmediahub-data:\/var\/lib\/carmediahub/u.test(compose)) fail("Compose must persist only the managed Core data directory");
   if (!/read_only:\s*true/u.test(compose) || !/no-new-privileges:true/u.test(compose)) fail("Compose hardening defaults are missing");
   if (!/healthcheck:\s*\r?\n\s+test:\s*\["CMD",\s*"node",/u.test(compose)) fail("Compose must define a Core liveness healthcheck");
   const portSection = compose.match(/\n\s+ports:\s*\r?\n((?:\s+-.*\r?\n)*)/u)?.[1] ?? "";
