@@ -38,10 +38,10 @@ test("rejects unsafe identities, arguments and unavailable files", async () => {
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
-test("rejects an FFmpeg installation without the media-processing role", async () => {
+test("rejects a component installation without a required role", async () => {
   const { dataDir, component } = fixture();
   try {
-    await assert.rejects(runManagedComponent(dataDir, { ...component, id: "ffmpeg", provides: ["browser-engine"] }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.ROLE_MISMATCH");
+    await assert.rejects(runManagedComponent(dataDir, { ...component, provides: ["browser-engine"] }, { requiredRole: "media-processing" }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.ROLE_MISMATCH");
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

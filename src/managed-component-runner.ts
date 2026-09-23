@@ -9,7 +9,7 @@ const componentId = /^[a-z][a-z0-9-]{1,63}$/u;
 const version = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 
 export interface ManagedComponentRef { id: string; version: string; executable: string; checksum: string; provides?: readonly string[]; }
-export interface ManagedRunOptions { args?: readonly string[]; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal; }
+export interface ManagedRunOptions { args?: readonly string[]; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal; requiredRole?: string; }
 export interface ManagedRunResult { exitCode: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string; }
 
 async function sha256File(location: string): Promise<string> {
@@ -31,7 +31,7 @@ function validateArgs(args: readonly string[]): void {
 /** Runs only an already verified managed component; it never consults PATH or a shell. */
 export function runManagedComponent(dataDir: string, component: ManagedComponentRef, options: ManagedRunOptions = {}): Promise<ManagedRunResult> {
   if (!componentId.test(component.id) || !version.test(component.version) || !/^[a-f0-9]{64}$/u.test(component.checksum)) return Promise.reject(runError("CMH.COMPONENT.IDENTITY_INVALID"));
-  if (component.id === "ffmpeg" && component.provides !== undefined && !component.provides.includes("media-processing")) return Promise.reject(runError("CMH.COMPONENT.ROLE_MISMATCH"));
+  if (options.requiredRole !== undefined && (!/^[a-z][a-z0-9-]{0,63}$/u.test(options.requiredRole) || component.provides === undefined || !component.provides.includes(options.requiredRole))) return Promise.reject(runError("CMH.COMPONENT.ROLE_MISMATCH"));
   const args = options.args ?? [];
   try { validateArgs(args); } catch (error) { return Promise.reject(error); }
   const timeoutMs = options.timeoutMs ?? 30_000;

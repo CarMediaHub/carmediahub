@@ -42,7 +42,7 @@ export function registerMediaTransformHandlers(input: {
     if (payload.container === "fmp4") args.push("-movflags", "+frag_keyframe+empty_moov");
     args.push(output);
     try {
-      const result = await runManagedComponent(input.dataDir, input.ffmpeg, { args, timeoutMs: 10 * 60 * 1000, maxOutputBytes: 256 * 1024, signal });
+      const result = await runManagedComponent(input.dataDir, input.ffmpeg, { args, timeoutMs: 10 * 60 * 1000, maxOutputBytes: 256 * 1024, signal, requiredRole: "media-processing" });
       if (result.exitCode !== 0 || !fs.existsSync(output)) throw new Error("FFmpeg failed");
       const bytes = fs.statSync(output).size;
       const createdAt = new Date().toISOString();
@@ -65,7 +65,7 @@ export function registerMediaTransformHandlers(input: {
     fs.mkdirSync(directory, { recursive: true });
     const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", source.path, "-map", "0:v:0?", "-map", "0:a:0?", "-c:v", "libx264", "-c:a", "aac", "-f", "hls", "-hls_time", String(duration), "-hls_playlist_type", "vod", "-hls_segment_filename", path.join(directory, "segment_%05d.ts"), playlist];
     try {
-      const result = await runManagedComponent(input.dataDir, input.ffmpeg, { args, timeoutMs: 10 * 60 * 1000, maxOutputBytes: 256 * 1024, signal });
+      const result = await runManagedComponent(input.dataDir, input.ffmpeg, { args, timeoutMs: 10 * 60 * 1000, maxOutputBytes: 256 * 1024, signal, requiredRole: "media-processing" });
       if (result.exitCode !== 0 || !fs.existsSync(playlist)) throw new Error("FFmpeg HLS failed");
       const createdAt = new Date().toISOString();
       input.database.prepare("INSERT INTO media_hls_sessions (id, organization_id, user_id, installation_id, directory_name, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(sessionId, scope.organizationId, scope.userId, scope.installationId, sessionId, createdAt, new Date(Date.now() + 60 * 60 * 1000).toISOString());
