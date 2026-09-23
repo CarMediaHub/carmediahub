@@ -824,6 +824,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     if (hadSecrets && !input.capabilities.includes("secrets")) credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    await browserWorkerManager.stopInstallation(installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.capabilities.updated", installationId);
     return { installationId, capabilities: repository.pluginCapabilities(installationId) };
@@ -1012,6 +1013,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    await browserWorkerManager.stopInstallation(installationId);
     await supervisor.disable(installationId);
     repository.audit(user.id, "plugin.disabled", installationId);
     return reply.code(204).send();
@@ -1037,6 +1039,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     runtimeBroker.revokeInstallationCredentials(installationId);
     credentialVault.revokeInstallation(user.organizationId, installationId);
     jobExecutor.cancelInstallation(user.organizationId, installationId);
+    await browserWorkerManager.stopInstallation(installationId);
     await supervisor.stop(installationId);
     repository.audit(user.id, "plugin.uninstalled", installationId);
     return reply.code(204).send();
