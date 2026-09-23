@@ -29,6 +29,19 @@ test("managed component versions require health before activation and preserve r
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("verified plugin package records retain multiple versions", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-package-versions-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const base = { packageId: "example-plugin", digest: "a".repeat(64), location: "plugins/example-plugin/", workerEntry: "./worker.js" } as const;
+    repository.registerVerifiedPluginPackage({ ...base, packageVersion: "1.0.0" });
+    repository.registerVerifiedPluginPackage({ ...base, packageVersion: "1.1.0", location: "plugins/example-plugin/1.1.0/" });
+    assert.deepEqual(repository.verifiedPluginPackages().map((item) => item.packageVersion).sort(), ["1.0.0", "1.1.0"]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("expired browser sessions cancel queued tasks during reconciliation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-expiry-"));
   const database = openDatabase(dataDir);

@@ -93,7 +93,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
       worker_entry TEXT,
       runtime_entry TEXT,
       verified_at TEXT NOT NULL,
-      PRIMARY KEY (package_id)
+      PRIMARY KEY (package_id, package_version)
     );
     CREATE TABLE IF NOT EXISTS media_roots (
       id TEXT PRIMARY KEY,
@@ -299,6 +299,32 @@ export function openDatabase(dataDir: string): CoreDatabase {
   // Keep existing self-hosted databases compatible with the package runtime contract.
   const columns = db.prepare("PRAGMA table_info(verified_plugin_packages)").all() as Array<{ name?: string }>;
   if (!columns.some((column) => column.name === "runtime_entry")) db.exec("ALTER TABLE verified_plugin_packages ADD COLUMN runtime_entry TEXT");
+  const verifiedPackageTable = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'verified_plugin_packages'").get() as { sql?: string } | undefined;
+  if (verifiedPackageTable?.sql?.includes("PRIMARY KEY (package_id)") === true) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(`
+        CREATE TABLE verified_plugin_packages_v2 (
+          package_id TEXT NOT NULL,
+          package_version TEXT NOT NULL,
+          digest TEXT NOT NULL,
+          location TEXT NOT NULL,
+          worker_entry TEXT,
+          runtime_entry TEXT,
+          verified_at TEXT NOT NULL,
+          PRIMARY KEY (package_id, package_version)
+        );
+        INSERT INTO verified_plugin_packages_v2 (package_id, package_version, digest, location, worker_entry, runtime_entry, verified_at)
+          SELECT package_id, package_version, digest, location, worker_entry, runtime_entry, verified_at FROM verified_plugin_packages;
+        DROP TABLE verified_plugin_packages;
+        ALTER TABLE verified_plugin_packages_v2 RENAME TO verified_plugin_packages;
+      `);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  }
   const bindingColumns = db.prepare("PRAGMA table_info(service_bindings)").all() as Array<{ name?: string }>;
   if (!bindingColumns.some((column) => column.name === "installation_id")) db.exec("ALTER TABLE service_bindings ADD COLUMN installation_id TEXT");
   const bindingTable = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'service_bindings'").get() as { sql?: string } | undefined;
