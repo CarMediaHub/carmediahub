@@ -101,6 +101,7 @@ function publicWorkerStatus(status: ReturnType<WorkerSupervisor["status"]>): { i
 }
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
+  const browserTargetRegistry = options.browserTargetRegistry ?? loadBrowserTargetRegistry(options.dataDir);
   const database = openDatabase(options.dataDir);
   cleanupExpiredTransformOutputs(database.db, options.dataDir);
   const serverKey = ensureServerKey(options.dataDir);
@@ -118,7 +119,6 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const jobExecutor = options.jobExecutor ?? new JobExecutor(jobs);
   const browserWorkerManager = options.browserWorkerManager ?? new BrowserWorkerManager();
   const browserTaskExecutor = options.browserTaskExecutor ?? new BrowserTaskExecutor(repository);
-  const browserTargetRegistry = options.browserTargetRegistry ?? loadBrowserTargetRegistry(options.dataDir);
   const history = new HistoryService(database.db);
   const catalogService = new CatalogService(database.db);
   const notifications = new NotificationService(database.db);
