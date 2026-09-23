@@ -24,6 +24,7 @@ import { HistoryService } from "./history-service.js";
 import { CatalogService } from "./catalog-service.js";
 import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
+import { CredentialVault } from "./credential-vault.js";
 import { JobExecutor } from "./job-executor.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { PluginJob, ScopeContext } from "@carmediahub/sdk";
@@ -96,6 +97,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   cleanupExpiredTransformOutputs(database.db, options.dataDir);
   const serverKey = ensureServerKey(options.dataDir);
   const repository = new Repository(database.db, serverKey);
+  const credentialVault = new CredentialVault(options.dataDir, serverKey);
   const mediaLibrary = new MediaLibraryService(database.db, serverKey);
   const jobs = new PluginJobService(database.db);
   jobs.recoverInterrupted();
@@ -167,9 +169,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       }
       if (request.method === "network.request") {
         if (!repository.pluginHasCapability(scope.installationId, "network")) throw new Error("Plugin network capability is not granted");
-        const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown } | undefined;
+        const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown; credentialRef?: unknown } | undefined;
         if (typeof input?.binding !== "string" || typeof input.method !== "string" || typeof input.path !== "string") throw new Error("Invalid network request");
-        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body }, (name) => repository.serviceBindingByName(name, scope.installationId));
+        if (input.credentialRef !== undefined && typeof input.credentialRef !== "string") throw new Error("Invalid credential reference");
+        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) }, (name) => repository.serviceBindingByName(name, scope.installationId), (credentialRef) => credentialVault.resolve(scope, credentialRef));
       }
       if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list" || request.method === "data.migrate" || request.method === "data.migrations") {
         if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");
@@ -685,6 +688,37 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get("/api/components", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings(), bindingGrants: repository.serviceBindingGrants() };
+  });
+
+  app.get("/api/credentials", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    return user === undefined ? undefined : { credentials: credentialVault.list({ organizationId: user.organizationId, userId: user.id }) };
+  });
+
+  app.post("/api/credentials", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ name?: unknown; kind?: unknown; value?: unknown; installationId?: unknown }>(request);
+      if (typeof input?.name !== "string" || (input.kind !== "cookie" && input.kind !== "authorization") || typeof input.value !== "string" || typeof input.installationId !== "string") throw new Error("Invalid credential");
+      const installation = repository.pluginInstallation(input.installationId);
+      if (installation?.status !== "installed" || !repository.pluginHasCapability(input.installationId, "secrets")) throw new Error("Plugin installation is unavailable");
+      const scope: ScopeContext = { deploymentId: "admin", organizationId: user.organizationId, userId: user.id, deviceId: "admin", sessionId: "admin", installationId: input.installationId };
+      const credential = credentialVault.create(scope, { name: input.name, kind: input.kind, value: input.value });
+      repository.audit(user.id, "credential.created", credential.id);
+      return reply.code(201).send({ credential });
+    } catch {
+      return reply.code(400).send({ code: "CMH.CREDENTIAL.INVALID", messageKey: "errors.credential.invalid" });
+    }
+  });
+
+  app.delete("/api/credentials/:id", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const credentialId = (request.params as { id?: unknown }).id;
+    if (typeof credentialId !== "string" || !credentialVault.revoke({ organizationId: user.organizationId, userId: user.id }, credentialId)) return reply.code(404).send({ code: "CMH.CREDENTIAL.NOT_FOUND", messageKey: "errors.credential.notFound" });
+    repository.audit(user.id, "credential.revoked", credentialId);
+    return reply.code(204).send();
   });
 
   app.get("/api/plugins", async (request, reply) => {

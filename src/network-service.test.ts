@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import http from "node:http";
+import http, { type AddressInfo } from "node:http";
 import test from "node:test";
 import { executeNetworkRequest } from "./network-service.js";
 
@@ -44,4 +44,21 @@ test("limits concurrent requests per binding and releases the slot", async () =>
     release();
     await Promise.all(pending);
   } finally { release(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+});
+
+test("injects only a Core-resolved opaque credential and rejects header overrides", async () => {
+  const server = http.createServer((request, response) => {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end(`${request.headers.cookie ?? ""}|${request.headers.authorization ?? ""}`);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as AddressInfo;
+  try {
+    const resolve = (ref: string) => ref === "cred_cookie" ? { name: "cookie" as const, value: "session=opaque" } : undefined;
+    const result = await executeNetworkRequest({ binding: "local-service", method: "GET", path: "/", credentialRef: "cred_cookie" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` }), resolve);
+    assert.equal(Buffer.from(result.bodyBase64 ?? "", "base64").toString(), "session=opaque|");
+    await assert.rejects(() => executeNetworkRequest({ binding: "local-service", method: "GET", path: "/", credentialRef: "cred_cookie", headers: { cookie: "forged" } }, () => ({ endpoint: `http://127.0.0.1:${address.port}` }), resolve), /overridden/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });

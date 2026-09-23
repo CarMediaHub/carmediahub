@@ -5,7 +5,7 @@ import path from "node:path";
 const manifestName = "backup-manifest.json";
 // Core uses SQLite WAL mode; an offline snapshot must include any sidecar files
 // that may still contain committed pages when the process has stopped.
-const managedFiles = ["carmediahub.sqlite", "carmediahub.sqlite-wal", "carmediahub.sqlite-shm", "secrets/session-hmac.key"] as const;
+const managedFiles = ["carmediahub.sqlite", "carmediahub.sqlite-wal", "carmediahub.sqlite-shm", "secrets/session-hmac.key", "secrets/credentials.json"] as const;
 const managedDirectories = ["components", "plugins"] as const;
 
 export interface BackupFile { path: string; bytes: number; sha256: string; }

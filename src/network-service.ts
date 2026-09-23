@@ -1,6 +1,7 @@
-export interface NetworkExecutionRequest { binding: string; method: string; path: string; headers?: unknown; body?: unknown; }
+export interface NetworkExecutionRequest { binding: string; method: string; path: string; headers?: unknown; body?: unknown; credentialRef?: string; }
 export interface NetworkExecutionResponse { status: number; headers: Record<string, string>; bodyBase64?: string; }
 export type BindingResolver = (name: string) => { endpoint: string } | undefined;
+export type CredentialResolver = (credentialRef: string) => { name: "cookie" | "authorization"; value: string } | undefined;
 
 const methods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 const headers = new Set(["accept", "accept-language", "content-type", "if-none-match", "range"]);
@@ -8,7 +9,7 @@ const maxRedirects = 3;
 const maxConcurrentPerBinding = 10;
 const activeRequests = new Map<string, number>();
 
-export async function executeNetworkRequest(input: NetworkExecutionRequest, resolve: BindingResolver): Promise<NetworkExecutionResponse> {
+export async function executeNetworkRequest(input: NetworkExecutionRequest, resolve: BindingResolver, resolveCredential?: CredentialResolver): Promise<NetworkExecutionResponse> {
   if (!/^[a-z][a-z0-9-]{0,63}$/u.test(input.binding) || !methods.has(input.method) || !input.path.startsWith("/") || input.path.includes("\\") || input.path.split("/").includes("..")) throw new Error("Invalid network request");
   if (input.body !== undefined && (typeof input.body !== "string" || Buffer.byteLength(input.body, "utf8") > 64 * 1024)) throw new Error("Network request body is too large");
   const binding = resolve(input.binding);
@@ -16,7 +17,17 @@ export async function executeNetworkRequest(input: NetworkExecutionRequest, reso
   const base = new URL(binding.endpoint);
   let target = new URL(input.path, base);
   if (target.origin !== base.origin || target.username !== "" || target.password !== "" || target.hash !== "") throw new Error("Network target is invalid");
-  const requestHeaders: Record<string, string> = typeof input.headers === "object" && input.headers !== null ? Object.fromEntries(Object.entries(input.headers as Record<string, unknown>).filter(([key, value]) => headers.has(key.toLowerCase()) && typeof value === "string" && value.length <= 2048) as Array<[string, string]>) : {};
+  const rawHeaders = typeof input.headers === "object" && input.headers !== null ? input.headers as Record<string, unknown> : {};
+  if (input.credentialRef !== undefined && Object.keys(rawHeaders).some((key) => key.toLowerCase() === "cookie" || key.toLowerCase() === "authorization")) throw new Error("Credential header cannot be overridden");
+  const requestHeaders: Record<string, string> = Object.fromEntries(Object.entries(rawHeaders).filter(([key, value]) => headers.has(key.toLowerCase()) && typeof value === "string" && value.length <= 2048) as Array<[string, string]>);
+  if (input.credentialRef !== undefined) {
+    if (resolveCredential === undefined || !/^cred_[A-Za-z0-9-]+$/u.test(input.credentialRef)) throw new Error("Credential reference is unavailable");
+    const credential = resolveCredential(input.credentialRef);
+    if (credential === undefined) throw new Error("Credential reference is unavailable");
+    const header = credential.name === "cookie" ? "cookie" : "authorization";
+    if (requestHeaders[header] !== undefined) throw new Error("Credential header cannot be overridden");
+    requestHeaders[header] = credential.value;
+  }
   const active = activeRequests.get(input.binding) ?? 0;
   if (active >= maxConcurrentPerBinding) throw new Error("Network concurrency limit exceeded");
   activeRequests.set(input.binding, active + 1);
