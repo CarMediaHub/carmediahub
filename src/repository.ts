@@ -199,11 +199,10 @@ export class Repository {
   }
 
   browserSessions(scope: ScopeContext): BrowserSession[] {
+    this.reconcileExpiredBrowserSessions(scope);
     const rows = this.db.prepare("SELECT id, name, purpose, status, expires_at FROM browser_sessions WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC")
       .all(scope.organizationId, scope.userId, scope.installationId) as Array<Record<string, string>>;
-    const result = rows.map(browserSession);
-    for (const session of result) if (session.status === "expired") this.db.prepare("UPDATE browser_sessions SET status = 'expired' WHERE id = ? AND status = 'active'").run(session.id);
-    return result;
+    return rows.map(browserSession);
   }
 
   revokeBrowserSession(scope: ScopeContext, sessionId: string): boolean {
@@ -247,6 +246,7 @@ export class Repository {
 
   claimBrowserTask(scope: ScopeContext): BrowserTask | undefined {
     const timestamp = now();
+    this.reconcileExpiredBrowserSessions(scope);
     const row = this.db.prepare(`UPDATE browser_tasks SET status = 'running', updated_at = ?
       WHERE id = (SELECT task.id FROM browser_tasks task JOIN browser_sessions session ON session.id = task.session_id
         WHERE task.organization_id = ? AND task.user_id = ? AND task.installation_id = ? AND task.status = 'queued'
@@ -254,6 +254,14 @@ export class Repository {
       AND status = 'queued' RETURNING id, session_id, kind, input_json, status, created_at, updated_at`)
       .get(timestamp, scope.organizationId, scope.userId, scope.installationId, timestamp) as Record<string, string> | undefined;
     return row === undefined ? undefined : this.browserTaskFromRow(row);
+  }
+
+  private reconcileExpiredBrowserSessions(scope: ScopeContext): void {
+    const timestamp = now();
+    this.db.prepare("UPDATE browser_sessions SET status = 'expired' WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'active' AND expires_at <= ?")
+      .run(scope.organizationId, scope.userId, scope.installationId, timestamp);
+    this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status IN ('queued', 'running') AND session_id IN (SELECT id FROM browser_sessions WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'expired')")
+      .run(timestamp, scope.organizationId, scope.userId, scope.installationId, scope.organizationId, scope.userId, scope.installationId);
   }
 
   completeBrowserTask(scope: ScopeContext, taskId: string): BrowserTask | undefined { return this.transitionBrowserTask(scope, taskId, "succeeded"); }

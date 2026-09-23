@@ -8,6 +8,24 @@ import { openDatabase } from "./database.js";
 import { Repository } from "./repository.js";
 import { ensureServerKey } from "./security.js";
 
+test("expired browser sessions cancel queued tasks during reconciliation", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-browser-expiry-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const user = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
+    const scope = { deploymentId: "dep", organizationId: user.organization_id, userId: user.id, deviceId: "vehicle", sessionId: "session", installationId: "plugin" };
+    repository.createBrowserSession(scope, { name: "expiry", purpose: "test", ttlSeconds: 30 });
+    const session = repository.browserSessions(scope)[0]!;
+    const task = repository.createBrowserTask(scope, { sessionId: session.id, kind: "navigate-and-capture", input: { target: "fixture" } });
+    database.db.prepare("UPDATE browser_sessions SET expires_at = ? WHERE id = ?").run(new Date(Date.now() - 1000).toISOString(), session.id);
+    assert.equal(repository.browserSessions(scope)[0]?.status, "expired");
+    assert.equal(repository.browserTasks(scope).find((item) => item.id === task.id)?.status, "cancelled");
+    assert.equal(repository.claimBrowserTask(scope), undefined);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("service bindings are scoped to the declared plugin installation", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-binding-scope-"));
   const database = openDatabase(dataDir);
