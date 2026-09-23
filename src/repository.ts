@@ -253,6 +253,33 @@ export class Repository {
     return this.browserTasks(scope).find((item) => item.id === taskId);
   }
 
+  browserSessionsForOrganization(organizationId: string): Array<BrowserSession & { userId: string; installationId: string }> {
+    const rows = this.db.prepare("SELECT id, user_id, installation_id, name, purpose, status, expires_at FROM browser_sessions WHERE organization_id = ? ORDER BY created_at DESC").all(organizationId) as Array<Record<string, string>>;
+    return rows.map((row) => ({ ...browserSession(row), userId: row.user_id ?? "", installationId: row.installation_id ?? "" }));
+  }
+
+  browserTasksForOrganization(organizationId: string): Array<BrowserTask & { userId: string; installationId: string }> {
+    return (this.db.prepare("SELECT id, user_id, installation_id, session_id, kind, input_json, status, created_at, updated_at FROM browser_tasks WHERE organization_id = ? ORDER BY created_at DESC").all(organizationId) as Array<Record<string, string>>).map((row) => ({
+      id: row.id ?? "", sessionId: row.session_id ?? "", kind: row.kind as BrowserTaskKind, status: row.status as BrowserTask["status"], input: {}, createdAt: row.created_at ?? "", updatedAt: row.updated_at ?? "", userId: row.user_id ?? "", installationId: row.installation_id ?? ""
+    }));
+  }
+
+  revokeBrowserSessionForOrganization(organizationId: string, sessionId: string): boolean {
+    if (!/^browser_[0-9a-f-]{36}$/u.test(sessionId)) return false;
+    const result = this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE id = ? AND organization_id = ? AND status <> 'revoked'").run(sessionId, organizationId);
+    if (result.changes === 1) this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE session_id = ? AND organization_id = ? AND status IN ('queued', 'running')").run(now(), sessionId, organizationId);
+    return result.changes === 1;
+  }
+
+  cancelBrowserTaskForOrganization(organizationId: string, taskId: string): BrowserTask | undefined {
+    if (!/^browser_task_[0-9a-f-]{36}$/u.test(taskId)) return undefined;
+    const row = this.db.prepare("SELECT id, session_id, kind, input_json, status, created_at, updated_at FROM browser_tasks WHERE id = ? AND organization_id = ?").get(taskId, organizationId) as Record<string, string> | undefined;
+    if (row === undefined) return undefined;
+    if (row.status === "queued" || row.status === "running") this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE id = ? AND organization_id = ? AND status IN ('queued', 'running')").run(now(), taskId, organizationId);
+    const updated = this.db.prepare("SELECT id, session_id, kind, input_json, status, created_at, updated_at FROM browser_tasks WHERE id = ? AND organization_id = ?").get(taskId, organizationId) as Record<string, string>;
+    return { id: updated.id ?? "", sessionId: updated.session_id ?? "", kind: updated.kind as BrowserTaskKind, status: updated.status as BrowserTask["status"], input: {}, createdAt: updated.created_at ?? "", updatedAt: updated.updated_at ?? "" };
+  }
+
   applications(): ApplicationRecord[] {
     return (this.db.prepare("SELECT id, name, category, route, installation_id, vehicle_supported FROM applications WHERE enabled = 1 ORDER BY category, name").all() as Array<Record<string, string | number>>)
       .map((row) => ({ id: String(row.id), name: String(row.name), category: String(row.category), route: String(row.route), installationId: String(row.installation_id), vehicleSupported: Number(row.vehicle_supported) === 1 }));

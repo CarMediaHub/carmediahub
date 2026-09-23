@@ -751,6 +751,37 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return { jobs: jobs.listOrganization(user.organizationId, query.limit === undefined ? 200 : Number(query.limit)).map(({ payload: _payload, result: _result, ...metadata }) => metadata) };
   });
 
+  app.get("/api/browser/sessions", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    return { sessions: repository.browserSessionsForOrganization(user.organizationId).map(({ userId, installationId, ...session }) => ({ ...session, userId, installationId })) };
+  });
+
+  app.post("/api/browser/sessions/:id/revoke", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const sessionId = (request.params as { id?: unknown }).id;
+    if (typeof sessionId !== "string" || !repository.revokeBrowserSessionForOrganization(user.organizationId, sessionId)) return reply.code(404).send({ code: "CMH.BROWSER.SESSION_NOT_FOUND", messageKey: "errors.browser.sessionNotFound" });
+    repository.audit(user.id, "browser.session.revoked", sessionId);
+    return { revoked: true };
+  });
+
+  app.get("/api/browser/tasks", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    return { tasks: repository.browserTasksForOrganization(user.organizationId).map(({ input: _input, userId, installationId, ...task }) => ({ ...task, userId, installationId })) };
+  });
+
+  app.post("/api/browser/tasks/:id/cancel", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    const taskId = (request.params as { id?: unknown }).id;
+    const task = typeof taskId === "string" ? repository.cancelBrowserTaskForOrganization(user.organizationId, taskId) : undefined;
+    if (task === undefined) return reply.code(404).send({ code: "CMH.BROWSER.TASK_NOT_FOUND", messageKey: "errors.browser.taskNotFound" });
+    repository.audit(user.id, "browser.task.cancelled", task.id);
+    return { task: { id: task.id, sessionId: task.sessionId, kind: task.kind, status: task.status, createdAt: task.createdAt, updatedAt: task.updatedAt } };
+  });
+
   app.post("/api/jobs/run", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;

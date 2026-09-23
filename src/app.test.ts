@@ -391,6 +391,35 @@ test("admin task center exposes redacted organization jobs and cancels only its 
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("admin browser center exposes redacted sessions and cancels scoped tasks", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-admin-browser-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const database = openDatabase(dataDir);
+    const user = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
+    const sessionId = `browser_${crypto.randomUUID()}`;
+    const taskId = `browser_task_${crypto.randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    database.db.prepare("INSERT INTO browser_sessions (id, organization_id, user_id, installation_id, name, purpose, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)").run(sessionId, user.organization_id, user.id, "browser-plugin", "authorized", "media extraction", new Date(Date.now() + 60_000).toISOString(), timestamp);
+    database.db.prepare("INSERT INTO browser_tasks (id, organization_id, user_id, installation_id, session_id, kind, input_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)").run(taskId, user.organization_id, user.id, "browser-plugin", sessionId, "navigate-and-capture", JSON.stringify({ target: "fixture", label: "safe" }), timestamp, timestamp);
+    database.close();
+    const sessions = await app.inject({ method: "GET", url: "/api/browser/sessions", headers: { cookie } });
+    assert.equal(sessions.statusCode, 200);
+    assert.equal(sessions.json().sessions[0].id, sessionId);
+    assert.equal("input" in sessions.json().sessions[0], false);
+    const tasks = await app.inject({ method: "GET", url: "/api/browser/tasks", headers: { cookie } });
+    assert.equal(tasks.statusCode, 200);
+    assert.equal(tasks.json().tasks[0].id, taskId);
+    assert.equal("input" in tasks.json().tasks[0], false);
+    assert.equal((await app.inject({ method: "POST", url: `/api/browser/tasks/${taskId}/cancel`, headers: { cookie } })).json().task.status, "cancelled");
+    assert.equal((await app.inject({ method: "POST", url: `/api/browser/sessions/${sessionId}/revoke`, headers: { cookie } })).json().revoked, true);
+    assert.equal((await app.inject({ method: "GET", url: "/api/browser/sessions", headers: { cookie: "cmh_session=invalid" } })).statusCode, 401);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("credential HTTP lifecycle requires secrets capability and never returns plaintext", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-credential-api-"));
   const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
