@@ -14,8 +14,13 @@ export async function installBrowserNetworkPolicy(context: Pick<BrowserContext, 
   const handler = async (route: Route) => {
     let allowed = false;
     try { allowed = registry.allowsOrigin(targetId, new URL(route.request().url()).origin); } catch { allowed = false; }
-    if (allowed) await route.continue();
-    else await route.abort("blockedbyclient");
+    if (!allowed) { await route.abort("blockedbyclient"); return; }
+    const response = await route.fetch({ maxRedirects: 0 });
+    const location = response.headers()["location"];
+    if (location !== undefined) {
+      try { if (!registry.allowsOrigin(targetId, new URL(location, route.request().url()).origin)) { await route.abort("blockedbyclient"); return; } } catch { await route.abort("blockedbyclient"); return; }
+    }
+    await route.fulfill({ response });
   };
   await context.route("**/*", handler);
   const webSocketHandler = (socket: WebSocketRoute) => {

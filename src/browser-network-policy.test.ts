@@ -13,12 +13,13 @@ test("browser network policy continues registered HTTPS origins and aborts every
   const policy = await installBrowserNetworkPolicy(context, registry, "media");
   let continued = 0;
   let aborted = 0;
-  const route = (url: string) => ({ request: () => ({ url: () => url }), continue: async () => { continued += 1; }, abort: async () => { aborted += 1; } });
+  const route = (url: string, location?: string) => ({ request: () => ({ url: () => url }), continue: async () => { continued += 1; }, fetch: async () => ({ headers: () => location === undefined ? {} : { location } }), fulfill: async () => { continued += 1; }, abort: async () => { aborted += 1; } });
   await handler!(route("https://media.example/video"));
   await handler!(route("http://media.example/insecure"));
   await handler!(route("https://other.example/escape"));
+  await handler!(route("https://media.example/redirect", "https://other.example/escape"));
   assert.equal(continued, 1);
-  assert.equal(aborted, 2);
+  assert.equal(aborted, 3);
   let wsClosed = 0;
   wsHandler!({ url: () => "wss://media.example/socket", close: () => undefined });
   wsHandler!({ url: () => "wss://other.example/socket", close: () => { wsClosed += 1; } });
