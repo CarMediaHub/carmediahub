@@ -72,3 +72,12 @@ test("rejects a symbolic bundle root", (t) => {
   }
   assert.throws(() => validateNativeBundle(linkRoot), /symbolic/);
 });
+
+test("rejects high-confidence secrets and workspace paths in release artifacts", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "dist", "leak.js"), "const path = 'E:\\\\projects\\\\mine\\\\CarMediaHub';\n");
+  assert.throws(() => validateNativeBundle(root), /workspace path/);
+  fs.rmSync(path.join(root, "dist", "leak.js"));
+  fs.writeFileSync(path.join(root, "public", "admin", "leak.js"), "const key = 'ghp_123456789012345678901234567890';\n");
+  assert.throws(() => validateNativeBundle(root), /GitHub token/);
+});
