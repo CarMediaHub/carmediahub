@@ -3,6 +3,7 @@ import { ProCard, ProForm, ProFormSelect, ProFormText, ProFormTextArea, ProLayou
 import { Button, message, Popconfirm, Tag } from "antd";
 import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
+import { localizeAdminRoutes } from "../navigation";
 
 type Credential = { id: string; name: string; kind: "cookie" | "authorization"; organizationId: string; userId: string; installationId: string; createdAt: string; revokedAt: string | null };
 type Installation = { id: string; packageId: string; status: "installed" | "disabled" | "uninstalled"; capabilities?: string[] };
@@ -35,7 +36,7 @@ export default function Credentials() {
     message.success(t("common.credentialRevoked"));
     refresh();
   };
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes }} location={{ pathname: "/admin/credentials" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
+  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: localizeAdminRoutes(routes, t) }} location={{ pathname: "/admin/credentials" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
     <ProCard title={t("common.addCredential")} style={{ margin: 24 }}>
       <ProForm onFinish={async (values) => {
         const response = await fetch("/api/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) });
