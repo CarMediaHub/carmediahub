@@ -594,7 +594,10 @@ export class Repository {
     return { userId: String(row.user_id), application: { id: String(row.id), name: String(row.name), category: String(row.category), route: String(row.route), installationId: String(row.installation_id), vehicleSupported: Number(row.vehicle_supported) === 1 } };
   }
 
-  revokeEntryKey(keyId: string): void { this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE id = ?").run(now(), keyId); }
+  revokeEntryKey(keyId: string, userId: string): boolean {
+    const result = this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL").run(now(), keyId, userId);
+    return result.changes === 1;
+  }
 
   entryKeys(userId: string): EntryKeyRecord[] {
     return (this.db.prepare(`SELECT k.id, k.application_id, a.name AS application_name, a.route,

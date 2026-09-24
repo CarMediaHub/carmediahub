@@ -1233,8 +1233,9 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.post("/api/keys/:id/revoke", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
-    repository.revokeEntryKey((request.params as { id: string }).id);
-    repository.audit(user.id, "entryKey.revoked", (request.params as { id: string }).id);
+    const keyId = (request.params as { id: string }).id;
+    if (!repository.revokeEntryKey(keyId, user.id)) return reply.code(404).send({ code: "CMH.ENTRY_KEY.NOT_FOUND", messageKey: "errors.entryKey.notFound" });
+    repository.audit(user.id, "entryKey.revoked", keyId);
     return reply.code(204).send();
   });
 

@@ -45,6 +45,24 @@ test("rejects component records without a verifiable identity or checksum", () =
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("entry key revocation is restricted to its owning user", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-entry-key-scope-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const member = repository.createUser({ organizationId: admin.organizationId, username: "member", password: "correct horse battery staple", role: "member", locale: "en" });
+    const application = repository.applications().find((item) => item.route === "/system");
+    assert.ok(application);
+    const issued = repository.createEntryKey(application.id, admin.id);
+    assert.equal(repository.revokeEntryKey(issued.id, member.id), false);
+    assert.equal(repository.resolveEntryKey(issued.key)?.userId, admin.id);
+    assert.equal(repository.revokeEntryKey(issued.id, admin.id), true);
+    assert.equal(repository.resolveEntryKey(issued.key), undefined);
+    assert.equal(repository.revokeEntryKey(issued.id, admin.id), false);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("verified plugin package records retain multiple versions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-package-versions-"));
   const database = openDatabase(dataDir);
