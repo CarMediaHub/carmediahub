@@ -4,6 +4,10 @@ import { currentPlatformKey, type ComponentCatalogItem } from "./components.js";
 
 const fingerprint = (key: string) => crypto.createHash("sha256").update(key).digest("hex").slice(0, 16);
 const base64 = /^[A-Za-z0-9+/]+={0,2}$/u;
+const identifier = /^[a-z][a-z0-9-]{1,63}$/u;
+const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+const releasePlatform = /^(?:windows|linux|darwin)-(?:x64|arm64)$/u;
+const digest = /^[a-f0-9]{64}$/u;
 
 export interface ComponentRelease {
   schemaVersion: 1;
@@ -46,7 +50,9 @@ function validateProvenance(provenance: ComponentProvenance | undefined): void {
 
 /** Verify an explicit release record against an operator-owned Ed25519 trust set. */
 export function verifyComponentRelease(signed: SignedComponentRelease, trustedPublicKeys: readonly string[]): ComponentRelease {
-  if (signed.release.schemaVersion !== 1 || !/^[a-f0-9]{16}$/u.test(signed.release.keyId) || !base64.test(signed.signature)) throw new Error("Invalid signed component release");
+  if (signed.release.schemaVersion !== 1 || !/^[a-f0-9]{16}$/u.test(signed.release.keyId) || !base64.test(signed.signature)
+    || !identifier.test(signed.release.componentId) || !identifier.test(signed.release.artifactId)
+    || !semver.test(signed.release.version) || !releasePlatform.test(signed.release.platform) || !digest.test(signed.release.sha256)) throw new Error("Invalid signed component release");
   validateProvenance(signed.release.provenance);
   const key = trustedPublicKeys.find((candidate) => fingerprint(candidate) === signed.release.keyId);
   if (key === undefined) throw new Error("Component release signer is not trusted");

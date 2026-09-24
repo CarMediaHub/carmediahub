@@ -28,6 +28,9 @@ test("signed component release requires a trusted Ed25519 signer and exact artif
     const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
     assert.equal(installSignedComponentRelease(dataDir, catalog, signed, [publicKey], currentPlatformKey()).id, "ffmpeg");
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, version: "7.0.1" } }, [publicKey]));
+    assert.throws(() => verifyComponentRelease(signedRelease({ ...release, componentId: "FFMPEG" }, keys.privateKey), [publicKey]), /Invalid signed component release/);
+    assert.throws(() => verifyComponentRelease(signedRelease({ ...release, sha256: "not-a-digest" }, keys.privateKey), [publicKey]), /Invalid signed component release/);
+    assert.throws(() => verifyComponentRelease(signedRelease({ ...release, platform: "windows-x86" }, keys.privateKey), [publicKey]), /Invalid signed component release/);
     assert.throws(() => verifyComponentRelease(signed, []));
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, provenance: { ...release.provenance, sourceUrl: "http://insecure.example" } } }, [publicKey]), /source URL/);
     assert.throws(() => installSignedComponentRelease(dataDir, catalog, signed, [publicKey], "linux-arm64"), /does not match this deployment/);
