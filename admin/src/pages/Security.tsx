@@ -2,10 +2,12 @@ import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined,
 import { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from "@ant-design/pro-components";
 import { Alert, Button, Descriptions, Modal, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
+import { useAdminI18n } from "../i18n";
 
 type TotpSetup = { secret: string; otpauthUrl: string };
 
 export default function Security() {
+  const { t } = useAdminI18n();
   const [enabled, setEnabled] = useState(false);
   const [setup, setSetup] = useState<TotpSetup>();
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
@@ -15,30 +17,30 @@ export default function Security() {
   const [density, setDensity] = useState("comfortable");
   const refresh = () => { void Promise.all([fetch("/api/auth/totp").then((response) => response.json() as Promise<{ enabled?: boolean }>), fetch("/api/me").then(async (response) => response.ok ? await response.json() as { user?: { locale?: string; timeZone?: string; theme?: string; density?: string } } : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? "en"); setTimeZone(profile.user?.timeZone ?? "UTC"); setTheme(profile.user?.theme ?? "system"); setDensity(profile.user?.density ?? "comfortable"); }); };
   useEffect(refresh, []);
-  const navigation = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/media", name: "Media roots", icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>Sign out</Button>]}> 
-    <ProCard title="Account security" style={{ margin: 24, maxWidth: 780 }}>
-      <Descriptions items={[{ key: "totp", label: "Authenticator", children: enabled ? "Enabled" : "Not enabled" }]} />
-      {!enabled && <Button type="primary" onClick={async () => { const response = await fetch("/api/auth/totp/setup", { method: "POST" }); if (!response.ok) { message.error("Unable to start setup"); return; } setSetup(await response.json()); }}>Set up authenticator</Button>}
-      {enabled && <Alert type="success" showIcon message="Authenticator protection is enabled" description="Use an authenticator code or one unused recovery code when signing in." />}
+  const navigation = [{ path: "/admin/overview", name: t("nav.overview"), icon: <AppstoreOutlined /> }, { path: "/admin/components", name: t("nav.components"), icon: <CloudServerOutlined /> }, { path: "/admin/media", name: t("nav.media"), icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: t("nav.keys"), icon: <KeyOutlined /> }, { path: "/admin/security", name: t("nav.security"), icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: t("nav.users"), icon: <TeamOutlined /> }];
+  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
+    <ProCard title={t("security.account")} style={{ margin: 24, maxWidth: 780 }}>
+      <Descriptions items={[{ key: "totp", label: t("security.authenticator"), children: enabled ? t("security.enabled") : t("security.disabled") }]} />
+      {!enabled && <Button type="primary" onClick={async () => { const response = await fetch("/api/auth/totp/setup", { method: "POST" }); if (!response.ok) { message.error(t("security.updateFailed")); return; } setSetup(await response.json()); }}>{t("security.setup")}</Button>}
+      {enabled && <Alert type="success" showIcon message={t("security.enabledHint")} description={t("security.enabledDescription")} />}
     </ProCard>
-    <ProCard title="Change password" style={{ margin: 24, maxWidth: 780 }}>
-      <ProForm layout="vertical" onFinish={async (values) => { const response = await fetch("/api/auth/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Current password is invalid or the new password is too short"); return false; } message.success("Password changed; other sessions were signed out"); return true; }}>
-        <ProFormText.Password name="currentPassword" label="Current password" rules={[{ required: true }]} />
-        <ProFormText.Password name="newPassword" label="New password" rules={[{ required: true, min: 12 }]} />
+    <ProCard title={t("security.password")} style={{ margin: 24, maxWidth: 780 }}>
+      <ProForm layout="vertical" onFinish={async (values) => { const response = await fetch("/api/auth/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(t("security.passwordInvalid")); return false; } message.success(t("security.passwordChanged")); return true; }}>
+        <ProFormText.Password name="currentPassword" label={t("security.currentPassword")} rules={[{ required: true }]} />
+        <ProFormText.Password name="newPassword" label={t("security.newPassword")} rules={[{ required: true, min: 12 }]} />
       </ProForm>
     </ProCard>
-    <ProCard title="Platform preferences" style={{ margin: 24, maxWidth: 780 }}>
-      <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout="inline" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Unable to update platform preferences"); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); window.dispatchEvent(new Event("cmh:preferences-changed")); message.success("Platform preferences updated"); return true; }}>
-        <ProFormSelect name="locale" label="Language" options={[{ label: "English", value: "en" }, { label: "简体中文", value: "zh-CN" }, { label: "한국어", value: "ko" }]} rules={[{ required: true }]} />
-        <ProFormSelect name="timeZone" label="Time zone" options={[{ label: "UTC", value: "UTC" }, { label: "Asia/Shanghai", value: "Asia/Shanghai" }, { label: "Europe/London", value: "Europe/London" }, { label: "America/Los_Angeles", value: "America/Los_Angeles" }]} rules={[{ required: true }]} />
-        <ProFormSelect name="theme" label="Theme" options={[{ label: "System", value: "system" }, { label: "Light", value: "light" }, { label: "Dark", value: "dark" }]} rules={[{ required: true }]} />
-        <ProFormSelect name="density" label="Density" options={[{ label: "Comfortable", value: "comfortable" }, { label: "Compact", value: "compact" }]} rules={[{ required: true }]} />
+    <ProCard title={t("security.preferences")} style={{ margin: 24, maxWidth: 780 }}>
+      <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout="inline" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(t("security.updateFailed")); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); window.dispatchEvent(new Event("cmh:preferences-changed")); message.success(t("security.updated")); return true; }}>
+        <ProFormSelect name="locale" label={t("security.language")} options={[{ label: "English", value: "en" }, { label: "简体中文", value: "zh-CN" }, { label: "한국어", value: "ko" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="timeZone" label={t("security.timeZone")} options={[{ label: "UTC", value: "UTC" }, { label: "Asia/Shanghai", value: "Asia/Shanghai" }, { label: "Europe/London", value: "Europe/London" }, { label: "America/Los_Angeles", value: "America/Los_Angeles" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="theme" label={t("security.theme")} options={[{ label: t("security.system"), value: "system" }, { label: t("security.light"), value: "light" }, { label: t("security.dark"), value: "dark" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="density" label={t("security.density")} options={[{ label: t("security.comfortable"), value: "comfortable" }, { label: t("security.compact"), value: "compact" }]} rules={[{ required: true }]} />
       </ProForm>
     </ProCard>
-    <Modal title="Set up authenticator" open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>
-      {setup !== undefined && <Space direction="vertical" size="middle" style={{ width: "100%" }}><Typography.Paragraph>Enter this secret in an authenticator application, then confirm the current six-digit code.</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch("/api/auth/totp/enable", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("The verification code is invalid"); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name="code" label="Verification code" rules={[{ required: true, pattern: /^\d{6}$/u, message: "Enter a six-digit code" }]} /></ProForm></Space>}
+    <Modal title={t("security.setup")} open={setup !== undefined} footer={null} onCancel={() => setSetup(undefined)} destroyOnClose>
+      {setup !== undefined && <Space direction="vertical" size="middle" style={{ width: "100%" }}><Typography.Paragraph>{t("security.setupDescription")}</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch("/api/auth/totp/enable", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(t("security.invalidCode")); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name="code" label={t("security.verificationCode")} rules={[{ required: true, pattern: /^\d{6}$/u, message: t("security.sixDigits") }]} /></ProForm></Space>}
     </Modal>
-    <Modal title="Save recovery codes" open={recoveryCodes !== undefined} footer={<Button type="primary" onClick={() => setRecoveryCodes(undefined)}>I saved these codes</Button>} closable={false}><Alert type="warning" showIcon message="Each recovery code works once. They will not be shown again." /><Typography.Paragraph copyable style={{ whiteSpace: "pre-line", marginTop: 16 }}>{recoveryCodes?.join("\n")}</Typography.Paragraph></Modal>
+    <Modal title={t("security.saveCodes")} open={recoveryCodes !== undefined} footer={<Button type="primary" onClick={() => setRecoveryCodes(undefined)}>{t("security.savedCodes")}</Button>} closable={false}><Alert type="warning" showIcon message={t("security.codesWarning")} /><Typography.Paragraph copyable style={{ whiteSpace: "pre-line", marginTop: 16 }}>{recoveryCodes?.join("\n")}</Typography.Paragraph></Modal>
   </ProLayout>;
 }
