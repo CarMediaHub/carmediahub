@@ -196,6 +196,7 @@ export class Repository {
     try {
       this.db.prepare("UPDATE users SET revoked_at = ? WHERE id = ?").run(now(), userId);
       this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId);
+      this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").run(now(), userId);
       this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE organization_id = ? AND user_id = ? AND status = 'active'").run(organizationId, userId);
       this.db.prepare("UPDATE browser_tasks SET status = 'cancelled', updated_at = ? WHERE organization_id = ? AND user_id = ? AND status IN ('queued', 'running')").run(now(), organizationId, userId);
       this.db.exec("COMMIT;");

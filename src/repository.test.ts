@@ -107,6 +107,23 @@ test("application registration rejects missing or inactive plugin installations"
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("revoking a user also revokes the user's entry keys", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-revoke-entry-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, Buffer.alloc(32, 7));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const member = repository.createUser({ organizationId: admin.organizationId, username: "member", password: "correct horse battery staple", role: "member", locale: "en" });
+    const application = repository.applications().find((item) => item.route === "/system");
+    assert.ok(application);
+    const issued = repository.createEntryKey(application.id, member.id);
+    assert.ok(repository.resolveEntryKey(issued.key));
+    assert.equal(repository.revokeUser(member.id, admin.organizationId), "revoked");
+    assert.equal(repository.resolveEntryKey(issued.key), undefined);
+    assert.equal(repository.entryKeys(member.id)[0]?.revokedAt !== null, true);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("password change verifies the old password and revokes other sessions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-password-change-"));
   const database = openDatabase(dataDir);
