@@ -16,14 +16,48 @@ function required(input, key) {
   return value;
 }
 
-function regularFile(location, label) {
+function regularArtifact(location, label) {
   let stat;
   try { stat = fs.lstatSync(location); } catch { fail(`${label} does not exist`); }
-  if (!stat.isFile() || stat.isSymbolicLink()) fail(`${label} must be a regular file`);
+  if ((!stat.isFile() && !stat.isDirectory()) || stat.isSymbolicLink()) fail(`${label} must be a regular file or directory`);
+}
+
+function fileDigest(location) {
+  return crypto.createHash("sha256").update(fs.readFileSync(location)).digest("hex");
+}
+
+function collectFiles(root, current = root, entries = []) {
+  for (const item of fs.readdirSync(current, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    const location = path.join(current, item.name);
+    const relative = path.relative(root, location).split(path.sep).join("/");
+    if (item.isSymbolicLink() || item.isBlockDevice() || item.isCharacterDevice() || item.isFIFO() || item.isSocket()) fail("artifact contains an unsupported file type");
+    if (item.isDirectory()) collectFiles(root, location, entries);
+    else if (item.isFile()) entries.push(relative);
+    else fail("artifact contains an unsupported directory entry");
+  }
+  return entries;
 }
 
 function digest(location) {
-  return crypto.createHash("sha256").update(fs.readFileSync(location)).digest("hex");
+  const stat = fs.lstatSync(location);
+  if (stat.isFile()) return fileDigest(location);
+  const hash = crypto.createHash("sha256");
+  for (const relative of collectFiles(location).sort()) hash.update(`${relative}\0${fileDigest(path.join(location, relative))}\n`, "utf8");
+  return hash.digest("hex");
+}
+
+function copyArtifact(source, target) {
+  const stat = fs.lstatSync(source);
+  if (stat.isFile()) {
+    fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+    return;
+  }
+  fs.mkdirSync(target, { recursive: true });
+  for (const relative of collectFiles(source).sort()) {
+    const destination = path.join(target, ...relative.split("/"));
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(path.join(source, relative), destination, fs.constants.COPYFILE_EXCL);
+  }
 }
 
 /** Copy an operator-selected binary into explicit staging and return an unsigned release record. */
@@ -41,13 +75,13 @@ export function prepareComponentRelease(input) {
   if (!keyIdPattern.test(keyId)) fail("keyId must be a 16-character lowercase public-key fingerprint");
   if (input.sourceUrl !== undefined && (typeof input.sourceUrl !== "string" || !/^https:\/\//u.test(input.sourceUrl) || input.sourceUrl.length > 2048)) fail("sourceUrl must be an HTTPS URL");
   if (input.licenseSpdx !== undefined && (typeof input.licenseSpdx !== "string" || !/^[A-Za-z0-9.-]+$/u.test(input.licenseSpdx) || input.licenseSpdx.length > 128)) fail("licenseSpdx is invalid");
-  regularFile(artifact, "artifact");
+  regularArtifact(artifact, "artifact");
   const stagingRoot = path.resolve(dataDir, "staging");
   const staged = path.resolve(stagingRoot, artifactId);
   if (!staged.startsWith(stagingRoot + path.sep)) fail("artifactId escaped staging");
   if (fs.existsSync(staged)) fail("staging artifact already exists");
   fs.mkdirSync(stagingRoot, { recursive: true });
-  fs.copyFileSync(artifact, staged, fs.constants.COPYFILE_EXCL);
+  copyArtifact(artifact, staged);
   if (digest(artifact) !== digest(staged)) {
     fs.rmSync(staged, { force: true });
     fail("staged artifact digest differs from source");

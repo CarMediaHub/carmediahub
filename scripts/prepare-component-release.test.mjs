@@ -33,6 +33,35 @@ test("rejects symlinked artifacts and existing staging targets", () => {
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("stages a directory artifact with a stable multi-file tree digest", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-release-dir-"));
+  try {
+    const artifact = path.join(root, "ffmpeg");
+    fs.mkdirSync(path.join(artifact, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(artifact, "ffmpeg.exe"), "exe");
+    fs.writeFileSync(path.join(artifact, "lib", "avcodec-61.dll"), "dll");
+    const prepared = prepareComponentRelease({ dataDir: path.join(root, "data"), artifact, componentId: "ffmpeg", artifactId: "ffmpeg-dir", version: "7.0.0", platform: "windows-x64", keyId: "0123456789abcdef" });
+    assert.equal(fs.readFileSync(path.join(prepared.stagingPath, "ffmpeg.exe"), "utf8"), "exe");
+    assert.equal(fs.readFileSync(path.join(prepared.stagingPath, "lib", "avcodec-61.dll"), "utf8"), "dll");
+    const expected = crypto.createHash("sha256")
+      .update("ffmpeg.exe\0" + crypto.createHash("sha256").update("exe").digest("hex") + "\n")
+      .update("lib/avcodec-61.dll\0" + crypto.createHash("sha256").update("dll").digest("hex") + "\n")
+      .digest("hex");
+    assert.equal(prepared.release.sha256, expected);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("rejects unsupported entries inside a directory artifact", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-release-dir-"));
+  try {
+    const artifact = path.join(root, "ffmpeg");
+    fs.mkdirSync(artifact);
+    fs.writeFileSync(path.join(artifact, "ffmpeg.exe"), "exe");
+    fs.symlinkSync(path.join(artifact, "ffmpeg.exe"), path.join(artifact, "alias.exe"), "file");
+    assert.throws(() => prepareComponentRelease({ dataDir: path.join(root, "data"), artifact, componentId: "ffmpeg", artifactId: "ffmpeg-dir", version: "7.0.0", platform: "windows-x64", keyId: "0123456789abcdef" }), /unsupported file type/u);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("CLI writes the requested unsigned record and requires a key fingerprint", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-release-cli-"));
   try {
