@@ -26,11 +26,11 @@ export class RemoteWebDavProvider {
   constructor(private readonly resolveBinding: (name: string, installationId: string) => RemoteWebDavBinding | undefined, private readonly resolveCredential: (scope: PlaybackScope, ref: string) => RemoteWebDavCredential | undefined, private readonly db?: DatabaseSync) {}
 
   register(scope: PlaybackScope, input: { binding: string; rootPath: string; credentialRef?: string; sourceHandle?: string; name?: string }): RemoteWebDavSource {
-    if (!/^[a-z][a-z0-9-]{0,63}$/u.test(input.binding) || !input.rootPath.startsWith("/") || input.rootPath.includes("\\") || input.rootPath.split("/").includes("..")) throw new Error("Invalid WebDAV source");
+    if (!/^[a-z][a-z0-9-]{0,63}$/u.test(input.binding) || !input.rootPath.startsWith("/") || input.rootPath.includes("\\") || input.rootPath.split("/").includes("..") || (input.name !== undefined && (input.name.trim().length < 1 || input.name.trim().length > 128))) throw new Error("Invalid WebDAV source");
     const source: RemoteWebDavSource = { sourceHandle: input.sourceHandle ?? `remote_source_${crypto.randomBytes(32).toString("base64url")}`, binding: input.binding, rootPath: this.normalizePath(input.rootPath), ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) };
     if (!sourceHandlePattern.test(source.sourceHandle)) throw new Error("Invalid WebDAV source handle");
-    this.sources.set(this.scopeKey(scope, source.sourceHandle), { scope, source });
     if (this.db !== undefined) this.db.prepare("INSERT INTO remote_media_sources (id, organization_id, user_id, installation_id, name, binding, root_path, source_handle, credential_ref, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(`remote_source_${crypto.randomUUID()}`, scope.organizationId, scope.userId, scope.installationId, input.name?.trim() || "Remote media", source.binding, source.rootPath, source.sourceHandle, input.credentialRef ?? null, new Date().toISOString());
+    this.sources.set(this.scopeKey(scope, source.sourceHandle), { scope, source });
     return source;
   }
 
@@ -38,9 +38,9 @@ export class RemoteWebDavProvider {
     if (this.db === undefined) return;
     const rows = this.db.prepare("SELECT organization_id, user_id, installation_id, binding, root_path, source_handle, credential_ref FROM remote_media_sources WHERE revoked_at IS NULL").all() as Array<Record<string, string | null>>;
     for (const row of rows) {
-      if (typeof row.organization_id !== "string" || typeof row.user_id !== "string" || typeof row.installation_id !== "string" || typeof row.binding !== "string" || typeof row.root_path !== "string" || typeof row.source_handle !== "string") continue;
+      if (typeof row.organization_id !== "string" || typeof row.user_id !== "string" || typeof row.installation_id !== "string" || typeof row.binding !== "string" || typeof row.root_path !== "string" || typeof row.source_handle !== "string" || !/^[a-z][a-z0-9-]{0,63}$/u.test(row.binding) || !sourceHandlePattern.test(row.source_handle) || !row.root_path.startsWith("/") || row.root_path.includes("\\") || row.root_path.split("/").includes("..")) continue;
       const scope: PlaybackScope = { organizationId: row.organization_id, userId: row.user_id, deviceId: "restored", installationId: row.installation_id };
-      const source: RemoteWebDavSource = { sourceHandle: row.source_handle, binding: row.binding, rootPath: row.root_path, ...(row.credential_ref === null ? {} : { credentialRef: row.credential_ref }) };
+      const source: RemoteWebDavSource = { sourceHandle: row.source_handle, binding: row.binding, rootPath: this.normalizePath(row.root_path), ...(row.credential_ref === null ? {} : { credentialRef: row.credential_ref }) };
       this.sources.set(this.scopeKey(scope, source.sourceHandle), { scope, source });
     }
   }

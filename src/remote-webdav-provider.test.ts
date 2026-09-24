@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
+import { openDatabase } from "./database.js";
 import test from "node:test";
 import { RemoteWebDavProvider } from "./remote-webdav-provider.js";
 
@@ -38,4 +42,31 @@ test("WebDAV provider keeps credentials and upstream paths inside Core", async (
     await assert.rejects(() => provider.list({ ...scope, userId: "other" }, source.sourceHandle));
     assert.throws(() => provider.register(scope, { binding: "dav", rootPath: "/dav/../private" }));
   } finally { await new Promise<void>((resolve) => server.close(() => resolve())); }
+});
+
+test("persists a WebDAV source before publishing it to the in-memory registry", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-webdav-register-"));
+  const database = openDatabase(dataDir);
+  database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', 'now', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Default'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'user', 'hash', 'admin', 'en', 'now');");
+  const scope = { organizationId: "org", userId: "user", deviceId: "vehicle", installationId: "plugin" };
+  const handle = `remote_source_${"a".repeat(32)}`;
+  const provider = new RemoteWebDavProvider(() => ({ endpoint: "http://127.0.0.1:5244" }), () => undefined, database.db);
+  try {
+    const source = provider.register(scope, { binding: "dav", rootPath: "/dav/", sourceHandle: handle });
+    assert.throws(() => provider.register(scope, { binding: "dav", rootPath: "/other/", sourceHandle: handle }));
+    assert.deepEqual(provider.listRegistered(scope).map((item) => item.sourceHandle), [source.sourceHandle]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("persists an automatically generated source handle", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-webdav-generated-"));
+  const database = openDatabase(dataDir);
+  database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', 'now', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Default'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'user', 'hash', 'admin', 'en', 'now');");
+  const scope = { organizationId: "org", userId: "user", deviceId: "vehicle", installationId: "plugin" };
+  const provider = new RemoteWebDavProvider(() => ({ endpoint: "http://127.0.0.1:5244" }), () => undefined, database.db);
+  try {
+    const source = provider.register(scope, { binding: "dav", rootPath: "/dav/" });
+    const row = database.db.prepare("SELECT source_handle FROM remote_media_sources WHERE source_handle = ?").get(source.sourceHandle) as { source_handle?: string } | undefined;
+    assert.equal(row?.source_handle, source.sourceHandle);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
