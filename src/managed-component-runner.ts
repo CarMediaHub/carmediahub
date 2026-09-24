@@ -1,9 +1,7 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
-import { resolveInstalledExecutable } from "./components.js";
+import { computeInstalledComponentDigest, resolveInstalledExecutable } from "./components.js";
 
 const componentId = /^[a-z][a-z0-9-]{1,63}$/u;
 const version = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
@@ -11,12 +9,6 @@ const version = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 export interface ManagedComponentRef { id: string; version: string; executable: string; checksum: string; verified: boolean; provides?: readonly string[]; }
 export interface ManagedRunOptions { args?: readonly string[]; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal; requiredRole?: string; }
 export interface ManagedRunResult { exitCode: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string; }
-
-async function sha256File(location: string): Promise<string> {
-  const hash = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(location)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
-}
 
 function runError(code: string): Error & { code: string } {
   const error = new Error(code) as Error & { code: string };
@@ -40,7 +32,7 @@ export function runManagedComponent(dataDir: string, component: ManagedComponent
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 600_000 || !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1024 || maxOutputBytes > 16 * 1024 * 1024) return Promise.reject(runError("CMH.COMPONENT.LIMIT_INVALID"));
   let executable: string;
   try { executable = resolveInstalledExecutable(dataDir, component); } catch { return Promise.reject(runError("CMH.COMPONENT.EXECUTABLE_UNAVAILABLE")); }
-  return sha256File(executable).catch(() => { throw runError("CMH.COMPONENT.EXECUTABLE_UNAVAILABLE"); }).then((actual) => {
+  return Promise.resolve().then(() => computeInstalledComponentDigest(dataDir, component)).catch(() => { throw runError("CMH.COMPONENT.EXECUTABLE_UNAVAILABLE"); }).then((actual) => {
     if (actual !== component.checksum) throw runError("CMH.COMPONENT.DIGEST_MISMATCH");
     if (options.signal?.aborted) throw runError("CMH.CANCELLED");
     return new Promise<ManagedRunResult>((resolve, reject) => {

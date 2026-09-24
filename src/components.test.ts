@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import test from "node:test";
 import path from "node:path";
-import { componentExecutableName, currentPlatformKey, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
+import { componentExecutableName, computeInstalledComponentDigest, currentPlatformKey, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
 
 test("normalizes public component checksum notation for internal runners", () => {
   assert.equal(normalizeComponentChecksum("sha256:" + "a".repeat(64)), "a".repeat(64));
@@ -72,6 +73,24 @@ test("resolves installed executables only for a catalog-granted role", () => {
     const record = { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}` };
     assert.equal(resolveInstalledExecutableForRole(dataDir, catalog, record, "browser-engine"), path.join(location, executable));
     assert.throws(() => resolveInstalledExecutableForRole(dataDir, catalog, record, "media-processing"), /does not provide/);
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("computes the canonical tree digest for multi-file component installations", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-digest-"));
+  try {
+    const root = path.join(dataDir, "components", "ffmpeg", "7.0.0");
+    fs.mkdirSync(path.join(root, "lib"), { recursive: true });
+    const executable = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+    fs.writeFileSync(path.join(root, executable), "exe");
+    fs.writeFileSync(path.join(root, "lib", "codec.dll"), "dll");
+    const expected = crypto.createHash("sha256")
+      .update(`${executable}\0${crypto.createHash("sha256").update("exe").digest("hex")}\n`)
+      .update(`lib/codec.dll\0${crypto.createHash("sha256").update("dll").digest("hex")}\n`)
+      .digest("hex");
+    assert.equal(computeInstalledComponentDigest(dataDir, { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${executable}` }), expected);
+    fs.writeFileSync(path.join(root, "lib", "codec.dll"), "tampered");
+    assert.notEqual(computeInstalledComponentDigest(dataDir, { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${executable}` }), expected);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 

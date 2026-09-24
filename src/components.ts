@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,6 +61,36 @@ export function resolveInstalledExecutable(dataDir: string, installed: { id: str
   const resolved = path.resolve(root, ...installed.executable.split("/"));
   if (!resolved.startsWith(root + path.sep) || !isRegularPathWithoutLinks(root, resolved)) throw new Error("Installed component executable is unavailable");
   return resolved;
+}
+
+export function resolveInstalledComponentRoot(dataDir: string, installed: { id: string; version: string; executable: string }): string {
+  if (!/^[a-z][a-z0-9-]{1,63}$/u.test(installed.id) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(installed.version)) throw new Error("Invalid installed component identity");
+  const root = path.resolve(dataDir, "components", installed.id, installed.version);
+  const managedRoot = path.resolve(dataDir, "components");
+  if (!root.startsWith(managedRoot + path.sep) || !fs.existsSync(root) || !fs.lstatSync(root).isDirectory() || fs.lstatSync(root).isSymbolicLink()) throw new Error("Installed component root is unavailable");
+  return root;
+}
+
+function collectArtifactFiles(root: string, current = root, entries: string[] = []): string[] {
+  for (const item of fs.readdirSync(current, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    const location = path.join(current, item.name);
+    const relative = path.relative(root, location).split(path.sep).join("/");
+    if (item.isSymbolicLink() || item.isBlockDevice() || item.isCharacterDevice() || item.isFIFO() || item.isSocket()) throw new Error("Installed component contains an unsupported file type");
+    if (item.isDirectory()) collectArtifactFiles(root, location, entries);
+    else if (item.isFile()) entries.push(relative);
+    else throw new Error("Installed component contains an unsupported directory entry");
+  }
+  return entries;
+}
+
+export function computeInstalledComponentDigest(dataDir: string, installed: { id: string; version: string; executable: string }): string {
+  const root = resolveInstalledComponentRoot(dataDir, installed);
+  const executable = resolveInstalledExecutable(dataDir, installed);
+  const files = collectArtifactFiles(root).sort();
+  if (files.length === 1 && path.resolve(root, files[0]!) === path.resolve(executable)) return crypto.createHash("sha256").update(fs.readFileSync(executable)).digest("hex");
+  const hash = crypto.createHash("sha256");
+  for (const relative of files) hash.update(`${relative}\0${crypto.createHash("sha256").update(fs.readFileSync(path.join(root, relative))).digest("hex")}\n`, "utf8");
+  return hash.digest("hex");
 }
 
 /** Resolve an installed executable only when the catalog grants the requested platform role. */

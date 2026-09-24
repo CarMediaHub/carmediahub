@@ -1,7 +1,5 @@
 import { chromium, type BrowserContext, type BrowserType } from "playwright-core";
-import crypto from "node:crypto";
-import fs from "node:fs";
-import { resolveInstalledExecutable, type ComponentCatalogItem } from "./components.js";
+import { computeInstalledComponentDigest, resolveInstalledExecutable, type ComponentCatalogItem } from "./components.js";
 import { buildBrowserLaunchSpec, type BrowserLaunchSpec } from "./browser-engine-launcher.js";
 import { installBrowserNetworkPolicy } from "./browser-network-policy.js";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
@@ -31,11 +29,10 @@ export interface BrowserWorkerHandle {
   stop(): Promise<void>;
 }
 
-async function verifyExecutableDigest(executable: string, expected: string): Promise<void> {
+async function verifyExecutableDigest(dataDir: string, component: { id: string; version: string; executable: string; checksum: string }): Promise<void> {
+  const expected = component.checksum;
   if (!/^[a-f0-9]{64}$/u.test(expected)) throw new Error("Browser component digest is invalid");
-  const hash = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(executable)) hash.update(chunk as Buffer);
-  if (hash.digest("hex") !== expected) throw new Error("Browser component digest mismatch");
+  if (computeInstalledComponentDigest(dataDir, component) !== expected) throw new Error("Browser component digest mismatch");
 }
 
 export async function navigateToTarget(handle: Pick<BrowserWorkerHandle, "context">, registry: BrowserTargetRegistry, targetId: string, relativePath = "/") {
@@ -56,7 +53,7 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   const executable = resolveInstalledExecutable(options.dataDir, options.component);
   const catalogComponent = options.catalog.find((candidate) => candidate.id === options.component.id);
   if (catalogComponent === undefined || !catalogComponent.provides.includes("browser-engine")) throw new Error("Browser component role is unavailable");
-  await verifyExecutableDigest(executable, options.component.checksum);
+  await verifyExecutableDigest(options.dataDir, options.component);
   const launch = buildBrowserLaunchSpec(options.dataDir, options.scope);
   const runtime = options.runtime ?? chromium;
   const context = await runtime.launchPersistentContext(launch.userDataDir, {
