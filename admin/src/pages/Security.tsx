@@ -22,6 +22,12 @@ export default function Security() {
       {!enabled && <Button type="primary" onClick={async () => { const response = await fetch("/api/auth/totp/setup", { method: "POST" }); if (!response.ok) { message.error("Unable to start setup"); return; } setSetup(await response.json()); }}>Set up authenticator</Button>}
       {enabled && <Alert type="success" showIcon message="Authenticator protection is enabled" description="Use an authenticator code or one unused recovery code when signing in." />}
     </ProCard>
+    <ProCard title="Change password" style={{ margin: 24, maxWidth: 780 }}>
+      <ProForm layout="vertical" onFinish={async (values) => { const response = await fetch("/api/auth/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Current password is invalid or the new password is too short"); return false; } message.success("Password changed; other sessions were signed out"); return true; }}>
+        <ProFormText.Password name="currentPassword" label="Current password" rules={[{ required: true }]} />
+        <ProFormText.Password name="newPassword" label="New password" rules={[{ required: true, min: 12 }]} />
+      </ProForm>
+    </ProCard>
     <ProCard title="Platform preferences" style={{ margin: 24, maxWidth: 780 }}>
       <ProForm key={`${locale}:${timeZone}:${theme}:${density}`} layout="inline" initialValues={{ locale, timeZone, theme, density }} onFinish={async (values) => { const response = await fetch("/api/me/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error("Unable to update platform preferences"); return false; } const result = await response.json(); setLocale(result.user.locale); setTimeZone(result.user.timeZone); setTheme(result.user.theme); setDensity(result.user.density); window.dispatchEvent(new Event("cmh:preferences-changed")); message.success("Platform preferences updated"); return true; }}>
         <ProFormSelect name="locale" label="Language" options={[{ label: "English", value: "en" }, { label: "简体中文", value: "zh-CN" }, { label: "한국어", value: "ko" }]} rules={[{ required: true }]} />

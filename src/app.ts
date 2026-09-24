@@ -512,6 +512,20 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/auth/password", async (request, reply) => {
+    const token = request.cookies.cmh_session;
+    const session = token === undefined ? undefined : repository.sessionContext(token);
+    if (session === undefined) return reply.code(401).send({ code: "CMH.AUTH.REQUIRED", messageKey: "errors.auth.required" });
+    try {
+      const input = body<{ currentPassword: string; newPassword: string }>(request);
+      if (typeof input.currentPassword !== "string" || typeof input.newPassword !== "string" || !repository.changePassword(session.user.id, input.currentPassword, input.newPassword, session.sessionId)) return reply.code(400).send({ code: "CMH.AUTH.PASSWORD_INVALID", messageKey: "errors.auth.passwordInvalid" });
+      repository.audit(session.user.id, "auth.passwordChanged", "password");
+      return reply.code(204).send();
+    } catch {
+      return reply.code(400).send({ code: "CMH.AUTH.PASSWORD_INVALID", messageKey: "errors.auth.passwordInvalid" });
+    }
+  });
+
   app.get("/api/me", async (request, reply) => {
     const user = await requireUser(request, reply);
     return user === undefined ? undefined : { user };

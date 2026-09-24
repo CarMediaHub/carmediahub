@@ -78,6 +78,25 @@ test("entry key expiry requires a future canonical UTC timestamp", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("password change verifies the old password and revokes other sessions", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-password-change-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    const admin = repository.bootstrap("admin", "old password 123", "en");
+    const first = repository.login("admin", "old password 123", "desktop");
+    const second = repository.login("admin", "old password 123", "vehicle");
+    assert.ok(first && typeof first !== "string" && second && typeof second !== "string");
+    const current = repository.sessionContext(first.token);
+    assert.ok(current);
+    assert.equal(repository.changePassword(admin.id, "wrong password 123", "new password 123", current.sessionId), false);
+    assert.equal(repository.changePassword(admin.id, "old password 123", "new password 123", current.sessionId), true);
+    assert.ok(repository.login("admin", "new password 123", "new-device"));
+    assert.equal(repository.session(second.token), undefined);
+    assert.ok(repository.session(first.token));
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("verified plugin package records retain multiple versions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-package-versions-"));
   const database = openDatabase(dataDir);

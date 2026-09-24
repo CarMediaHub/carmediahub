@@ -117,6 +117,22 @@ export class Repository {
     return { user: this.userFromRow(row), sessionId: row.session_id ?? "", deviceLabel: row.device_label ?? "" };
   }
 
+  changePassword(userId: string, currentPassword: string, nextPassword: string, currentSessionId: string): boolean {
+    const row = this.db.prepare("SELECT password_hash FROM users WHERE id = ? AND revoked_at IS NULL").get(userId) as { password_hash: string } | undefined;
+    if (row === undefined || !verifyPassword(currentPassword, row.password_hash)) return false;
+    const nextHash = hashPassword(nextPassword);
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      this.db.prepare("UPDATE users SET password_hash = ? WHERE id = ? AND revoked_at IS NULL").run(nextHash, userId);
+      this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL").run(now(), userId, currentSessionId);
+      this.db.exec("COMMIT;");
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+    return true;
+  }
+
   revokeSession(token: string): void { this.db.prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?").run(now(), keyedHash(token, this.serverKey)); }
 
   rateLimited(subject: string): boolean {
