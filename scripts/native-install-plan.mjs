@@ -11,6 +11,7 @@ function fail(message) { throw new Error(`Native install plan failed: ${message}
 function account(value, platform) {
   const selected = value ?? (platform === "windows" ? "NT AUTHORITY\\LocalService" : "carmediahub");
   if (typeof selected !== "string" || selected.length === 0 || selected.length > 128 || /[\r\n]/u.test(selected)) fail("serviceAccount is invalid");
+  if (platform === "windows" && (!/^[A-Za-z0-9._$ -]{1,96}(?:\\[A-Za-z0-9._$ -]{1,96})?$/u.test(selected) || selected.startsWith(" ") || selected.endsWith(" "))) fail("serviceAccount is invalid for Windows");
   if (platform === "linux" && !/^[a-z_][a-z0-9_-]{0,31}$/u.test(selected)) fail("serviceAccount is invalid for Linux");
   return selected;
 }

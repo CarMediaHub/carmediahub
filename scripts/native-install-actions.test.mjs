@@ -42,4 +42,5 @@ test("rejects unsafe action plan paths and accounts", () => {
   assert.throws(() => createNativeInstallActions({ ...base("linux"), serviceAccount: "root;rm" }), /serviceAccount/);
   assert.throws(() => createNativeInstallActions({ ...base("windows"), resources: { ...base("windows").resources, dataDir: "relative" } }), /absolute/);
   assert.throws(() => createNativeInstallActions({ ...base("linux"), service: { ...base("linux").service, unitText: "" } }), /systemd unit text/);
+  assert.throws(() => createNativeInstallActions({ ...base("windows"), serviceAccount: "DOMAIN\\\\User;bad" }), /serviceAccount/);
 });

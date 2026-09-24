@@ -22,4 +22,6 @@ test("rejects unsafe service metadata and implicit paths", () => {
   assert.throws(() => createWindowsServiceSpec({ ...valid, nodePath: "node.exe" }), /nodePath.*absolute Windows/);
   assert.throws(() => createWindowsServiceSpec({ ...valid, configPath: "C:/secret\".json" }), /configPath/);
   assert.throws(() => createWindowsServiceSpec({ ...valid, description: "line\ncontaining" }), /description/);
+  assert.throws(() => createWindowsServiceSpec({ ...valid, serviceAccount: "DOMAIN\\\\User;bad" }), /serviceAccount/);
+  assert.throws(() => createWindowsServiceSpec({ ...valid, serviceAccount: 'DOMAIN\\\\User"bad' }), /serviceAccount/);
 });
