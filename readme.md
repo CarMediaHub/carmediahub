@@ -17,6 +17,12 @@ pnpm build
 pnpm start -- --data-dir .\data
 ```
 
+For an explicit local Browser Worker smoke (development only), provide a real Chromium/Chrome executable and a disposable data directory. The command does not discover browsers or use environment variables; it verifies the allowlisted Origin, unknown-Origin blocking, scoped User Data directory and muted launch contract:
+
+```powershell
+pnpm smoke:browser -- --runtime-executable "C:\Path\to\chrome.exe" --data-dir .\tmp\browser-smoke
+```
+
 Docker development deployment (from the parent `CarMediaHub` directory):
 
 ```powershell
