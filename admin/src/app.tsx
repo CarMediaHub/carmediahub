@@ -28,7 +28,7 @@ function PlatformProvider({ children }: { children: ReactNode }) {
   useEffect(() => { refresh(); const listener = () => refresh(); window.addEventListener("cmh:preferences-changed", listener); return () => window.removeEventListener("cmh:preferences-changed", listener); }, []);
   const locale = user?.locale === "zh-CN" ? zhCN : user?.locale === "ko" ? koKR : enUS;
   const algorithm = user?.theme === "dark" ? antdTheme.darkAlgorithm : undefined;
-  return <ConfigProvider locale={locale} componentSize={user?.density === "compact" ? "small" : "middle"} theme={algorithm === undefined ? undefined : { algorithm }}>{children}</ConfigProvider>;
+  return <ConfigProvider locale={locale} componentSize={user?.density === "compact" ? "small" : "middle"} {...(algorithm === undefined ? {} : { theme: { algorithm } })}>{children}</ConfigProvider>;
 }
 
 export function rootContainer(container: ReactNode) {
