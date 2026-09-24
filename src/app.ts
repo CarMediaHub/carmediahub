@@ -221,7 +221,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         const input = request.params as { binding?: unknown; method?: unknown; path?: unknown; headers?: unknown; body?: unknown; credentialRef?: unknown } | undefined;
         if (typeof input?.binding !== "string" || typeof input.method !== "string" || typeof input.path !== "string") throw new Error("Invalid network request");
         if (input.credentialRef !== undefined && typeof input.credentialRef !== "string") throw new Error("Invalid credential reference");
-        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) }, (name) => repository.serviceBindingByName(name, scope.installationId), (credentialRef) => credentialVault.resolve(scope, credentialRef));
+        return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body, quotaKey: `${scope.organizationId}:${scope.userId}:${scope.installationId}:${input.binding}`, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) }, (name) => repository.serviceBindingByName(name, scope.installationId), (credentialRef) => credentialVault.resolve(scope, credentialRef));
       }
       if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list" || request.method === "data.migrate" || request.method === "data.migrations") {
         if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");

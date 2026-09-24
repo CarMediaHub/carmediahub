@@ -46,6 +46,26 @@ test("limits concurrent requests per binding and releases the slot", async () =>
   } finally { release(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 });
 
+test("isolates concurrent quotas by an explicit Core scope key", async () => {
+  let requests = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const server = http.createServer(async (_request, response) => { requests += 1; await gate; response.end("ok"); });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    const endpoint = () => ({ endpoint: `http://127.0.0.1:${address.port}` });
+    const firstScope = Array.from({ length: 10 }, () => executeNetworkRequest({ binding: "shared", quotaKey: "org:user-a:plugin-a:shared", method: "GET", path: "/" }, endpoint));
+    for (let attempt = 0; attempt < 20 && requests < 10; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(requests, 10);
+    const secondScope = executeNetworkRequest({ binding: "shared", quotaKey: "org:user-b:plugin-b:shared", method: "GET", path: "/" }, endpoint);
+    release();
+    await Promise.all([...firstScope, secondScope]);
+    assert.equal(requests, 11);
+  } finally { release(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+});
+
 test("injects only a Core-resolved opaque credential and rejects header overrides", async () => {
   const server = http.createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/plain" });

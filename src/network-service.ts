@@ -1,4 +1,4 @@
-export interface NetworkExecutionRequest { binding: string; method: string; path: string; headers?: unknown; body?: unknown; credentialRef?: string; }
+export interface NetworkExecutionRequest { binding: string; method: string; path: string; headers?: unknown; body?: unknown; credentialRef?: string; quotaKey?: string; }
 export interface NetworkExecutionResponse { status: number; headers: Record<string, string>; bodyBase64?: string; }
 export type BindingResolver = (name: string) => { endpoint: string } | undefined;
 export type CredentialResolver = (credentialRef: string) => { name: "cookie" | "authorization"; value: string } | undefined;
@@ -28,9 +28,10 @@ export async function executeNetworkRequest(input: NetworkExecutionRequest, reso
     if (requestHeaders[header] !== undefined) throw new Error("Credential header cannot be overridden");
     requestHeaders[header] = credential.value;
   }
-  const active = activeRequests.get(input.binding) ?? 0;
+  const quotaKey = input.quotaKey ?? input.binding;
+  const active = activeRequests.get(quotaKey) ?? 0;
   if (active >= maxConcurrentPerBinding) throw new Error("Network concurrency limit exceeded");
-  activeRequests.set(input.binding, active + 1);
+  activeRequests.set(quotaKey, active + 1);
   try {
     let response: Response;
     for (let redirect = 0; ; redirect += 1) {
@@ -49,7 +50,7 @@ export async function executeNetworkRequest(input: NetworkExecutionRequest, reso
     const responseHeaders = Object.fromEntries(["content-type", "content-length", "content-range", "etag", "last-modified", "accept-ranges"].flatMap((name) => { const value = response.headers.get(name); return value === null ? [] : [[name, value]]; }));
     return { status: response.status, headers: responseHeaders, ...(input.method === "HEAD" ? {} : { bodyBase64: bytes.toString("base64") }) };
   } finally {
-    if (active === 0) activeRequests.delete(input.binding);
-    else activeRequests.set(input.binding, active);
+    if (active === 0) activeRequests.delete(quotaKey);
+    else activeRequests.set(quotaKey, active);
   }
 }
