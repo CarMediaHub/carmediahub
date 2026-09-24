@@ -75,6 +75,7 @@ export function prepareComponentRelease(input) {
   if (!keyIdPattern.test(keyId)) fail("keyId must be a 16-character lowercase public-key fingerprint");
   if (input.sourceUrl !== undefined && (typeof input.sourceUrl !== "string" || !/^https:\/\//u.test(input.sourceUrl) || input.sourceUrl.length > 2048)) fail("sourceUrl must be an HTTPS URL");
   if (input.licenseSpdx !== undefined && (typeof input.licenseSpdx !== "string" || !/^[A-Za-z0-9.-]+$/u.test(input.licenseSpdx) || input.licenseSpdx.length > 128)) fail("licenseSpdx is invalid");
+  if ((input.sourceUrl === undefined) !== (input.licenseSpdx === undefined)) fail("sourceUrl and licenseSpdx must be provided together");
   regularArtifact(artifact, "artifact");
   const stagingRoot = path.resolve(dataDir, "staging");
   const staged = path.resolve(stagingRoot, artifactId);

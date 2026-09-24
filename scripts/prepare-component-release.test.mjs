@@ -77,3 +77,16 @@ test("CLI writes the requested unsigned record and requires a key fingerprint", 
     assert.match(missingKey.stderr, /keyId is required/u);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("requires component provenance fields to be provided as a complete pair", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-release-provenance-"));
+  try {
+    const artifact = path.join(root, "component.bin");
+    fs.writeFileSync(artifact, "component");
+    const base = { dataDir: path.join(root, "data"), artifact, componentId: "ffmpeg", artifactId: "provenance", version: "7.0.0", platform: "linux-x64", keyId: "0123456789abcdef" };
+    assert.throws(() => prepareComponentRelease({ ...base, sourceUrl: "https://ffmpeg.org" }), /provided together/u);
+    assert.throws(() => prepareComponentRelease({ ...base, licenseSpdx: "LGPL-2.1" }), /provided together/u);
+    const complete = prepareComponentRelease({ ...base, sourceUrl: "https://ffmpeg.org", licenseSpdx: "LGPL-2.1" });
+    assert.deepEqual(complete.release.provenance, { sourceUrl: "https://ffmpeg.org", licenseSpdx: "LGPL-2.1" });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
