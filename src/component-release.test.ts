@@ -40,3 +40,27 @@ test("signed component release requires a trusted Ed25519 signer and exact artif
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("signed directory component release verifies and installs the complete artifact tree", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-release-tree-"));
+  try {
+    const keys = crypto.generateKeyPairSync("ed25519");
+    const publicKey = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
+    const keyId = crypto.createHash("sha256").update(publicKey).digest("hex").slice(0, 16);
+    const artifactRoot = path.join(dataDir, "staging", "ffmpeg-tree");
+    const executable = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+    fs.mkdirSync(path.join(artifactRoot, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(artifactRoot, executable), "tree executable");
+    fs.writeFileSync(path.join(artifactRoot, "lib", "codec.dll"), "tree library");
+    const digest = crypto.createHash("sha256")
+      .update(`${executable}\0${crypto.createHash("sha256").update("tree executable").digest("hex")}\n`)
+      .update(`lib/codec.dll\0${crypto.createHash("sha256").update("tree library").digest("hex")}\n`)
+      .digest("hex");
+    const release: ComponentRelease = { schemaVersion: 1, keyId, componentId: "ffmpeg", version: "7.0.1", artifactId: "ffmpeg-tree", sha256: digest, platform: currentPlatformKey() };
+    const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
+    const installed = installSignedComponentRelease(dataDir, catalog, signedRelease(release, keys.privateKey), [publicKey], currentPlatformKey());
+    assert.equal(installed.checksum, digest);
+    assert.equal(fs.readFileSync(path.join(dataDir, "components", "ffmpeg", "7.0.1", executable), "utf8"), "tree executable");
+    assert.equal(fs.readFileSync(path.join(dataDir, "components", "ffmpeg", "7.0.1", "lib", "codec.dll"), "utf8"), "tree library");
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
