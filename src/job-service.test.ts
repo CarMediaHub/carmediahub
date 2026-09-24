@@ -284,3 +284,21 @@ test("job executor drains only a bounded FIFO batch", async () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("queued scope recovery returns distinct scopes in oldest-first order", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-job-queued-scopes-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('dep', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'dep', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z'), ('other', 'org', 'b', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const jobs = new PluginJobService(database.db);
+    const first = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "first" };
+    const second = { ...first, userId: "other", installationId: "second" };
+    jobs.enqueue(first, "media.transcode", { order: 1 });
+    jobs.enqueue(first, "media.transcode", { order: 2 });
+    jobs.enqueue(second, "media.transcode", { order: 3 });
+    assert.deepEqual(jobs.queuedScopes(), [
+      { organizationId: "org", userId: "user", installationId: "first" },
+      { organizationId: "org", userId: "other", installationId: "second" },
+    ]);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});

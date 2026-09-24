@@ -38,7 +38,7 @@ import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } fr
 import { createManagedBrowserWorkerOptionsResolver } from "./browser-task-runtime.js";
 import { loadBrowserTargetRegistry } from "./browser-target-config.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; displayModeRequester?: (scope: ScopeContext, mode: DisplayMode) => Promise<DisplayModeResult> | DisplayModeResult; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; jobSchedulerIntervalMs?: number; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; displayModeRequester?: (scope: ScopeContext, mode: DisplayMode) => Promise<DisplayModeResult> | DisplayModeResult; }
 
 export async function requestDisplayMode(options: Pick<AppOptions, "displayModeRequester">, scope: ScopeContext, display: DisplayContext, mode: DisplayMode): Promise<DisplayModeResult> {
   if (mode === "fullscreen" && !display.fullscreenAvailable) return { mode, accepted: false, reason: "unsupported" };
@@ -418,8 +418,25 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const loginSubject = (request: FastifyRequest, username: string) => `login:${request.ip}:${username.trim().toLowerCase()}`;
   const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
 
+  const schedulerIntervalMs = options.jobSchedulerIntervalMs ?? 1_000;
+  if (!Number.isSafeInteger(schedulerIntervalMs) || schedulerIntervalMs < 100 || schedulerIntervalMs > 60_000) throw new Error("Job scheduler interval is invalid");
   await runtimeBroker.start();
+  let schedulerBusy = false;
+  const runQueuedJobs = async (): Promise<void> => {
+    if (schedulerBusy) return;
+    schedulerBusy = true;
+    try {
+      for (const queued of jobs.queuedScopes()) {
+        const scope = repository.runtimeScope(queued.userId, queued.installationId, "job-scheduler", "job-scheduler");
+        if (scope !== undefined) await jobExecutor.runUntilIdle(scope, 10);
+      }
+    } finally { schedulerBusy = false; }
+  };
+  const schedulerTimer = setInterval(() => { void runQueuedJobs().catch(() => undefined); }, schedulerIntervalMs);
+  schedulerTimer.unref();
+  void runQueuedJobs().catch(() => undefined);
   app.addHook("onClose", async () => {
+    clearInterval(schedulerTimer);
     await browserWorkerManager.stopAll();
     await supervisor.stopAll();
     await runtimeBroker.stop();

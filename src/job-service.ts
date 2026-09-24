@@ -99,6 +99,13 @@ export class PluginJobService {
       .all(organizationId, Math.min(Math.max(limit, 1), 500)) as Array<Record<string, string | number | null>>).map((row) => ({ ...jobFromRow(row), userId: String(row.user_id), installationId: String(row.installation_id) }));
   }
 
+  /** Returns only opaque scope coordinates for the Core-owned recovery scheduler. */
+  queuedScopes(limit = 500): Array<{ organizationId: string; userId: string; installationId: string }> {
+    const bounded = Math.min(Math.max(Math.floor(limit), 1), 500);
+    return (this.db.prepare("SELECT organization_id, user_id, installation_id FROM plugin_jobs WHERE status = 'queued' GROUP BY organization_id, user_id, installation_id ORDER BY MIN(created_at) LIMIT ?")
+      .all(bounded) as Array<Record<string, string>>).map((row) => ({ organizationId: String(row.organization_id), userId: String(row.user_id), installationId: String(row.installation_id) }));
+  }
+
   cancelOrganization(organizationId: string, id: string): PluginJob | undefined {
     assertIdentifier(organizationId, "organizationId");
     if (!id.startsWith("job_")) throw new Error("job id is invalid");
