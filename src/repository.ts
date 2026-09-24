@@ -576,6 +576,10 @@ export class Repository {
   createEntryKey(applicationId: string, userId: string, expiresAt?: string): { id: string; key: string } {
     const application = this.db.prepare("SELECT id FROM applications WHERE id = ? AND enabled = 1").get(applicationId);
     if (application === undefined) throw new Error("Application not found");
+    if (expiresAt !== undefined) {
+      const parsed = Date.parse(expiresAt);
+      if (!Number.isFinite(parsed) || parsed <= Date.now() || new Date(parsed).toISOString() !== expiresAt) throw new Error("Invalid entry key expiry");
+    }
     const key = randomToken();
     const keyId = id("key");
     this.db.prepare("INSERT INTO entry_keys (id, key_hash, application_id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")

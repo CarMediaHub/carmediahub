@@ -63,6 +63,21 @@ test("entry key revocation is restricted to its owning user", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("entry key expiry requires a future canonical UTC timestamp", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-entry-key-expiry-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const application = repository.applications().find((item) => item.route === "/system");
+    assert.ok(application);
+    assert.throws(() => repository.createEntryKey(application.id, admin.id, "tomorrow"), /expiry/);
+    assert.throws(() => repository.createEntryKey(application.id, admin.id, new Date(Date.now() - 1000).toISOString()), /expiry/);
+    const issued = repository.createEntryKey(application.id, admin.id, new Date(Date.now() + 60_000).toISOString());
+    assert.equal(repository.resolveEntryKey(issued.key)?.userId, admin.id);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("verified plugin package records retain multiple versions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-package-versions-"));
   const database = openDatabase(dataDir);
