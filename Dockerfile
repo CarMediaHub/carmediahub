@@ -18,7 +18,11 @@ COPY --from=build /workspace/carmediahub/public ./public
 COPY --from=build /workspace/carmediahub/config/components.json /workspace/carmediahub/config/components.schema.json /workspace/carmediahub/config/component-release.schema.json /workspace/carmediahub/config/core.schema.json /workspace/carmediahub/config/core.example.json ./config/
 COPY --from=build /workspace/carmediahub/package.json ./package.json
 COPY --from=build /workspace/carmediahub/node_modules ./node_modules
-RUN mkdir -p /var/lib/carmediahub
+RUN groupadd --system --gid 10001 carmediahub \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /var/lib/carmediahub --no-create-home --shell /usr/sbin/nologin carmediahub \
+  && mkdir -p /var/lib/carmediahub \
+  && chown -R carmediahub:carmediahub /var/lib/carmediahub
 VOLUME ["/var/lib/carmediahub"]
+USER carmediahub
 EXPOSE 8787
 ENTRYPOINT ["node", "dist/cli.js", "--data-dir", "/var/lib/carmediahub", "--host", "0.0.0.0", "--port", "8787", "--cookie-secure"]
