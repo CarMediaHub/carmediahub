@@ -60,6 +60,7 @@ export async function startBrowserWorker(options: BrowserWorkerDriverOptions): P
   const runtime = options.runtime ?? chromium;
   const context = await runtime.launchPersistentContext(launch.userDataDir, {
     executablePath: executable,
+    env: {},
     args: [...launch.args],
     headless: true,
     acceptDownloads: false,
