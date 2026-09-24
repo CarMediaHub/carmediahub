@@ -11,7 +11,7 @@ test("browser launch spec is silent, isolated and pipe-based", () => {
   assert.equal(spec.args.includes("--mute-audio"), true);
   assert.equal(spec.args.some((arg) => arg.startsWith("--remote-debugging-")), false);
   assert.equal(spec.args.some((arg) => arg.startsWith("--remote-debugging-port=")), false);
-  assert.equal(spec.args.some((arg) => arg.startsWith("--user-data-dir=")), true);
+  assert.equal(spec.args.some((arg) => arg.startsWith("--user-data-dir=")), false);
 });
 
 test("browser launch spec rejects unsafe scope identities", () => {
