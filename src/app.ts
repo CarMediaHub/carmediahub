@@ -43,7 +43,9 @@ export interface AppOptions { dataDir: string; cookieSecure?: boolean; component
 export async function requestDisplayMode(options: Pick<AppOptions, "displayModeRequester">, scope: ScopeContext, display: DisplayContext, mode: DisplayMode): Promise<DisplayModeResult> {
   if (mode === "fullscreen" && !display.fullscreenAvailable) return { mode, accepted: false, reason: "unsupported" };
   if (options.displayModeRequester === undefined) return { mode, accepted: mode === "normal", ...(mode === "fullscreen" ? { reason: "user-action-required" as const } : {}) };
-  return options.displayModeRequester(scope, mode);
+  const result = await options.displayModeRequester(scope, mode);
+  if (result === null || typeof result !== "object" || result.mode !== mode || typeof result.accepted !== "boolean" || (result.reason !== undefined && result.reason !== "unsupported" && result.reason !== "user-action-required")) return { mode, accepted: false, reason: "user-action-required" };
+  return result;
 }
 
 function body<T>(request: FastifyRequest): T { return request.body as T; }

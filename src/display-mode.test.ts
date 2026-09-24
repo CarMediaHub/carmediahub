@@ -16,3 +16,8 @@ test("display mode requests reject unsupported fullscreen and preserve scope", a
   assert.deepEqual(await requestDisplayMode({ displayModeRequester: (received, mode) => { receivedScope = received; return { mode, accepted: true }; } }, scope, supported, "fullscreen"), { mode: "fullscreen", accepted: true });
   assert.deepEqual(receivedScope, scope);
 });
+
+test("display mode requests normalize malformed host results", async () => {
+  const malformed = { displayModeRequester: async () => ({ mode: "normal", accepted: "yes" } as never) };
+  assert.deepEqual(await requestDisplayMode(malformed, scope, supported, "fullscreen"), { mode: "fullscreen", accepted: false, reason: "user-action-required" });
+});
