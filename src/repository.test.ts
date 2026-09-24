@@ -338,14 +338,36 @@ test("disabled plugin installations can be re-enabled without changing their gra
   const database = openDatabase(dataDir);
   try {
     const repository = new Repository(database.db, ensureServerKey(dataDir));
-    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
     const installation = repository.installPlugin({ id: "enable-test", version: "0.1.0", sdk: "^0.1.0", name: { en: "Enable", "zh-CN": "启用", ko: "활성화" }, description: { en: "Enable", "zh-CN": "启用", ko: "활성화" }, category: "official", runtime: "isolated-worker", capabilities: ["history"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+    const application = repository.applications().find((item) => item.installationId === installation.id);
+    assert.ok(application);
+    const issued = repository.createEntryKey(application.id, admin.id);
+    assert.ok(repository.resolveEntryKey(issued.key));
     assert.equal(repository.disablePlugin(installation.id), true);
     assert.equal(repository.pluginInstallation(installation.id)?.status, "disabled");
+    assert.equal(repository.resolveEntryKey(issued.key), undefined);
     assert.equal(repository.enablePlugin(installation.id), true);
     assert.equal(repository.pluginInstallation(installation.id)?.status, "installed");
     assert.deepEqual(repository.pluginCapabilities(installation.id), ["history"]);
+    assert.equal(repository.resolveEntryKey(issued.key), undefined);
+    assert.equal(repository.entryKeys(admin.id).find((item) => item.id === issued.id)?.revokedAt !== null, true);
     assert.equal(repository.enablePlugin(installation.id), false);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("uninstall revokes remote media sources for the disabled installation", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-uninstall-sources-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const installation = repository.installPlugin({ id: "uninstall-source-test", version: "0.1.0", sdk: "^0.1.0", name: { en: "Uninstall", "zh-CN": "卸载", ko: "제거" }, description: { en: "Uninstall", "zh-CN": "卸载", ko: "제거" }, category: "official", runtime: "isolated-worker", capabilities: ["media-source"], routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" } });
+    database.db.prepare("INSERT INTO remote_media_sources (id, organization_id, user_id, installation_id, name, binding, root_path, source_handle, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run("remote_source_test", admin.organizationId, admin.id, installation.id, "Source", "webdav", "/media", `remote_source_${"a".repeat(43)}`, new Date().toISOString());
+    assert.equal(repository.disablePlugin(installation.id), true);
+    assert.equal(repository.uninstallPlugin(installation.id), true);
+    const row = database.db.prepare("SELECT revoked_at FROM remote_media_sources WHERE id = ?").get("remote_source_test") as { revoked_at?: string | null } | undefined;
+    assert.equal(typeof row?.revoked_at, "string");
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
