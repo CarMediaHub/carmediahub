@@ -30,7 +30,13 @@ const messages = {
   }
 } as const;
 
-export type Translator = (key: MessageKey) => string;
-export const AdminI18nContext = createContext<{ locale: AdminLocale; t: Translator }>({ locale: "en", t: (key) => messages.en[key] });
-export function translate(locale: AdminLocale, key: MessageKey): string { return (messages[locale] as Partial<Record<MessageKey, string>>)[key] ?? messages.en[key]; }
+const extraMessages = {
+  en: { "common.search": "Search", "common.clear": "Clear", "common.category": "Category", "common.route": "Route", "common.device": "Device", "common.visited": "Visited", "common.uncategorized": "Uncategorized", "common.clearAllHistory": "Clear all history?", "common.clearCategoryHistory": "Clear category history?", "common.historyCleared": "History cleared", "common.categoryCleared": "Category cleared", "common.clearHistoryFailed": "Unable to clear history", "common.unifiedCatalog": "Unified catalog", "common.searchTitleDescription": "Search title or description", "common.updated": "Updated", "common.connectionSpeed": "Connection speed", "common.runTest": "Run test", "common.latency": "Latency", "common.download": "Download", "common.upload": "Upload", "common.speedTestFailed": "Speed test failed" },
+  "zh-CN": { "common.search": "搜索", "common.clear": "清除", "common.category": "分类", "common.route": "路由", "common.device": "设备", "common.visited": "访问时间", "common.uncategorized": "未分类", "common.clearAllHistory": "清除全部历史记录？", "common.clearCategoryHistory": "清除该分类历史记录？", "common.historyCleared": "历史记录已清除", "common.categoryCleared": "分类记录已清除", "common.clearHistoryFailed": "无法清除历史记录", "common.unifiedCatalog": "统一目录", "common.searchTitleDescription": "搜索标题或描述", "common.updated": "更新时间", "common.connectionSpeed": "连接速度", "common.runTest": "开始测速", "common.latency": "延迟", "common.download": "下载", "common.upload": "上传", "common.speedTestFailed": "测速失败" },
+  ko: { "common.search": "검색", "common.clear": "지우기", "common.category": "분류", "common.route": "경로", "common.device": "기기", "common.visited": "방문 시간", "common.uncategorized": "분류 없음", "common.clearAllHistory": "모든 기록을 지울까요?", "common.clearCategoryHistory": "이 분류의 기록을 지울까요?", "common.historyCleared": "기록을 지웠습니다", "common.categoryCleared": "분류 기록을 지웠습니다", "common.clearHistoryFailed": "기록을 지울 수 없습니다", "common.unifiedCatalog": "통합 카탈로그", "common.searchTitleDescription": "제목 또는 설명 검색", "common.updated": "업데이트 시간", "common.connectionSpeed": "연결 속도", "common.runTest": "테스트 실행", "common.latency": "지연 시간", "common.download": "다운로드", "common.upload": "업로드", "common.speedTestFailed": "속도 테스트에 실패했습니다" }
+} as const;
+
+export type Translator = (key: MessageKey | keyof typeof extraMessages.en) => string;
+export const AdminI18nContext = createContext<{ locale: AdminLocale; t: Translator }>({ locale: "en", t: (key) => translate("en", key) });
+export function translate(locale: AdminLocale, key: MessageKey | keyof typeof extraMessages.en): string { return (messages[locale] as Partial<Record<string, string>>)[key] ?? extraMessages[locale][key as keyof typeof extraMessages.en] ?? (messages.en as Record<string, string>)[key] ?? key; }
 export function useAdminI18n(): { locale: AdminLocale; t: Translator } { return useContext(AdminI18nContext); }
