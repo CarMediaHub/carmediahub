@@ -780,9 +780,13 @@ export class Repository {
     this.db.prepare("INSERT INTO audit_events (id, actor_id, type, subject, created_at) VALUES (?, ?, ?, ?, ?)").run(id("audit"), actorId ?? null, type, subject, now());
   }
 
-  auditEvents(options: { limit?: number; type?: string; actorId?: string; keyword?: string } = {}): Array<{ id: string; actorId: string | null; type: string; subject: string; createdAt: string }> {
+  auditEvents(options: { limit?: number; type?: string; actorId?: string; keyword?: string; organizationId?: string } = {}): Array<{ id: string; actorId: string | null; type: string; subject: string; createdAt: string }> {
     const clauses: string[] = [];
     const values: Array<string | number> = [];
+    if (options.organizationId !== undefined) {
+      clauses.push("(actor_id IS NULL OR actor_id IN (SELECT id FROM users WHERE organization_id = ?))");
+      values.push(options.organizationId);
+    }
     if (options.type !== undefined) { clauses.push("type = ?"); values.push(options.type); }
     if (options.actorId !== undefined) { clauses.push("actor_id = ?"); values.push(options.actorId); }
     if (options.keyword !== undefined) { clauses.push("(type LIKE ? OR subject LIKE ?)"); values.push(`%${options.keyword}%`, `%${options.keyword}%`); }

@@ -29,6 +29,24 @@ test("managed component versions require health before activation and preserve r
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("audit events are scoped to the administrator organization while retaining system events", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-audit-scope-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const currentUser = database.db.prepare("SELECT id, organization_id FROM users WHERE username = ?").get("admin") as { id: string; organization_id: string };
+    database.db.prepare("INSERT INTO deployments (id, created_at, locale) VALUES (?, ?, ?)").run("other-deployment", new Date().toISOString(), "en");
+    database.db.prepare("INSERT INTO organizations (id, deployment_id, name) VALUES (?, ?, ?)").run("other-org", "other-deployment", "Other");
+    database.db.prepare("INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run("other-user", "other-org", "other", "hash", "admin", "en", new Date().toISOString());
+    repository.audit(currentUser.id, "audit.current", "current");
+    repository.audit("other-user", "audit.other", "other");
+    repository.audit(undefined, "audit.system", "system");
+    const events = repository.auditEvents({ organizationId: currentUser.organization_id, limit: 20 });
+    assert.deepEqual(new Set(events.map((event) => event.type)), new Set(["audit.current", "audit.system"]));
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("rejects component records without a verifiable identity or checksum", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-validation-"));
   const database = openDatabase(dataDir);
