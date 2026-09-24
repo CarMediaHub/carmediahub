@@ -96,6 +96,17 @@ test("entry key expiry requires a future canonical UTC timestamp", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("application registration rejects missing or inactive plugin installations", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-application-scope-"));
+  const database = openDatabase(dataDir);
+  const repository = new Repository(database.db, Buffer.alloc(32, 7));
+  try {
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    assert.throws(() => repository.addApplication({ name: "Orphan", category: "adapter", route: "/apps/orphan", installationId: "plugin_missing", vehicleSupported: false }), /installed plugin/);
+    assert.doesNotThrow(() => repository.addApplication({ name: "System", category: "system", route: "/apps/system-extra", installationId: "core-management", vehicleSupported: false }));
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("password change verifies the old password and revokes other sessions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-password-change-"));
   const database = openDatabase(dataDir);

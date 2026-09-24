@@ -392,6 +392,9 @@ export class Repository {
 
   addApplication(input: Omit<ApplicationRecord, "id">): ApplicationRecord {
     if (!input.route.startsWith("/apps/") && input.route !== "/system") throw new Error("Application routes must start with /apps/");
+    const builtin = input.installationId === "core-management" || input.installationId === "core-diagnostics";
+    const installation = this.pluginInstallation(input.installationId);
+    if (!builtin && (installation === undefined || installation.status !== "installed")) throw new Error("Application must reference an installed plugin");
     const record = { ...input, id: id("app") };
     this.db.prepare("INSERT INTO applications (id, name, category, route, installation_id, vehicle_supported) VALUES (?, ?, ?, ?, ?, ?)")
       .run(record.id, record.name, record.category, record.route, record.installationId, record.vehicleSupported ? 1 : 0);
