@@ -36,6 +36,7 @@
     "test:native-linux-service": "node --test scripts/native-linux-service.test.mjs",
     "smoke:browser": "tsx scripts/browser-worker-smoke.ts",
     "smoke:admin": "tsx scripts/admin-browser-smoke.ts",
+    "smoke:wdr-ui": "tsx scripts/wdr-ui-smoke.ts",
     "smoke:media-http": "tsx scripts/media-http-smoke.ts",
     "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
