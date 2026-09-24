@@ -1,4 +1,4 @@
-import { ConfigProvider } from "antd";
+import { ConfigProvider, theme as antdTheme } from "antd";
 import enUS from "antd/locale/en_US";
 import koKR from "antd/locale/ko_KR";
 import zhCN from "antd/locale/zh_CN";
@@ -23,10 +23,12 @@ export function onRouteChange({ location }: { location: Location }) {
 export const request = { errorConfig: { adaptor: (res: Response) => res } };
 
 function PlatformProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ locale?: string; density?: string }>();
-  useEffect(() => { void fetch("/api/me").then((response) => response.ok ? response.json() as Promise<{ user?: { locale?: string; density?: string } }> : undefined).then((profile) => { if (profile?.user !== undefined) setUser(profile.user); }).catch(() => undefined); }, []);
+  const [user, setUser] = useState<{ locale?: string; density?: string; theme?: string }>();
+  const refresh = () => { void fetch("/api/me").then((response) => response.ok ? response.json() as Promise<{ user?: { locale?: string; density?: string; theme?: string } }> : undefined).then((profile) => { if (profile?.user !== undefined) setUser(profile.user); }).catch(() => undefined); };
+  useEffect(() => { refresh(); const listener = () => refresh(); window.addEventListener("cmh:preferences-changed", listener); return () => window.removeEventListener("cmh:preferences-changed", listener); }, []);
   const locale = user?.locale === "zh-CN" ? zhCN : user?.locale === "ko" ? koKR : enUS;
-  return <ConfigProvider locale={locale} componentSize={user?.density === "compact" ? "small" : "middle"}>{children}</ConfigProvider>;
+  const algorithm = user?.theme === "dark" ? antdTheme.darkAlgorithm : undefined;
+  return <ConfigProvider locale={locale} componentSize={user?.density === "compact" ? "small" : "middle"} theme={algorithm === undefined ? undefined : { algorithm }}>{children}</ConfigProvider>;
 }
 
 export function rootContainer(container: ReactNode) {
