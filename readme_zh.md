@@ -38,6 +38,8 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 `--artifact` 也可以指向包含主可执行文件及 DLL/资源文件的目录。目录制品使用规范相对路径树摘要，并拒绝链接和特殊文件。如果提供 provenance，`--source-url` 与 `--license-spdx` 必须同时提供。
 
+签名发布记录的机器可读契约位于 [`config/component-release.schema.json`](config/component-release.schema.json)。该 Schema 会随 Docker 和 Native 制品分发，使外部签名工具与部署环境使用和 Core 一致的字段约束。
+
 该命令不会读取私钥、签名、安装或覆盖已有 staging artifact。提交给 Core 前，必须通过运营者自己控制的签名流程完成签名。
 
 管理员的组件登记接口仅用于登记元数据，登记结果会标记为“未验证”。未验证记录可以查看并执行健康检查，但 Core 不会执行它们、将其作为浏览器引擎启动或作为正式运行时组件使用。只有通过受信任签名校验的发布记录才会标记为“已验证”。

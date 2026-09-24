@@ -54,6 +54,8 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 The `--artifact` may also name a directory containing the executable and companion DLL/resource files. Directory releases use a canonical relative-path tree digest and reject links or special files. If provenance is supplied, `--source-url` and `--license-spdx` must be supplied together.
 
+The signed release envelope is defined by the machine-readable [`config/component-release.schema.json`](config/component-release.schema.json). The schema is shipped in Docker and Native bundles so external signing tools and deployments can validate the same fields as Core.
+
 The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.
 
 The administrator component-registration endpoint is metadata-only and marks records as unverified. Unverified records may be inspected and health-checked, but Core will not execute them, launch them as browser engines, or use them as managed runtime components. Only a release that passes trusted signature verification is marked verified.

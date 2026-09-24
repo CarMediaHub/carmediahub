@@ -9,7 +9,7 @@ import { validateNativeBundle } from "./validate-native-bundle.mjs";
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-bundle-"));
-  for (const relative of ["dist/cli.js", "public/admin/index.html", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json", "node_modules/@carmediahub/sdk/package.json", "node_modules/@carmediahub/sdk/dist/index.js"]) {
+  for (const relative of ["dist/cli.js", "public/admin/index.html", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/component-release.schema.json", "config/core.schema.json", "config/core.example.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json", "node_modules/@carmediahub/sdk/package.json", "node_modules/@carmediahub/sdk/dist/index.js"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0", carmediahub: { databaseSchemaVersion: 1 } }));
@@ -17,14 +17,14 @@ function fixture() {
 }
 
 test("accepts a complete native bundle without instance configuration", () => {
-  assert.deepEqual(validateNativeBundle(fixture()), { files: 18, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
+  assert.deepEqual(validateNativeBundle(fixture()), { files: 19, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
 });
 
 test("CLI ignores the package-manager separator before the bundle path", () => {
   const root = fixture();
   const script = path.join(path.dirname(fileURLToPath(import.meta.url)), "validate-native-bundle.mjs");
   const output = execFileSync(process.execPath, [script, "--", root], { encoding: "utf8" });
-  assert.deepEqual(JSON.parse(output), { files: 18, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
+  assert.deepEqual(JSON.parse(output), { files: 19, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
 });
 
 test("rejects missing runtime assets and instance secrets", () => {

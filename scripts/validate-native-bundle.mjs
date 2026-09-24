@@ -30,7 +30,7 @@ function inspectReleaseArtifacts(bundleRoot) {
   };
   visit("dist");
   visit("public");
-  for (const relative of ["package.json", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json"]) visit(relative);
+  for (const relative of ["package.json", "config/components.json", "config/components.schema.json", "config/component-release.schema.json", "config/core.schema.json", "config/core.example.json"]) visit(relative);
 
   const forbidden = [
     { name: "workspace path", pattern: /(?:[A-Za-z]:[\\/]+(?:projects|workspace)[\\/]+[^\r\n"']*CarMediaHub|[\\/]workspace[\\/]+carmediahub(?:[\\/]|\b))/iu },
@@ -50,7 +50,7 @@ function inspectReleaseArtifacts(bundleRoot) {
 export function validateNativeBundle(bundleRoot, options = {}) {
   if (!path.isAbsolute(bundleRoot)) fail("bundle root must be absolute");
   if (!fs.existsSync(bundleRoot) || !fs.lstatSync(bundleRoot).isDirectory() || fs.lstatSync(bundleRoot).isSymbolicLink()) fail("bundle root is unavailable or symbolic");
-  const required = ["dist/cli.js", "public/admin/index.html", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/core.schema.json", "config/core.example.json", "package.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json", "node_modules/@carmediahub/sdk/package.json", "node_modules/@carmediahub/sdk/dist/index.js"];
+  const required = ["dist/cli.js", "public/admin/index.html", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/component-release.schema.json", "config/core.schema.json", "config/core.example.json", "package.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json", "node_modules/@carmediahub/sdk/package.json", "node_modules/@carmediahub/sdk/dist/index.js"];
   for (const relative of required) requiredFile(bundleRoot, relative, options.allowDependencySymlinks === true);
   for (const forbidden of ["config/core.json", ".env", ".env.production"]) {
     if (fs.existsSync(path.join(bundleRoot, forbidden))) fail(`instance secret/configuration file is present: ${forbidden}`);
