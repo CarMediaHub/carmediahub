@@ -22,9 +22,11 @@ export function createNativeInstallActions(plan) {
   const account = plan.serviceAccount;
   if (typeof account !== "string" || account.length === 0 || /[\r\n]/u.test(account)) fail("serviceAccount is invalid");
   if (platform === "windows") {
-    const bundleAcl = `${bundleRoot}:(OI)(CI)(RX)`;
-    const configAcl = `${configPath}:(R)`;
-    const dataAcl = `${dataDir}:(OI)(CI)(M)`;
+    // icacls requires the trustee in the /grant value; omitting it creates an
+    // action that looks plausible in a dry-run but cannot grant Core access.
+    const bundleAcl = `${account}:(OI)(CI)(RX)`;
+    const configAcl = `${account}:(R)`;
+    const dataAcl = `${account}:(OI)(CI)(M)`;
     return [
       action("icacls.exe", [bundleRoot, "/grant", bundleAcl], "grant read-execute access to the bundle"),
       action("icacls.exe", [configPath, "/grant", configAcl], "grant read-only access to configuration"),

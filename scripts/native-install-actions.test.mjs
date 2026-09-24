@@ -16,6 +16,11 @@ const base = (platform) => ({
 test("creates Windows ACL and service actions without executing them", () => {
   const actions = createNativeInstallActions(base("windows"));
   assert.deepEqual(actions.map((item) => item.command), ["icacls.exe", "icacls.exe", "icacls.exe", "sc.exe", "sc.exe", "sc.exe"]);
+  assert.deepEqual(actions.slice(0, 3).map((item) => item.args.slice(-2)), [
+    ["/grant", "NT AUTHORITY\\LocalService:(OI)(CI)(RX)"],
+    ["/grant", "NT AUTHORITY\\LocalService:(R)"],
+    ["/grant", "NT AUTHORITY\\LocalService:(OI)(CI)(M)"],
+  ]);
   assert.deepEqual(actions.at(-1)?.args, ["start", "CarMediaHubCore"]);
 });
 
