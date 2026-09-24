@@ -12,10 +12,11 @@ This repository currently contains the v0 Core foundation: an explicit data dire
 
 ```powershell
 pnpm install
-pnpm test
-pnpm build
+pnpm verify
 pnpm start -- --data-dir .\data
 ```
+
+`pnpm verify` runs local deployment gates, the admin type check, Core tests, startup smoke, upgrade checks, and Native bundle/service specification tests. Docker and PostgreSQL integration remain explicit CI or environment gates.
 
 Run the local startup smoke check (temporary data, bootstrap, liveness and readiness):
 
