@@ -29,6 +29,7 @@ import { NotificationService } from "./notification-service.js";
 import { executeNetworkRequest } from "./network-service.js";
 import { CredentialVault } from "./credential-vault.js";
 import { JobExecutor } from "./job-executor.js";
+import { JobRecoveryScheduler } from "./job-scheduler.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { DisplayMode, DisplayModeResult, PluginJob, ScopeContext } from "@carmediahub/sdk";
 import { BrowserWorkerManager } from "./browser-worker-manager.js";
@@ -419,24 +420,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const entrySubject = (request: FastifyRequest) => `entry:${request.ip}`;
 
   const schedulerIntervalMs = options.jobSchedulerIntervalMs ?? 1_000;
-  if (!Number.isSafeInteger(schedulerIntervalMs) || schedulerIntervalMs < 100 || schedulerIntervalMs > 60_000) throw new Error("Job scheduler interval is invalid");
   await runtimeBroker.start();
-  let schedulerBusy = false;
-  const runQueuedJobs = async (): Promise<void> => {
-    if (schedulerBusy) return;
-    schedulerBusy = true;
-    try {
-      for (const queued of jobs.queuedScopes()) {
-        const scope = repository.runtimeScope(queued.userId, queued.installationId, "job-scheduler", "job-scheduler");
-        if (scope !== undefined) await jobExecutor.runUntilIdle(scope, 10);
-      }
-    } finally { schedulerBusy = false; }
-  };
-  const schedulerTimer = setInterval(() => { void runQueuedJobs().catch(() => undefined); }, schedulerIntervalMs);
-  schedulerTimer.unref();
-  void runQueuedJobs().catch(() => undefined);
+  const scheduler = new JobRecoveryScheduler(jobs, jobExecutor, (userId, installationId) => repository.runtimeScope(userId, installationId, "job-scheduler", "job-scheduler"), { intervalMs: schedulerIntervalMs });
+  scheduler.start();
   app.addHook("onClose", async () => {
-    clearInterval(schedulerTimer);
+    await scheduler.stop();
     await browserWorkerManager.stopAll();
     await supervisor.stopAll();
     await runtimeBroker.stop();
