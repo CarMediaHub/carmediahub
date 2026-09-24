@@ -56,6 +56,7 @@ export async function installBrowserNetworkPolicy(context: BrowserNetworkContext
     try { allowed = registry.allowsOrigin(targetId, policyOrigin(socket.url(), true)); } catch { allowed = false; }
     if (!allowed) { socket.close(); return; }
     activeSockets.add(socket);
+    socket.onClose(() => activeSockets.delete(socket));
   };
   if (context.routeWebSocket !== undefined) await context.routeWebSocket("**/*", webSocketHandler);
   return { remove: async () => {

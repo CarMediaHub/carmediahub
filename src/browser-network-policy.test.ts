@@ -22,13 +22,15 @@ test("browser network policy continues registered HTTPS origins and aborts every
   assert.equal(continued, 1);
   assert.equal(aborted, 3);
   let wsClosed = 0;
-  wsHandler!({ url: () => "wss://media.example/socket", close: () => { wsClosed += 10; } });
+  let socketClosed: (() => void) | undefined;
+  wsHandler!({ url: () => "wss://media.example/socket", close: () => { wsClosed += 10; }, onClose: (handler: () => void) => { socketClosed = handler; } });
   wsHandler!({ url: () => "wss://other.example/socket", close: () => { wsClosed += 1; } });
   assert.equal(wsClosed, 1);
+  socketClosed!();
   await policy.remove();
   assert.equal(removed, true);
   assert.equal(wsRemoved, true);
-  assert.equal(wsClosed, 11);
+  assert.equal(wsClosed, 1);
   let closedAfterRemove = 0;
   wsHandler!({ url: () => "wss://media.example/socket", close: () => { closedAfterRemove += 1; } });
   assert.equal(closedAfterRemove, 1);
