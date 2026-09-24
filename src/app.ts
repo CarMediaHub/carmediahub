@@ -106,6 +106,33 @@ function publicWorkerStatus(status: ReturnType<WorkerSupervisor["status"]>): { i
   return { installationId: status.installationId, state: status.state, attempts: status.attempts, ...(status.state === "failed" ? { diagnostic: "worker_failed" } : {}) };
 }
 
+function pluginUiContentType(location: string): string | undefined {
+  const extension = path.extname(location).toLowerCase();
+  return extension === ".html" ? "text/html; charset=utf-8"
+    : extension === ".js" || extension === ".mjs" ? "application/javascript; charset=utf-8"
+      : extension === ".css" ? "text/css; charset=utf-8"
+        : extension === ".json" ? "application/json; charset=utf-8"
+          : extension === ".svg" ? "image/svg+xml"
+            : extension === ".png" ? "image/png"
+              : extension === ".webp" ? "image/webp"
+                : extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
+                  : extension === ".woff2" ? "font/woff2" : undefined;
+}
+
+/** Plugin UI files are served only from an intact, signed package; workers never supply them. */
+function resolvePluginUiFile(dataDir: string, manifest: { ui?: { entry: string } }, verified: { location: string; digest: string } | undefined, relativePath: string): { location: string; contentType: string } | undefined {
+  if (manifest.ui === undefined || verified === undefined || !verifyInstalledPluginPackage(dataDir, verified)) return undefined;
+  const entry = manifest.ui.entry.slice(2);
+  const uiDirectory = path.posix.dirname(entry);
+  const requested = relativePath === "/" ? entry : relativePath.startsWith("/ui/") ? path.posix.join(uiDirectory, relativePath.slice("/ui/".length)) : undefined;
+  if (requested === undefined || requested.length === 0 || requested.includes("\\") || requested.split("/").some((segment) => segment.length === 0 || segment === "." || segment === "..")) return undefined;
+  const root = path.resolve(dataDir, verified.location);
+  const location = path.resolve(root, ...requested.split("/"));
+  const contentType = pluginUiContentType(location);
+  if (!location.startsWith(root + path.sep) || contentType === undefined || !fs.existsSync(location) || !fs.lstatSync(location).isFile() || fs.lstatSync(location).isSymbolicLink()) return undefined;
+  return { location, contentType };
+}
+
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const browserTargetRegistry = options.browserTargetRegistry ?? loadBrowserTargetRegistry(options.dataDir);
   const database = openDatabase(options.dataDir);
@@ -1365,6 +1392,26 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     repository.audit(user.id, "component.versionActivated", `${params.id}@${params.version}`);
     return { component: repository.componentById(params.id) };
   });
+
+  const pluginUiHandler = async (request: FastifyRequest, reply: import("fastify").FastifyReply) => {
+    const user = await requireUser(request, reply);
+    if (user === undefined) return undefined;
+    const sessionToken = request.cookies.cmh_session;
+    const session = sessionToken === undefined ? undefined : repository.sessionContext(sessionToken);
+    if (session === undefined) return reply.code(401).send({ code: "CMH.AUTH.REQUIRED", messageKey: "errors.auth.required" });
+    const requestPath = request.url.split("?", 1)[0] ?? request.url;
+    const application = repository.applicationForPath(requestPath);
+    if (application === undefined) return reply.code(404).send({ code: "CMH.GATEWAY.ROUTE_NOT_FOUND", messageKey: "errors.gateway.routeNotFound" });
+    const relativePath = requestPath.slice(application.route.length) || "/";
+    const manifest = repository.pluginManifest(application.installationId);
+    const installation = repository.pluginInstallation(application.installationId);
+    const verified = installation === undefined ? undefined : repository.verifiedPluginPackage(installation.packageId, installation.packageVersion);
+    const asset = manifest === undefined ? undefined : resolvePluginUiFile(options.dataDir, manifest, verified, relativePath);
+    if (asset === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.UI_NOT_FOUND", messageKey: "errors.plugin.uiNotFound" });
+    return reply.type(asset.contentType).header("cache-control", "no-store").header("x-content-type-options", "nosniff").send(fs.readFileSync(asset.location));
+  };
+  app.get("/apps/:packageId/:installationId", pluginUiHandler);
+  app.get("/apps/:packageId/:installationId/ui/*", pluginUiHandler);
 
   app.all("/apps/*", async (request, reply) => {
     const user = await requireUser(request, reply);
