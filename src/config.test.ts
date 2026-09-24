@@ -35,6 +35,23 @@ test("production Core source does not read process environment variables", () =>
   assert.deepEqual(offenders, [], `production source must not read OS environment variables: ${offenders.join(", ")}`);
 });
 
+test("production Core source does not invoke shell or PATH-resolved system commands", () => {
+  const sourceRoot = path.resolve(process.cwd(), "src");
+  const offenders: string[] = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(location);
+      else if (entry.isFile() && location.endsWith(".ts") && !location.endsWith(".test.ts")) {
+        const source = fs.readFileSync(location, "utf8");
+        if (/\bshell\s*:\s*true\b/u.test(source) || /\bspawn(?:Sync)?\(\s*["'](?:taskkill|systemctl|sc\.exe|useradd|install|chown)["']/u.test(source)) offenders.push(location);
+      }
+    }
+  };
+  visit(sourceRoot);
+  assert.deepEqual(offenders, [], `production source must use explicit executable paths and shell:false: ${offenders.join(", ")}`);
+});
+
 test("rejects invalid or incomplete deployment options", () => {
   assert.throws(() => parseConfig(["--port", "0"]), /between 1 and 65535/);
   assert.throws(() => parseConfig(["--port", "70000"]), /between 1 and 65535/);
