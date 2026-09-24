@@ -30,6 +30,8 @@ Core는 명시적 데이터 디렉터리를 사용하며 런타임 환경 변수
 pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
+`--artifact`는 실행 파일과 함께 DLL/리소스 파일을 포함하는 디렉터리를 가리킬 수도 있습니다. 디렉터리 릴리스는 정규화된 상대 경로 트리 digest를 사용하며 링크와 특수 파일을 거부합니다. provenance를 제공하는 경우 `--source-url`과 `--license-spdx`를 함께 제공해야 합니다.
+
 이 명령은 개인 키를 읽거나 서명하거나 설치하거나 기존 staging 아티팩트를 덮어쓰지 않습니다. Core에 제출하기 전에 운영자가 제어하는 서명 절차로 서명을 완료해야 합니다.
 
 관리자 컴포넌트 등록 API는 메타데이터만 기록하며 등록 결과를 "검증되지 않음"으로 표시합니다. 검증되지 않은 기록은 조회하고 상태를 점검할 수 있지만 Core가 실행하거나 브라우저 엔진으로 시작하거나 관리 런타임 컴포넌트로 사용할 수 없습니다. 신뢰된 서명 검증을 통과한 릴리스만 "검증됨"으로 표시됩니다.

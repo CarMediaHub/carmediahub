@@ -52,6 +52,8 @@ To prepare an operator-owned component release, stage a regular binary and produ
 pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
+The `--artifact` may also name a directory containing the executable and companion DLL/resource files. Directory releases use a canonical relative-path tree digest and reject links or special files. If provenance is supplied, `--source-url` and `--license-spdx` must be supplied together.
+
 The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.
 
 The administrator component-registration endpoint is metadata-only and marks records as unverified. Unverified records may be inspected and health-checked, but Core will not execute them, launch them as browser engines, or use them as managed runtime components. Only a release that passes trusted signature verification is marked verified.

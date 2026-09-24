@@ -36,6 +36,8 @@ Core 使用显式数据目录，不要求运行时环境变量或通过系统 PA
 pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
+`--artifact` 也可以指向包含主可执行文件及 DLL/资源文件的目录。目录制品使用规范相对路径树摘要，并拒绝链接和特殊文件。如果提供 provenance，`--source-url` 与 `--license-spdx` 必须同时提供。
+
 该命令不会读取私钥、签名、安装或覆盖已有 staging artifact。提交给 Core 前，必须通过运营者自己控制的签名流程完成签名。
 
 管理员的组件登记接口仅用于登记元数据，登记结果会标记为“未验证”。未验证记录可以查看并执行健康检查，但 Core 不会执行它们、将其作为浏览器引擎启动或作为正式运行时组件使用。只有通过受信任签名校验的发布记录才会标记为“已验证”。
