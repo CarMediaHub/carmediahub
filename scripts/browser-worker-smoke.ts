@@ -30,8 +30,11 @@ async function main(): Promise<void> {
   if (!fs.statSync(options.runtimeExecutable).isFile()) throw new Error("Runtime executable is not a file");
   const componentDir = path.join(options.dataDir, "components", "chromium", "1.0.0");
   fs.mkdirSync(componentDir, { recursive: true });
-  const managedExecutable = path.join(componentDir, process.platform === "win32" ? "chromium.exe" : "chromium");
-  fs.copyFileSync(options.runtimeExecutable, managedExecutable, fs.constants.COPYFILE_EXCL);
+  // Chromium releases depend on resources beside the executable; stage the
+  // complete installation directory so the smoke uses a realistic bundle.
+  fs.cpSync(path.dirname(options.runtimeExecutable), componentDir, { recursive: true, force: false });
+  const executableName = path.basename(options.runtimeExecutable);
+  const managedExecutable = path.join(componentDir, executableName);
   const checksum = crypto.createHash("sha256").update(fs.readFileSync(managedExecutable)).digest("hex");
   const registry = new BrowserTargetRegistry();
   registry.register({ id: "example", origins: ["https://example.com"] });
@@ -39,12 +42,12 @@ async function main(): Promise<void> {
   try {
     worker = await startBrowserWorker({
       dataDir: options.dataDir,
-      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${process.platform === "win32" ? "chromium.exe" : "chromium"}`, checksum, verified: true },
+      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executableName}`, checksum, verified: true },
       catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
       scope: { organizationId: "smoke-org", userId: "smoke-user", installationId: "smoke-plugin", sessionId: "smoke-session" },
       targetRegistry: registry,
       targetId: "example",
-      runtime: { launchPersistentContext: (userDataDir, launchOptions) => chromium.launchPersistentContext(userDataDir, { ...launchOptions, executablePath: options.runtimeExecutable }) }
+      runtime: { launchPersistentContext: (userDataDir, launchOptions) => chromium.launchPersistentContext(userDataDir, launchOptions) }
     });
     const page = await worker.navigate("example", "/");
     const result = { url: page.url(), title: await page.title(), silent: worker.launch.args.includes("--mute-audio"), isolatedUserData: worker.launch.userDataDir.startsWith(path.join(options.dataDir, "browser", "sessions")), duplicateUserDataArg: worker.launch.args.some((arg) => arg.startsWith("--user-data-dir=")) };
