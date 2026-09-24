@@ -14,13 +14,17 @@ export default function Speed() {
   const [uploadThroughput, setUploadThroughput] = useState<number>();
   const run = async () => {
     setRunning(true); setProgress(0); setLatency(undefined); setThroughput(undefined); setUploadThroughput(undefined);
-    const started = performance.now();
     try {
+      const latencyStarted = performance.now();
+      const liveness = await fetch("/health/live", { cache: "no-store" });
+      if (!liveness.ok) throw new Error("liveness probe failed");
+      setLatency(Math.round(Math.max(0, performance.now() - latencyStarted)));
+      const started = performance.now();
       const response = await fetch("/api/diagnostics/speed/download?bytes=1048576", { cache: "no-store" });
       if (!response.ok || response.body === null) throw new Error("speed test failed");
       const reader = response.body.getReader(); let total = 0;
       for (;;) { const chunk = await reader.read(); if (chunk.done) break; total += chunk.value.byteLength; setProgress(Math.min(100, Math.round(total / 1048576 * 100))); }
-      const elapsed = Math.max(1, performance.now() - started); setLatency(Math.round(elapsed)); setThroughput(Number((total * 8 / (elapsed / 1000) / 1_000_000).toFixed(2)));
+      const elapsed = Math.max(1, performance.now() - started); setThroughput(Number((total * 8 / (elapsed / 1000) / 1_000_000).toFixed(2)));
       const uploadStarted = performance.now(); const uploadResponse = await fetch("/api/diagnostics/speed/upload", { method: "POST", headers: { "content-type": "application/octet-stream" }, body: new Uint8Array(1024 * 1024) });
       if (!uploadResponse.ok) throw new Error("upload speed test failed");
       const uploadElapsed = Math.max(1, performance.now() - uploadStarted); setUploadThroughput(Number((1024 * 1024 * 8 / (uploadElapsed / 1000) / 1_000_000).toFixed(2)));
