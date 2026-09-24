@@ -18,6 +18,11 @@ function resolveWorkerEntry(input: TrustedWorkerPackage): string {
   return entry;
 }
 
+export function windowsTaskkillPath(nodeExecutable = process.execPath): string {
+  const root = path.win32.parse(nodeExecutable).root;
+  return path.win32.join(root, "Windows", "System32", "taskkill.exe");
+}
+
 /**
  * Executes only a fixed runner with a package-relative entry previously
  * approved by the Core package verifier. It never accepts a shell command.
@@ -52,7 +57,9 @@ export function createTrustedNodeWorkerFactory(input: TrustedWorkerPackage): Tru
         stop: () => {
           if (child.exitCode !== null || child.signalCode !== null) return;
           if (process.platform === "win32" && child.pid !== undefined) {
-            childProcess.spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+            const taskkill = windowsTaskkillPath();
+            if (fs.existsSync(taskkill)) childProcess.spawnSync(taskkill, ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore", env: {} });
+            else if (!child.killed) child.kill("SIGTERM");
           } else if (!child.killed) child.kill("SIGTERM");
         },
         onCrash: (listener) => { crashListener = listener; }

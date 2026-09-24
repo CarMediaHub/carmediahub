@@ -3,7 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createTrustedNodeWorkerFactory } from "./trusted-worker-factory.js";
+import { createTrustedNodeWorkerFactory, windowsTaskkillPath } from "./trusted-worker-factory.js";
+
+test("Windows worker tree termination resolves an explicit system executable", () => {
+  assert.equal(windowsTaskkillPath("C:\\Program Files\\nodejs\\node.exe"), "C:\\Windows\\System32\\taskkill.exe");
+});
 
 test("trusted Node factory resolves only a package-relative worker entry and stops the child", async () => {
   const packageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-worker-package-"));
