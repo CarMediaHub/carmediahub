@@ -52,6 +52,8 @@ jobs:
       - run: pnpm build
       - name: Run explicit Core startup smoke
         run: pnpm smoke:startup
+      - run: pnpm test:upgrade
+      - run: pnpm test:component-release
       - name: Exercise the explicit PostgreSQL adapter fixture
         run: pnpm test:postgres -- --connection-string "postgresql://carmediahub_ci:carmediahub_ci_password@127.0.0.1:5432/carmediahub_ci"
       - run: pnpm build:admin
