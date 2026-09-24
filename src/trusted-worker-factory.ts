@@ -30,7 +30,7 @@ export function createTrustedNodeWorkerFactory(input: TrustedWorkerPackage): Tru
     packageId: input.packageId,
     packageVersion: input.packageVersion,
     async start(start: TrustedWorkerStart): Promise<WorkerHandle> {
-      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+      const child = childProcess.spawn(process.execPath, [runner, "--entry", entry, "--endpoint", start.endpoint, "--installation-id", start.installationId], { env: {}, shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
       child.stdin.end(JSON.stringify({ runtimeCredential: start.runtimeCredential }));
       let crashListener: ((error: Error) => void) | undefined;
       child.once("error", (error) => crashListener?.(error));

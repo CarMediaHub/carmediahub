@@ -9,7 +9,9 @@ test("trusted Node factory resolves only a package-relative worker entry and sto
   const packageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-worker-package-"));
   const entry = path.join(packageRoot, "worker.js");
   const argsPath = path.join(packageRoot, "args.json");
-  fs.writeFileSync(entry, `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(argsPath)}, JSON.stringify(process.argv)); export async function startWorker() { setInterval(() => {}, 1000); }`, "utf8");
+  fs.writeFileSync(entry, `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(argsPath)}, JSON.stringify({ args: process.argv, inheritedSecret: process.env.CMH_TEST_SECRET ?? null })); export async function startWorker() { setInterval(() => {}, 1000); }`, "utf8");
+  const previousSecret = process.env.CMH_TEST_SECRET;
+  process.env.CMH_TEST_SECRET = "must-not-cross-worker-boundary";
   try {
     assert.throws(() => createTrustedNodeWorkerFactory({ packageId: "pkg", packageRoot, workerEntry: "../worker.js" }));
     const factory = createTrustedNodeWorkerFactory({ packageId: "pkg", packageRoot, workerEntry: "./worker.js" });
@@ -17,11 +19,15 @@ test("trusted Node factory resolves only a package-relative worker entry and sto
     const deadline = Date.now() + 1_000;
     while (!fs.existsSync(argsPath) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(fs.existsSync(argsPath), true);
-    const childArgs = JSON.parse(fs.readFileSync(argsPath, "utf8")) as string[];
+    const childResult = JSON.parse(fs.readFileSync(argsPath, "utf8")) as { args: string[]; inheritedSecret: string | null };
+    const childArgs = childResult.args;
     assert.equal(childArgs.includes("credential"), false);
     assert.equal(childArgs.includes("--runtime-credential"), false);
+    assert.equal(childResult.inheritedSecret, null);
     handle.stop();
   } finally {
+    if (previousSecret === undefined) delete process.env.CMH_TEST_SECRET;
+    else process.env.CMH_TEST_SECRET = previousSecret;
     fs.rmSync(packageRoot, { recursive: true, force: true });
   }
 });
