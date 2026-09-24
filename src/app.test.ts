@@ -377,6 +377,10 @@ test("registers SDK-validated plugin installations and disables their applicatio
     const userRow = database.db.prepare("SELECT id, organization_id FROM users LIMIT 1").get() as { id: string; organization_id: string };
     database.db.prepare("INSERT INTO plugin_jobs (id, organization_id, user_id, installation_id, type, payload_json, status, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("job_disable_test", userRow.organization_id, userRow.id, installation.id, "history.cleanup", "{}", "queued", 0, new Date().toISOString(), new Date().toISOString());
     database.close();
+    const applicationBeforeDisable = (await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.find((item: { installationId: string }) => item.installationId === installation.id) as { id: string };
+    const keyBeforeDisable = await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId: applicationBeforeDisable.id } });
+    assert.equal(keyBeforeDisable.statusCode, 201);
+    const oldEntryKey = (keyBeforeDisable.json() as { key: string }).key;
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/disable`, headers: { cookie } })).statusCode, 204);
     const afterDisable = openDatabase(dataDir);
     assert.equal((afterDisable.db.prepare("SELECT status FROM plugin_jobs WHERE id = ?").get("job_disable_test") as { status: string }).status, "cancelled");
@@ -385,6 +389,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), false);
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 204);
     assert.equal((await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.some((item: { installationId: string }) => item.installationId === installation.id), true);
+    assert.equal((await app.inject({ method: "GET", url: `/k/${oldEntryKey}` })).statusCode, 404);
     const applicationId = (await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } })).json().applications.find((item: { installationId: string }) => item.installationId === installation.id).id as string;
     assert.equal((await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "wdr-service", version: "1.0.0", executable: "wdr-service/bin", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
@@ -396,7 +401,7 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal(uninstalled.status, "uninstalled");
     const afterUninstall = openDatabase(dataDir);
     assert.equal((afterUninstall.db.prepare("SELECT COUNT(*) AS count FROM service_bindings WHERE installation_id = ?").get(installation.id) as { count: number }).count, 0);
-    assert.equal((afterUninstall.db.prepare("SELECT COUNT(*) AS count FROM entry_keys k JOIN applications a ON a.id = k.application_id WHERE a.installation_id = ? AND k.revoked_at IS NOT NULL").get(installation.id) as { count: number }).count, 1);
+    assert.equal((afterUninstall.db.prepare("SELECT COUNT(*) AS count FROM entry_keys k JOIN applications a ON a.id = k.application_id WHERE a.installation_id = ? AND k.revoked_at IS NOT NULL").get(installation.id) as { count: number }).count, 2);
     afterUninstall.close();
     assert.equal((await app.inject({ method: "POST", url: `/api/plugins/${installation.id}/enable`, headers: { cookie } })).statusCode, 404);
     const reinstall = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: release });
@@ -405,7 +410,12 @@ test("registers SDK-validated plugin installations and disables their applicatio
     assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.filter((item: { packageId: string }) => item.packageId === "wdr-media").length, 2);
   } finally {
     await app.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    let removed = false;
+    for (let attempt = 0; attempt < 40 && !removed; attempt += 1) {
+      try { fs.rmSync(dataDir, { recursive: true, force: true }); removed = true; }
+      catch (error) { if (attempt === 39) throw error; await new Promise((resolve) => setTimeout(resolve, 100)); }
+    }
   }
 });
 
