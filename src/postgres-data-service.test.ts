@@ -44,7 +44,21 @@ test("PostgreSQL data adapter escapes literal list prefixes", async () => {
 
 test("PostgreSQL pool rejects incomplete config instead of reading PG* environment variables", () => {
   assert.throws(() => createPostgresPool({}), /explicit connectionString/);
-  const pool = createPostgresPool({ host: "127.0.0.1", port: 5432, database: "cmh", user: "cmh" });
+  const previousPort = process.env.PGPORT;
+  process.env.PGPORT = "6543";
+  const pool = createPostgresPool({ host: "127.0.0.1", database: "cmh", user: "cmh" });
+  assert.equal((pool as unknown as { options: { port?: number; password?: string; ssl?: unknown } }).options.port, 5432);
+  assert.equal((pool as unknown as { options: { password?: string } }).options.password, "");
+  assert.equal((pool as unknown as { options: { ssl?: unknown } }).options.ssl, false);
+  void pool.end();
+  if (previousPort === undefined) delete process.env.PGPORT;
+  else process.env.PGPORT = previousPort;
+});
+
+test("PostgreSQL URL configuration is normalized without relying on PG* variables", () => {
+  const pool = createPostgresPool({ connectionString: "postgresql://user%40example:secret@db.example:5440/cmh%2Fv1" });
+  const options = (pool as unknown as { options: { host?: string; port?: number; user?: string; password?: string; database?: string } }).options;
+  assert.deepEqual({ host: options.host, port: options.port, user: options.user, password: options.password, database: options.database }, { host: "db.example", port: 5440, user: "user@example", password: "secret", database: "cmh/v1" });
   void pool.end();
 });
 

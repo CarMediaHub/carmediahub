@@ -160,14 +160,33 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
 }
 
 export function createPostgresPool(config: PoolConfig): Pool {
-  // pg falls back to PG* environment variables when these fields are absent.
-  // Reject incomplete config at the Core boundary so deployment behavior is explicit.
+  // pg falls back to PG* and OS user settings when connection fields are absent.
+  // Normalize every fallback-sensitive field at the Core boundary so deployment
+  // behavior remains explicit even when the host process has PostgreSQL env vars.
   const connectionString = typeof config.connectionString === "string" ? config.connectionString.trim() : "";
-  const hasExplicitEndpoint = typeof config.host === "string" && config.host.trim().length > 0
-    && typeof config.database === "string" && config.database.trim().length > 0
-    && typeof config.user === "string" && config.user.trim().length > 0;
-  if (connectionString.length === 0 && !hasExplicitEndpoint) {
-    throw new Error("PostgreSQL requires an explicit connectionString or host/database/user configuration");
+  const normalized: PoolConfig = { ...config, port: config.port ?? 5432, password: config.password ?? "", ssl: config.ssl ?? false };
+  if (connectionString.length > 0) {
+    let parsed: URL;
+    try { parsed = new URL(connectionString); } catch { throw new Error("PostgreSQL connectionString must be a valid PostgreSQL URL"); }
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:" || parsed.hostname.length === 0 || parsed.username.length === 0 || parsed.pathname.length < 2) {
+      throw new Error("PostgreSQL connectionString must explicitly include user, host, and database");
+    }
+    normalized.host = parsed.hostname;
+    normalized.port = parsed.port.length > 0 ? validatePostgresPort(parsed.port) : 5432;
+    normalized.user = decodeURIComponent(parsed.username);
+    normalized.database = decodeURIComponent(parsed.pathname.slice(1));
+    normalized.password = parsed.password.length > 0 ? decodeURIComponent(parsed.password) : "";
+  } else {
+    const hasExplicitEndpoint = typeof normalized.host === "string" && normalized.host.trim().length > 0
+      && typeof normalized.database === "string" && normalized.database.trim().length > 0
+      && typeof normalized.user === "string" && normalized.user.trim().length > 0;
+    if (!hasExplicitEndpoint) throw new Error("PostgreSQL requires an explicit connectionString or host/database/user configuration");
   }
-  return new Pool(config);
+  return new Pool(normalized);
+}
+
+function validatePostgresPort(value: string): number {
+  const port = Number(value);
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error("PostgreSQL connectionString contains an invalid port");
+  return port;
 }
