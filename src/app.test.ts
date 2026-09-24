@@ -173,6 +173,8 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const apps = await app.inject({ method: "GET", url: "/api/apps", headers: { cookie } });
     const management = (apps.json() as { applications: Array<{ id: string; route: string }> }).applications.find((item) => item.route === "/system");
     assert.ok(management);
+    const invalidKey = await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId: management.id, expiresAt: "tomorrow" } });
+    assert.equal(invalidKey.statusCode, 400);
     const key = await app.inject({ method: "POST", url: "/api/keys", headers: { cookie }, payload: { applicationId: management.id } });
     assert.equal(key.statusCode, 201);
     const issued = key.json() as { id: string; key: string };
