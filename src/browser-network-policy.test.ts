@@ -37,3 +37,16 @@ test("browser network policy rejects unknown targets", async () => {
   const context = { route: async () => undefined, unroute: async () => undefined };
   await assert.rejects(() => installBrowserNetworkPolicy(context, new BrowserTargetRegistry(), "missing"), /not registered/);
 });
+
+test("browser network policy bounds same-origin redirect chains", async () => {
+  const registry = new BrowserTargetRegistry();
+  registry.register({ id: "media", origins: ["https://media.example"] });
+  let handler: ((route: any) => Promise<void>) | undefined;
+  const context = { route: async (_pattern: string, value: (route: any) => Promise<void>) => { handler = value; }, unroute: async () => undefined };
+  await installBrowserNetworkPolicy(context, registry, "media");
+  let aborted = 0;
+  const request = (depth: number): any => ({ url: () => "https://media.example/redirect", redirectedFrom: depth === 0 ? undefined : () => request(depth - 1) });
+  const route = { request: () => request(4), fetch: async () => ({ headers: () => ({}) }), fulfill: async () => undefined, abort: async () => { aborted += 1; } };
+  await handler!(route);
+  assert.equal(aborted, 1);
+});

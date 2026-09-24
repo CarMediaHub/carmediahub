@@ -2,6 +2,7 @@ import type { BrowserContext, Route, WebSocketRoute } from "playwright-core";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
 
 export const BROWSER_NETWORK_BLOCKED = "CMH.BROWSER.NETWORK_BLOCKED";
+const MAX_SAME_ORIGIN_REDIRECTS = 3;
 
 export interface BrowserNetworkPolicyHandle {
   remove(): Promise<void>;
@@ -12,13 +13,26 @@ type BrowserNetworkContext = Pick<BrowserContext, "route" | "unroute"> & {
   unrouteWebSocket?: (pattern: string, handler: (socket: WebSocketRoute) => void) => Promise<void>;
 };
 
+function redirectDepth(request: { redirectedFrom?: () => { redirectedFrom?: () => unknown } | null }): number {
+  let depth = 0;
+  let previous = request.redirectedFrom?.() ?? null;
+  while (previous !== null && previous !== undefined) {
+    depth += 1;
+    if (depth > MAX_SAME_ORIGIN_REDIRECTS) return depth;
+    previous = previous.redirectedFrom?.() ?? null;
+  }
+  return depth;
+}
+
 /** Installs a Core-owned request gate; plugins never receive the route handler. */
 export async function installBrowserNetworkPolicy(context: BrowserNetworkContext, registry: BrowserTargetRegistry, targetId: string): Promise<BrowserNetworkPolicyHandle> {
   if (registry.get(targetId) === undefined) throw new Error("Browser target is not registered");
   let active = true;
   const handler = async (route: Route) => {
     let allowed = false;
-    try { allowed = registry.allowsOrigin(targetId, new URL(route.request().url()).origin); } catch { allowed = false; }
+    const request = route.request();
+    if (redirectDepth(request) > MAX_SAME_ORIGIN_REDIRECTS) { await route.abort("blockedbyclient"); return; }
+    try { allowed = registry.allowsOrigin(targetId, new URL(request.url()).origin); } catch { allowed = false; }
     if (!allowed) { await route.abort("blockedbyclient"); return; }
     const response = await route.fetch({ maxRedirects: 0 });
     const location = response.headers()["location"];
