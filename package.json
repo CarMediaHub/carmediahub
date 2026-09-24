@@ -37,7 +37,7 @@
     "smoke:browser": "tsx scripts/browser-worker-smoke.ts",
     "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
-    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-plan",
+    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-plan",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:coverage": "tsx --test --test-concurrency=1 --experimental-test-coverage src/**/*.test.ts"
   },
