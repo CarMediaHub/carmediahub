@@ -327,6 +327,13 @@ export class Repository {
     return (this.db.prepare("SELECT id, user_id, installation_id, session_id, kind, input_json, result_json, status, created_at, updated_at FROM browser_tasks WHERE organization_id = ? ORDER BY created_at DESC").all(organizationId) as Array<Record<string, string>>).map((row) => ({ ...this.browserTaskFromRow(row), userId: row.user_id ?? "", installationId: row.installation_id ?? "" }));
   }
 
+  /** Returns distinct scopes whose queued tasks still have an active session. */
+  queuedBrowserScopes(limit = 500): Array<{ organizationId: string; userId: string; installationId: string }> {
+    const bounded = Math.min(Math.max(Math.floor(limit), 1), 500);
+    return (this.db.prepare("SELECT task.organization_id, task.user_id, task.installation_id FROM browser_tasks task JOIN browser_sessions session ON session.id = task.session_id WHERE task.status = 'queued' AND session.status = 'active' AND session.expires_at > ? GROUP BY task.organization_id, task.user_id, task.installation_id ORDER BY MIN(task.created_at) LIMIT ?")
+      .all(now(), bounded) as Array<Record<string, string>>).map((row) => ({ organizationId: String(row.organization_id), userId: String(row.user_id), installationId: String(row.installation_id) }));
+  }
+
   revokeBrowserSessionForOrganization(organizationId: string, sessionId: string): boolean {
     if (!/^browser_[0-9a-f-]{36}$/u.test(sessionId)) return false;
     const result = this.db.prepare("UPDATE browser_sessions SET status = 'revoked' WHERE id = ? AND organization_id = ? AND status <> 'revoked'").run(sessionId, organizationId);

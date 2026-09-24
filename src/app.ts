@@ -30,6 +30,7 @@ import { executeNetworkRequest } from "./network-service.js";
 import { CredentialVault } from "./credential-vault.js";
 import { JobExecutor } from "./job-executor.js";
 import { JobRecoveryScheduler } from "./job-scheduler.js";
+import { BrowserTaskRecoveryScheduler } from "./browser-task-scheduler.js";
 import { cleanupExpiredTransformOutputs, readHlsAsset, readTransformOutput, readTransformOutputForUser, registerMediaTransformHandlers, revokeHlsForInstallation, revokeHlsForUser } from "./media-transform-service.js";
 import type { DisplayMode, DisplayModeResult, PluginJob, ScopeContext } from "@carmediahub/sdk";
 import { BrowserWorkerManager } from "./browser-worker-manager.js";
@@ -39,7 +40,7 @@ import { createNavigateAndCaptureHandler, type BrowserWorkerOptionsResolver } fr
 import { createManagedBrowserWorkerOptionsResolver } from "./browser-task-runtime.js";
 import { loadBrowserTargetRegistry } from "./browser-target-config.js";
 
-export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; jobSchedulerIntervalMs?: number; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; displayModeRequester?: (scope: ScopeContext, mode: DisplayMode) => Promise<DisplayModeResult> | DisplayModeResult; }
+export interface AppOptions { dataDir: string; cookieSecure?: boolean; componentTrustKeys?: readonly string[]; pluginTrustKeys?: readonly string[]; trustedWorkerPackages?: readonly TrustedWorkerPackage[]; trustedSharedAdapterPackages?: readonly TrustedSharedAdapterPackage[]; gatewayStreamQuota?: GatewayStreamQuota; jobExecutor?: JobExecutor; jobSchedulerIntervalMs?: number; browserTaskSchedulerIntervalMs?: number; browserWorkerManager?: BrowserWorkerManager; browserTaskExecutor?: BrowserTaskExecutor; browserTargetRegistry?: BrowserTargetRegistry; browserWorkerOptionsResolver?: BrowserWorkerOptionsResolver; displayModeRequester?: (scope: ScopeContext, mode: DisplayMode) => Promise<DisplayModeResult> | DisplayModeResult; }
 
 export async function requestDisplayMode(options: Pick<AppOptions, "displayModeRequester">, scope: ScopeContext, display: DisplayContext, mode: DisplayMode): Promise<DisplayModeResult> {
   if (mode === "fullscreen" && !display.fullscreenAvailable) return { mode, accepted: false, reason: "unsupported" };
@@ -422,9 +423,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const schedulerIntervalMs = options.jobSchedulerIntervalMs ?? 1_000;
   await runtimeBroker.start();
   const scheduler = new JobRecoveryScheduler(jobs, jobExecutor, (userId, installationId) => repository.runtimeScope(userId, installationId, "job-scheduler", "job-scheduler"), { intervalMs: schedulerIntervalMs });
+  const browserTaskScheduler = new BrowserTaskRecoveryScheduler(repository, browserTaskExecutor, (userId, installationId) => repository.runtimeScope(userId, installationId, "browser-task-scheduler", "browser-task-scheduler"), { intervalMs: options.browserTaskSchedulerIntervalMs ?? 1_000 });
   scheduler.start();
+  browserTaskScheduler.start();
   app.addHook("onClose", async () => {
     await scheduler.stop();
+    await browserTaskScheduler.stop();
     await browserWorkerManager.stopAll();
     await supervisor.stopAll();
     await runtimeBroker.stop();
