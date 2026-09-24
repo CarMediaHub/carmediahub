@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import http, { type AddressInfo } from "node:http";
 import test from "node:test";
 import { executeNetworkRequest } from "./network-service.js";
+import { CmhError } from "@carmediahub/sdk";
 
 test("executes only a bound-origin request with filtered headers and redirects", async () => {
   let crossPort = 0;
@@ -40,7 +41,7 @@ test("limits concurrent requests per binding and releases the slot", async () =>
     const pending = Array.from({ length: 10 }, () => executeNetworkRequest({ binding: "busy", method: "GET", path: "/" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })));
     for (let attempt = 0; attempt < 20 && requests < 10; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(requests, 10);
-    await assert.rejects(() => executeNetworkRequest({ binding: "busy", method: "GET", path: "/" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })), /concurrency/);
+    await assert.rejects(() => executeNetworkRequest({ binding: "busy", method: "GET", path: "/" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })), (error: unknown) => error instanceof CmhError && error.code === "CMH.NETWORK.QUOTA_EXCEEDED" && error.retryable);
     release();
     await Promise.all(pending);
   } finally { release(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
