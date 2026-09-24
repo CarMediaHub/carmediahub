@@ -33,6 +33,7 @@
     "test:native-service": "node --test scripts/native-windows-service.test.mjs",
     "test:native-linux-service": "node --test scripts/native-linux-service.test.mjs",
     "smoke:browser": "tsx scripts/browser-worker-smoke.ts",
+    "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:coverage": "tsx --test --test-concurrency=1 --experimental-test-coverage src/**/*.test.ts"

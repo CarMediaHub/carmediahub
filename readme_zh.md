@@ -15,6 +15,12 @@ pnpm build
 pnpm start -- --data-dir .\data
 ```
 
+运行本地启动烟测（临时数据目录、初始化、liveness 和 readiness）：
+
+```text
+pnpm smoke:startup
+```
+
 如需执行显式的本地 Browser Worker smoke（仅用于开发），请传入真实 Chromium/Chrome 可执行文件和一次性数据目录。命令不会自动发现浏览器，也不读取环境变量；它会验证允许的 Origin、未知 Origin 阻断、作用域 User Data 目录和静音启动契约：
 
 ```powershell
