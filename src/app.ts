@@ -21,6 +21,7 @@ import { installStagedPluginPackage, verifyInstalledPluginPackage } from "./plug
 import { verifyPluginPackageRelease, type SignedPluginPackageRelease } from "./plugin-package-release.js";
 import { MediaLibraryService } from "./media-library-service.js";
 import { RemoteWebDavProvider } from "./remote-webdav-provider.js";
+import { SpeedTestQuota } from "./speed-test-quota.js";
 import { GatewayStreamQuota } from "./gateway-stream-quota.js";
 import { PluginDrainManager } from "./plugin-drain.js";
 import { HistoryService } from "./history-service.js";
@@ -135,6 +136,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const notifications = new NotificationService(database.db);
   const gatewayStreamQuota = options.gatewayStreamQuota ?? new GatewayStreamQuota();
   const pluginDrain = new PluginDrainManager();
+  const speedTestQuota = new SpeedTestQuota();
   const runtimeBroker = new RuntimeBroker({
     dataDir: options.dataDir,
     installationEnabled: (installationId) => repository.pluginInstallation(installationId)?.status === "installed",
@@ -651,8 +653,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (!Number.isSafeInteger(bytes) || bytes < 64 * 1024 || bytes > 2 * 1024 * 1024) {
       return reply.code(400).send({ code: "CMH.DIAGNOSTICS.INVALID_SIZE", messageKey: "errors.diagnostics.invalidSize" });
     }
+    const lease = speedTestQuota.tryAcquire(user.id);
+    if (lease === undefined) return reply.code(429).send({ code: "CMH.DIAGNOSTICS.RATE_LIMITED", messageKey: "errors.diagnostics.rateLimited", retryable: true });
+    try {
     repository.audit(user.id, "diagnostics.speed.download", String(bytes));
     return reply.header("cache-control", "no-store, max-age=0").header("content-type", "application/octet-stream").header("content-length", String(bytes)).send(Buffer.alloc(bytes, 0));
+    } finally { lease.release(); }
   });
 
   app.post("/api/diagnostics/speed/upload", async (request, reply) => {
@@ -664,8 +670,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (contentLength !== undefined && (!/^\d+$/u.test(contentLength) || Number(contentLength) !== bytes) || bytes < 64 * 1024 || bytes > 2 * 1024 * 1024) {
       return reply.code(400).send({ code: "CMH.DIAGNOSTICS.INVALID_SIZE", messageKey: "errors.diagnostics.invalidSize" });
     }
+    const lease = speedTestQuota.tryAcquire(user.id);
+    if (lease === undefined) return reply.code(429).send({ code: "CMH.DIAGNOSTICS.RATE_LIMITED", messageKey: "errors.diagnostics.rateLimited", retryable: true });
+    try {
     repository.audit(user.id, "diagnostics.speed.upload", String(bytes));
     return reply.header("cache-control", "no-store, max-age=0").send({ bytes });
+    } finally { lease.release(); }
   });
 
   app.get("/api/users", async (request, reply) => {
