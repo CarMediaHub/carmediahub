@@ -8,8 +8,9 @@ test("browser network policy continues registered HTTPS origins and aborts every
   registry.register({ id: "media", origins: ["https://media.example"] });
   let handler: ((route: any) => Promise<void>) | undefined;
   let removed = false;
+  let wsRemoved = false;
   let wsHandler: ((socket: any) => void) | undefined;
-  const context = { route: async (_pattern: string, value: (route: any) => Promise<void>) => { handler = value; }, unroute: async () => { removed = true; }, routeWebSocket: async (_pattern: string, value: (socket: any) => void) => { wsHandler = value; } };
+  const context = { route: async (_pattern: string, value: (route: any) => Promise<void>) => { handler = value; }, unroute: async () => { removed = true; }, routeWebSocket: async (_pattern: string, value: (socket: any) => void) => { wsHandler = value; }, unrouteWebSocket: async () => { wsRemoved = true; } };
   const policy = await installBrowserNetworkPolicy(context, registry, "media");
   let continued = 0;
   let aborted = 0;
@@ -26,6 +27,7 @@ test("browser network policy continues registered HTTPS origins and aborts every
   assert.equal(wsClosed, 1);
   await policy.remove();
   assert.equal(removed, true);
+  assert.equal(wsRemoved, true);
   let closedAfterRemove = 0;
   wsHandler!({ url: () => "wss://media.example/socket", close: () => { closedAfterRemove += 1; } });
   assert.equal(closedAfterRemove, 1);
