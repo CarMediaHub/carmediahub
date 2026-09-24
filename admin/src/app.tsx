@@ -21,8 +21,6 @@ export function onRouteChange({ location }: { location: Location }) {
   }
 }
 
-export const request = { errorConfig: { adaptor: (res: Response) => res } };
-
 function PlatformProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<{ locale?: string; density?: string; theme?: string }>();
   const refresh = () => { void fetch("/api/me").then((response) => response.ok ? response.json() as Promise<{ user?: { locale?: string; density?: string; theme?: string } }> : undefined).then((profile) => { if (profile?.user !== undefined) setUser(profile.user); }).catch(() => undefined); };
