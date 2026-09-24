@@ -7,7 +7,7 @@ import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
 import { Repository, type UserRecord, type VerifiedPluginPackageRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
-import { computeInstalledComponentDigest, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable } from "./components.js";
+import { computeInstalledComponentDigest, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, validatePluginComponentDependencies } from "./components.js";
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
@@ -1070,6 +1070,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const manifest = verifyPluginRelease(body<SignedPluginRelease>(request), options.pluginTrustKeys);
+      validatePluginComponentDependencies(manifest, catalog, (id) => repository.componentById(id));
       const installation = repository.installPlugin(manifest);
       repository.audit(user.id, "plugin.installed", installation.id);
       return reply.code(201).send({ installation });
@@ -1084,6 +1085,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     try {
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
+      validatePluginComponentDependencies(release.manifest, catalog, (id) => repository.componentById(id));
       if (repository.pluginInstallationByPackage(release.manifest.id, release.manifest.version) !== undefined) return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
       const verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
       if (verified !== undefined) {
@@ -1124,6 +1126,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (current === undefined || current.status !== "installed") return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
       if (options.pluginTrustKeys === undefined || options.pluginTrustKeys.length === 0) throw new Error("No plugin release trust keys configured");
       const release = verifyPluginPackageRelease(body<SignedPluginPackageRelease>(request), options.pluginTrustKeys);
+      validatePluginComponentDependencies(release.manifest, catalog, (id) => repository.componentById(id));
       if (release.manifest.id !== current.packageId || release.manifest.runtime !== current.runtime || release.manifest.version === current.packageVersion) throw new Error("Plugin upgrade target is incompatible");
       let verified = repository.verifiedPluginPackage(release.manifest.id, release.manifest.version);
       if (verified !== undefined && verified.digest !== release.artifact.digest) throw new Error("Plugin upgrade package digest mismatch");

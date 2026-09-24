@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import type { PluginManifest } from "@carmediahub/sdk";
 
 export interface ComponentCatalogItem {
   id: string;
@@ -15,6 +16,20 @@ export interface ComponentCatalogItem {
 }
 
 interface CatalogFile { schemaVersion: 1; components: ComponentCatalogItem[]; }
+
+export function validatePluginComponentDependencies(
+  manifest: Pick<PluginManifest, "components">,
+  catalog: readonly ComponentCatalogItem[],
+  installed: (id: string) => { health: string; verified: boolean } | undefined
+): void {
+  for (const dependency of manifest.components ?? []) {
+    const catalogItem = catalog.find((item) => item.id === dependency.id);
+    const available = catalogItem !== undefined && dependency.roles?.every((role) => catalogItem.provides.includes(role)) !== false;
+    const record = available ? installed(dependency.id) : undefined;
+    const ready = record?.verified === true && record.health === "healthy";
+    if (!dependency.optional && (!available || !ready)) throw new Error(`Required component dependency is unavailable: ${dependency.id}`);
+  }
+}
 
 const rolesByKind: Record<ComponentCatalogItem["kind"], readonly ComponentCatalogItem["provides"][number][]> = {
   service: ["storage-service", "webdav", "browser-engine"],

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import test from "node:test";
 import path from "node:path";
-import { componentExecutableName, computeInstalledComponentDigest, currentPlatformKey, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
+import { componentExecutableName, computeInstalledComponentDigest, currentPlatformKey, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable, validatePluginComponentDependencies } from "./components.js";
 
 test("normalizes public component checksum notation for internal runners", () => {
   assert.equal(normalizeComponentChecksum("sha256:" + "a".repeat(64)), "a".repeat(64));
@@ -110,4 +110,14 @@ test("rejects malformed managed component catalog metadata", () => {
     fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, kind: "service", provides: ["browser-engine"] }] }));
     assert.equal(loadComponentCatalog(root)[0]?.provides[0], "browser-engine");
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("plugin component dependencies require a healthy verified installation and matching role", () => {
+  const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
+  const manifest = { components: [{ id: "ffmpeg", roles: ["media-processing"] as const }] };
+  assert.throws(() => validatePluginComponentDependencies(manifest, catalog, () => undefined), /ffmpeg/u);
+  assert.throws(() => validatePluginComponentDependencies(manifest, catalog, () => ({ health: "healthy", verified: false })), /ffmpeg/u);
+  assert.doesNotThrow(() => validatePluginComponentDependencies(manifest, catalog, () => ({ health: "healthy", verified: true })));
+  assert.throws(() => validatePluginComponentDependencies({ components: [{ id: "ffmpeg", roles: ["webdav"] as const }] }, catalog, () => ({ health: "healthy", verified: true })), /ffmpeg/u);
+  assert.doesNotThrow(() => validatePluginComponentDependencies({ components: [{ id: "ffmpeg", optional: true }] }, catalog, () => undefined));
 });
