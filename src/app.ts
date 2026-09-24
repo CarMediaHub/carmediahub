@@ -7,7 +7,7 @@ import cookie from "@fastify/cookie";
 import { openDatabase } from "./database.js";
 import { Repository, type UserRecord, type VerifiedPluginPackageRecord } from "./repository.js";
 import { ensureServerKey } from "./security.js";
-import { loadComponentCatalog, resolveInstalledExecutable } from "./components.js";
+import { loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable } from "./components.js";
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
@@ -401,7 +401,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   }
   const ffmpegRecord = repository.componentById("ffmpeg");
   const ffmpegCatalog = catalog.find((component) => component.id === "ffmpeg");
-  const ffmpeg = ffmpegRecord === undefined ? undefined : { ...ffmpegRecord, ...(ffmpegCatalog === undefined ? {} : { provides: ffmpegCatalog.provides }) };
+  const ffmpeg = ffmpegRecord === undefined ? undefined : { ...ffmpegRecord, checksum: normalizeComponentChecksum(ffmpegRecord.checksum), ...(ffmpegCatalog === undefined ? {} : { provides: ffmpegCatalog.provides }) };
   if (ffmpeg !== undefined && ffmpeg.health === "healthy") {
     mediaLibrary.enableTransforms();
     registerMediaTransformHandlers({ executor: jobExecutor, jobs, media: mediaLibrary, dataDir: options.dataDir, ffmpeg, database: database.db });

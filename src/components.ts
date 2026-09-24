@@ -91,3 +91,8 @@ export function componentExecutableName(component: ComponentCatalogItem): string
   const name = path.posix.basename(component.executable);
   return process.platform === "win32" && path.extname(name) === "" ? `${name}.exe` : name;
 }
+
+/** Internal runtime form used by digest-verifying component runners. */
+export function normalizeComponentChecksum(checksum: string): string {
+  return checksum.startsWith("sha256:") ? checksum.slice("sha256:".length) : checksum;
+}

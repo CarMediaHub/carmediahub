@@ -3,7 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import test from "node:test";
 import path from "node:path";
-import { componentExecutableName, currentPlatformKey, loadComponentCatalog, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
+import { componentExecutableName, currentPlatformKey, loadComponentCatalog, normalizeComponentChecksum, resolveInstalledExecutable, resolveInstalledExecutableForRole, resolveManagedExecutable } from "./components.js";
+
+test("normalizes public component checksum notation for internal runners", () => {
+  assert.equal(normalizeComponentChecksum("sha256:" + "a".repeat(64)), "a".repeat(64));
+  assert.equal(normalizeComponentChecksum("b".repeat(64)), "b".repeat(64));
+});
 
 test("loads the built-in component catalog without environment discovery", () => {
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));

@@ -3,7 +3,7 @@ import type { ComponentCatalogItem } from "./components.js";
 import type { Repository } from "./repository.js";
 import type { BrowserWorkerOptionsResolver } from "./browser-task-handlers.js";
 import type { BrowserTargetRegistry } from "./browser-target-registry.js";
-import { currentPlatformKey } from "./components.js";
+import { currentPlatformKey, normalizeComponentChecksum } from "./components.js";
 
 export interface ManagedBrowserWorkerResolverOptions {
   dataDir: string;
@@ -24,7 +24,7 @@ export function createManagedBrowserWorkerOptionsResolver(options: ManagedBrowse
     if (component === undefined) throw new Error("A healthy browser-engine component is not installed");
     return {
       dataDir: options.dataDir,
-      component,
+      component: { ...component, checksum: normalizeComponentChecksum(component.checksum) },
       catalog: options.catalog,
       scope: { organizationId: scope.organizationId, userId: scope.userId, installationId: scope.installationId, sessionId: task.sessionId },
       targetRegistry: options.targetRegistry,

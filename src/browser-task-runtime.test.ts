@@ -15,11 +15,12 @@ const catalog: ComponentCatalogItem[] = [
 
 test("managed browser resolver selects a healthy Core component and binds the task session", async () => {
   const registry = new BrowserTargetRegistry(); registry.register({ id: "fixture", origins: ["https://fixture.example"] });
-  const repository = { pluginHasCapability: () => true, componentById: (id: string) => id === "chromium" ? { id, version: "1.0.0", executable: "chromium/1.0.0/chromium", checksum: "a".repeat(64), health: "healthy", verified: true } : undefined } as unknown as Repository;
+  const repository = { pluginHasCapability: () => true, componentById: (id: string) => id === "chromium" ? { id, version: "1.0.0", executable: "chromium/1.0.0/chromium", checksum: `sha256:${"a".repeat(64)}`, health: "healthy", verified: true } : undefined } as unknown as Repository;
   const resolve = createManagedBrowserWorkerOptionsResolver({ dataDir: "data", catalog, repository, targetRegistry: registry });
   const options = await resolve(scope, task);
   assert.equal(options.component.id, "chromium");
   assert.equal(options.scope.sessionId, "browser-session");
+  assert.equal(options.component.checksum, "a".repeat(64));
   assert.equal(options.targetId, "fixture");
 });
 
