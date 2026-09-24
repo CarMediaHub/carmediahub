@@ -15,6 +15,12 @@ pnpm build
 pnpm start -- --data-dir .\data
 ```
 
+如需执行显式的本地 Browser Worker smoke（仅用于开发），请传入真实 Chromium/Chrome 可执行文件和一次性数据目录。命令不会自动发现浏览器，也不读取环境变量；它会验证允许的 Origin、未知 Origin 阻断、作用域 User Data 目录和静音启动契约：
+
+```powershell
+pnpm smoke:browser -- --runtime-executable "C:\Path\to\chrome.exe" --data-dir .\tmp\browser-smoke
+```
+
 Core 使用显式数据目录，不要求运行时环境变量或通过系统 PATH 隐式发现组件。
 
 插件数据只通过 SDK 提供的受作用域逻辑 API 和版本化迁移台账访问。物理 SQLite/PostgreSQL 结构由 Core 管理；插件不会获得数据库连接、DSN、Schema 名称或 SQL 通道。
