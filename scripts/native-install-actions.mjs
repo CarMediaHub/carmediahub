@@ -9,8 +9,9 @@ function absolute(value, platform, label) {
   return value;
 }
 
-function action(command, args, description, stdin) {
-  return stdin === undefined ? { command, args, description } : { command, args, description, stdin };
+function action(command, args, description, stdin, idempotency = "repeatable") {
+  const metadata = { idempotency };
+  return stdin === undefined ? { command, args, description, ...metadata } : { command, args, description, stdin, ...metadata };
 }
 
 export function createNativeInstallActions(plan) {
@@ -31,7 +32,7 @@ export function createNativeInstallActions(plan) {
       action("icacls.exe", [bundleRoot, "/grant", bundleAcl], "grant read-execute access to the bundle"),
       action("icacls.exe", [configPath, "/grant", configAcl], "grant read-only access to configuration"),
       action("icacls.exe", [dataDir, "/grant", dataAcl], "grant read-write access to data"),
-      action("sc.exe", plan.service.createArguments, "register the Core Windows service"),
+      action("sc.exe", plan.service.createArguments, "register the Core Windows service", undefined, "ensure"),
       action("sc.exe", plan.service.descriptionArguments, "set the Core Windows service description"),
       action("sc.exe", ["start", plan.service.serviceName], "start the Core Windows service"),
     ];
@@ -40,7 +41,7 @@ export function createNativeInstallActions(plan) {
   if (typeof plan.service?.unitText !== "string" || plan.service.unitText.length === 0 || /\0/u.test(plan.service.unitText)) fail("systemd unit text is invalid");
   const unitPath = `/etc/systemd/system/${plan.service.unitName}`;
   return [
-    action("useradd", ["--system", "--no-create-home", "--shell", "/usr/sbin/nologin", account], "create the restricted service account if absent"),
+    action("useradd", ["--system", "--no-create-home", "--shell", "/usr/sbin/nologin", account], "create the restricted service account if absent", undefined, "ensure"),
     action("install", ["-d", "-o", account, "-g", account, "-m", "0750", dataDir], "create the writable data directory"),
     action("install", ["-d", "-o", "root", "-g", "root", "-m", "0755", path.posix.dirname(configPath)], "create the configuration directory"),
     action("install", ["-m", "0644", "--owner=root", "--group=root", "/dev/stdin", unitPath], "write the hardened systemd unit", plan.service.unitText),

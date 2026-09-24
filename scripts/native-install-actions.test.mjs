@@ -21,6 +21,8 @@ test("creates Windows ACL and service actions without executing them", () => {
     ["/grant", "NT AUTHORITY\\LocalService:(R)"],
     ["/grant", "NT AUTHORITY\\LocalService:(OI)(CI)(M)"],
   ]);
+  assert.equal(actions[3]?.idempotency, "ensure");
+  assert.equal(actions[4]?.idempotency, "repeatable");
   assert.deepEqual(actions.at(-1)?.args, ["start", "CarMediaHubCore"]);
 });
 
@@ -31,6 +33,8 @@ test("creates Linux account, filesystem, and systemd actions", () => {
   assert.deepEqual(unitAction?.args.slice(-2), ["/dev/stdin", "/etc/systemd/system/carmediahub-core.service"]);
   assert.match(unitAction?.stdin ?? "", /^\[Unit\]/u);
   assert.equal(unitAction?.args.includes("<generated-unit-text>"), false);
+  assert.equal(actions[0]?.idempotency, "ensure");
+  assert.equal(actions[1]?.idempotency, "repeatable");
   assert.deepEqual(actions.at(-1)?.args, ["enable", "--now", "carmediahub-core.service"]);
 });
 
