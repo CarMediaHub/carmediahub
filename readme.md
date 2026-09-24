@@ -46,6 +46,14 @@ The Compose port is intentionally bound to `127.0.0.1` and its Core command requ
 
 The Core does not require runtime environment variables or executables discovered through `PATH`. Components such as AList, rclone and FFmpeg are registered through versioned managed-component metadata and explicit service bindings. Their full packaged adapters are delivered in later milestones.
 
+To prepare an operator-owned component release, stage a regular binary and produce an unsigned, digest-bound release record:
+
+```powershell
+pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --output .\releases\ffmpeg-7.json
+```
+
+The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.
+
 Plugin data is exposed only through the SDK's scoped logical API and versioned migration ledger. Core owns the physical SQLite/PostgreSQL schema; plugins never receive database connections, DSNs, schema names or SQL channels.
 
 Unauthenticated deployment probes are available at `/health/live`, `/health/ready` and `/health/diagnostic`. They return only bounded status and aggregate counts; they never expose paths, URLs, credentials or user content. Readiness returns HTTP 503 until the local deployment has been initialized.

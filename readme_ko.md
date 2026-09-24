@@ -24,6 +24,14 @@ pnpm smoke:startup
 
 Core는 명시적 데이터 디렉터리를 사용하며 런타임 환경 변수나 시스템 `PATH`로 암시적으로 컴포넌트를 찾지 않습니다.
 
+운영자가 관리하는 구성요소 릴리스를 준비할 때는 일반 바이너리를 명시적으로 staging하고 digest가 연결된 서명 전 릴리스 레코드를 생성할 수 있습니다.
+
+```powershell
+pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --output .\releases\ffmpeg-7.json
+```
+
+이 명령은 개인 키를 읽거나 서명하거나 설치하거나 기존 staging 아티팩트를 덮어쓰지 않습니다. Core에 제출하기 전에 운영자가 제어하는 서명 절차로 서명을 완료해야 합니다.
+
 플러그인 데이터는 SDK의 범위가 지정된 논리 API와 버전별 마이그레이션 원장을 통해서만 접근합니다. 물리적 SQLite/PostgreSQL 구조는 Core가 관리하며 플러그인에는 데이터베이스 연결, DSN, Schema 이름 또는 SQL 채널을 제공하지 않습니다.
 
 배포 상태 probe는 `/health/live`, `/health/ready`, `/health/diagnostic`에서 제공합니다. 경로, URL, 자격 증명 또는 사용자 콘텐츠를 노출하지 않고 제한된 상태와 집계 수만 반환합니다. 로컬 배포가 초기화되기 전에는 readiness가 HTTP 503을 반환합니다.
