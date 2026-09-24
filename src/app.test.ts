@@ -175,6 +175,8 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal((await app.inject({ method: "GET", url: "/api/diagnostics/speed/download?bytes=65536", headers: { cookie } })).statusCode, 429);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/alist", checksum: `sha256:${"a".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "local-alist", endpoint: "http://127.0.0.1:5244" } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "ffmpeg", version: "7.0.0", executable: "ffmpeg/ffmpeg", checksum: `sha256:${"b".repeat(64)}` } })).statusCode, 201);
+    assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "ffmpeg", name: "invalid-ffmpeg-binding", endpoint: "http://127.0.0.1:9000" } })).statusCode, 400);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "health-check", endpoint: "http://127.0.0.1:1" } })).statusCode, 201);
     const health = await app.inject({ method: "POST", url: "/api/service-bindings/unknown/health", headers: { cookie } });
     assert.equal(health.statusCode, 404);

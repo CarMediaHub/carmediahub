@@ -1468,6 +1468,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     try {
       const input = body<{ componentId: string; name: string; endpoint: string; installationId?: string }>(request);
+      const catalogComponent = catalog.find((component) => component.id === input.componentId);
+      // Executable-only components must never be represented as HTTP service bindings.
+      // Unknown operator-managed components remain supported for forward compatibility.
+      if (catalogComponent !== undefined && catalogComponent.kind !== "service" && catalogComponent.kind !== "network-service") throw new Error("Component kind cannot provide a service binding");
       repository.bindService(input);
       repository.audit(user.id, "serviceBinding.created", input.name);
       return reply.code(201).send({ binding: { name: input.name, componentId: input.componentId } });
