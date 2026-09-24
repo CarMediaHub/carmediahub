@@ -1,5 +1,4 @@
-import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
-import { ProCard, ProLayout, Statistic } from "@ant-design/pro-components";
+import { ProCard, Statistic } from "@ant-design/pro-components";
 import { Button, Progress, Space, message } from "antd";
 import { useState } from "react";
 import { useAdminI18n } from "../i18n";

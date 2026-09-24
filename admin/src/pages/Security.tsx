@@ -1,5 +1,4 @@
-import { AppstoreOutlined, CloudServerOutlined, FolderOpenOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons";
-import { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from "@ant-design/pro-components";
+import { ProCard, ProForm, ProFormSelect, ProFormText } from "@ant-design/pro-components";
 import { Alert, Button, Descriptions, Modal, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
