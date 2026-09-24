@@ -9,6 +9,8 @@ const port = 18000 + Math.floor(Math.random() * 1000);
 const baseUrl = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, ["--import", "tsx", path.join(root, "src", "cli.ts"), "--", "--data-dir", dataDir, "--port", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
 let output = "";
+let exited = false;
+child.once("exit", () => { exited = true; });
 child.stdout.on("data", (chunk) => { output += String(chunk); });
 child.stderr.on("data", (chunk) => { output += String(chunk); });
 
@@ -29,7 +31,9 @@ try {
   if (ready.status !== 200) throw new Error(`readiness returned ${ready.status}`);
   console.log(JSON.stringify({ liveness: live.status, bootstrap: bootstrap.status, readiness: ready.status }));
 } finally {
-  child.kill();
-  await new Promise((resolve) => child.once("exit", resolve));
+  if (!exited) {
+    child.kill();
+    await new Promise((resolve) => child.once("exit", resolve));
+  }
   await fs.rm(dataDir, { recursive: true, force: true });
 }
