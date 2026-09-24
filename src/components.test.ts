@@ -74,12 +74,16 @@ test("rejects malformed managed component catalog metadata", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-catalog-"));
   try {
     fs.mkdirSync(path.join(root, "config"), { recursive: true });
-    const valid = { id: "fixture", displayName: "Fixture", kind: "service", provides: ["archive"], version: "not-installed", executable: "fixture/fixture", platforms: ["linux-x64"], sha256: null, status: "catalog-only" };
+    const valid = { id: "fixture", displayName: "Fixture", kind: "service", provides: ["storage-service"], version: "not-installed", executable: "fixture/fixture", platforms: ["linux-x64"], sha256: null, status: "catalog-only" };
     fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [valid, valid] }));
     assert.throws(() => loadComponentCatalog(root), /Duplicate component id/);
     fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, platforms: ["linux-x86"] }] }));
     assert.throws(() => loadComponentCatalog(root), /Invalid component platforms/);
     fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, sha256: "bad" }] }));
     assert.throws(() => loadComponentCatalog(root), /Invalid component checksum/);
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, kind: "media-tool", provides: ["archive"] }] }));
+    assert.throws(() => loadComponentCatalog(root), /incompatible with kind/);
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, kind: "service", provides: ["browser-engine"] }] }));
+    assert.equal(loadComponentCatalog(root)[0]?.provides[0], "browser-engine");
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

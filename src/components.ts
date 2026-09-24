@@ -15,6 +15,13 @@ export interface ComponentCatalogItem {
 
 interface CatalogFile { schemaVersion: 1; components: ComponentCatalogItem[]; }
 
+const rolesByKind: Record<ComponentCatalogItem["kind"], readonly ComponentCatalogItem["provides"][number][]> = {
+  service: ["storage-service", "webdav", "browser-engine"],
+  "media-tool": ["media-processing"],
+  utility: ["archive"],
+  "network-service": ["network-egress"]
+};
+
 export function loadComponentCatalog(projectRoot: string): readonly ComponentCatalogItem[] {
   const location = path.join(projectRoot, "config", "components.json");
   const raw = JSON.parse(fs.readFileSync(location, "utf8")) as CatalogFile;
@@ -33,6 +40,7 @@ export function loadComponentCatalog(projectRoot: string): readonly ComponentCat
     if (component.sha256 !== null && !/^[a-f0-9]{64}$/u.test(component.sha256)) throw new Error(`Invalid component checksum: ${component.id}`);
     if (!["catalog-only", "installed", "unhealthy", "disabled"].includes(component.status)) throw new Error(`Invalid component status: ${component.id}`);
     if (!Array.isArray(component.provides) || component.provides.length === 0 || new Set(component.provides).size !== component.provides.length || component.provides.some((role) => !["storage-service", "webdav", "media-processing", "archive", "network-egress", "browser-engine"].includes(role))) throw new Error(`Invalid component roles: ${component.id}`);
+    if (component.provides.some((role) => !rolesByKind[component.kind].includes(role))) throw new Error(`Component role is incompatible with kind: ${component.id}`);
   }
   return raw.components;
 }
