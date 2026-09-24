@@ -42,8 +42,8 @@ function canonicalRelease(release: ComponentRelease): Buffer {
 
 function validateProvenance(provenance: ComponentProvenance | undefined): void {
   if (provenance === undefined) return;
-  if (!/^https:\/\//u.test(provenance.sourceUrl) || provenance.sourceUrl.length > 2048) throw new Error("Invalid component source URL");
-  if (!/^[A-Za-z0-9.-]+$/u.test(provenance.licenseSpdx) || provenance.licenseSpdx.length > 128) throw new Error("Invalid component SPDX license");
+  if (typeof provenance !== "object" || provenance === null || typeof provenance.sourceUrl !== "string" || !/^https:\/\//u.test(provenance.sourceUrl) || provenance.sourceUrl.length > 2048) throw new Error("Invalid component source URL");
+  if (typeof provenance.licenseSpdx !== "string" || !/^[A-Za-z0-9.-]+$/u.test(provenance.licenseSpdx) || provenance.licenseSpdx.length > 128) throw new Error("Invalid component SPDX license");
   if (provenance.sbomSha256 !== undefined && !/^[a-f0-9]{64}$/u.test(provenance.sbomSha256)) throw new Error("Invalid component SBOM digest");
   if (provenance.releasedAt !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(provenance.releasedAt)) throw new Error("Invalid component release timestamp");
 }

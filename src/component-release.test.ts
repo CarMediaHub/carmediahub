@@ -33,6 +33,7 @@ test("signed component release requires a trusted Ed25519 signer and exact artif
     assert.throws(() => verifyComponentRelease(signedRelease({ ...release, platform: "windows-x86" }, keys.privateKey), [publicKey]), /Invalid signed component release/);
     assert.throws(() => verifyComponentRelease(signed, []));
     assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, provenance: { ...release.provenance, sourceUrl: "http://insecure.example" } } }, [publicKey]), /source URL/);
+    assert.throws(() => verifyComponentRelease({ ...signed, release: { ...release, provenance: { sourceUrl: "https://ffmpeg.org" } as ComponentRelease["provenance"] } }, [publicKey]), /SPDX license/);
     assert.throws(() => installSignedComponentRelease(dataDir, catalog, signed, [publicKey], "linux-arm64"), /does not match this deployment/);
     const unsupportedCatalog = catalog.map((item) => item.id === "ffmpeg" ? { ...item, platforms: ["linux-arm64"] } : item);
     assert.throws(() => installSignedComponentRelease(dataDir, unsupportedCatalog, signed, [publicKey], currentPlatformKey()), /not supported by the catalog/);
