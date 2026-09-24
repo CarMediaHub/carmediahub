@@ -140,6 +140,10 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     const admin = await app.inject({ method: "GET", url: "/admin/" });
     assert.equal(admin.statusCode, 200);
     assert.match(admin.body, /id="root"/);
+    const adminLogin = await app.inject({ method: "GET", url: "/admin/login" });
+    assert.equal(adminLogin.statusCode, 200);
+    assert.match(adminLogin.body, /id="root"/);
+    assert.equal((await app.inject({ method: "GET", url: "/admin/missing.js" })).statusCode, 404);
     const bootstrap = await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple", locale: "en" } });
     assert.equal(bootstrap.statusCode, 201);
     const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });

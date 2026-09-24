@@ -1527,7 +1527,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const relative = (request.params as { "*": string })["*"];
     const root = path.resolve(import.meta.dirname, "..", "public", "admin");
     const asset = path.resolve(root, relative);
-    if (!asset.startsWith(root + path.sep) || !fs.existsSync(asset) || !fs.statSync(asset).isFile()) return reply.code(404).send({ code: "CMH.ADMIN.ASSET_NOT_FOUND", messageKey: "errors.admin.assetNotFound" });
+    if (!asset.startsWith(root + path.sep)) return reply.code(404).send({ code: "CMH.ADMIN.ASSET_NOT_FOUND", messageKey: "errors.admin.assetNotFound" });
+    if (!fs.existsSync(asset) || !fs.statSync(asset).isFile()) {
+      // Browser history routes such as /admin/login are handled by Umi. Only
+      // extensionless paths may fall back; missing static assets stay 404.
+      if (path.extname(relative) !== "") return reply.code(404).send({ code: "CMH.ADMIN.ASSET_NOT_FOUND", messageKey: "errors.admin.assetNotFound" });
+      const page = path.join(root, "index.html");
+      if (!fs.existsSync(page)) return reply.code(503).send({ code: "CMH.ADMIN.BUILD_REQUIRED", messageKey: "errors.admin.buildRequired" });
+      return reply.type("text/html; charset=utf-8").send(fs.readFileSync(page, "utf8"));
+    }
     const extension = path.extname(asset).toLowerCase();
     const contentType = extension === ".js" ? "application/javascript" : extension === ".css" ? "text/css" : extension === ".json" ? "application/json" : "application/octet-stream";
     return reply.type(contentType).send(fs.readFileSync(asset));
