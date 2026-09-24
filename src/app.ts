@@ -1387,11 +1387,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (allowedHeaders.has(name.toLowerCase()) && !name.includes("\r") && !name.includes("\n")) reply.header(name, value);
       }
       const abort = () => stream.cancel("Client disconnected");
+      // Fastify inject requests do not own a real client socket. Listening to
+      // their synthetic lifecycle can cancel a healthy stream before its first
+      // chunk; production HTTP requests always expose the socket boundary.
+      const observesClientAbort = request.raw.socket !== undefined;
       // IncomingMessage close also fires after a normally completed request body;
       // only `aborted` means the client actually cancelled the request.
-      request.raw.once("aborted", abort);
+      if (observesClientAbort) request.raw.once("aborted", abort);
       if (request.method === "HEAD") {
-        request.raw.off("aborted", abort);
+        if (observesClientAbort) request.raw.off("aborted", abort);
         stream.cancel("HEAD request");
         streamLease.release();
         drainLease.release();
@@ -1404,7 +1408,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
             yield chunk;
           }
         } finally {
-          request.raw.off("aborted", abort);
+          if (observesClientAbort) request.raw.off("aborted", abort);
           streamLease.release();
           drainLease.release();
         }
