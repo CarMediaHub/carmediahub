@@ -14,7 +14,7 @@ pnpm verify
 pnpm start -- --data-dir .\data
 ```
 
-`pnpm verify`는 로컬 배포 게이트, 관리 화면 타입 검사, Core 테스트, 시작 smoke, 업그레이드 검사와 Native bundle/서비스 사양 테스트를 실행합니다. Docker와 PostgreSQL 통합은 명시적인 CI 또는 대상 환경에서 별도로 실행해야 합니다.
+`pnpm verify`는 로컬 배포 게이트, 관리 화면 타입 검사와 운영 빌드, Core 테스트, 시작 smoke, 업그레이드 검사와 Native bundle/서비스 사양 테스트를 실행합니다. Docker와 PostgreSQL 통합은 명시적인 CI 또는 대상 환경에서 별도로 실행해야 합니다.
 
 로컬 시작 smoke 검사를 실행합니다(임시 데이터, 초기화, liveness 및 readiness):
 

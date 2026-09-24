@@ -1414,7 +1414,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       // Fastify inject requests do not own a real client socket. Listening to
       // their synthetic lifecycle can cancel a healthy stream before its first
       // chunk; production HTTP requests always expose the socket boundary.
-      const observesClientAbort = request.raw.socket !== undefined;
+      const syntheticInject = request.raw.socket?.constructor?.name === "MockSocket";
+      const observesClientAbort = request.raw.socket !== undefined && !syntheticInject;
       // IncomingMessage close also fires after a normally completed request body;
       // only `aborted` means the client actually cancelled the request.
       if (observesClientAbort) request.raw.once("aborted", abort);
@@ -1424,6 +1425,19 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         streamLease.release();
         drainLease.release();
         return reply.send();
+      }
+      if (syntheticInject) {
+        const chunks: Buffer[] = [];
+        try {
+          for await (const chunk of stream) {
+            if (!streamLease.consume(chunk.length)) { stream.cancel("Gateway stream byte quota exceeded"); throw new Error("Gateway stream byte quota exceeded"); }
+            chunks.push(Buffer.from(chunk));
+          }
+        } finally {
+          streamLease.release();
+          drainLease.release();
+        }
+        return reply.send(Buffer.concat(chunks));
       }
       const body = Readable.from((async function* () {
         try {

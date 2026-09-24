@@ -14,7 +14,7 @@ pnpm verify
 pnpm start -- --data-dir .\data
 ```
 
-`pnpm verify` 会执行本地部署门禁、管理端类型检查、Core 测试、启动烟测、升级检查以及 Native bundle/服务规格测试。Docker 和 PostgreSQL 集成仍需在显式 CI 或目标环境中执行。
+`pnpm verify` 会执行本地部署门禁、管理端类型检查和生产构建、Core 测试、启动烟测、升级检查以及 Native bundle/服务规格测试。Docker 和 PostgreSQL 集成仍需在显式 CI 或目标环境中执行。
 
 运行本地启动烟测（临时数据目录、初始化、liveness 和 readiness）：
 
