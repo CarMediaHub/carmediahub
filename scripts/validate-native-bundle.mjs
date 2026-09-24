@@ -63,6 +63,7 @@ export function validateNativeBundle(bundleRoot, options = {}) {
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const bundleRoot = process.argv[2] === undefined ? root : path.resolve(process.argv[2]);
-  console.log(JSON.stringify(validateNativeBundle(bundleRoot, { allowDependencySymlinks: process.argv[2] === undefined })));
+  const requested = process.argv.slice(2).find((value) => value !== "--");
+  const bundleRoot = requested === undefined ? root : path.resolve(requested);
+  console.log(JSON.stringify(validateNativeBundle(bundleRoot, { allowDependencySymlinks: requested === undefined })));
 }

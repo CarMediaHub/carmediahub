@@ -3,6 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { validateNativeBundle } from "./validate-native-bundle.mjs";
 
 function fixture() {
@@ -16,6 +18,13 @@ function fixture() {
 
 test("accepts a complete native bundle without instance configuration", () => {
   assert.deepEqual(validateNativeBundle(fixture()), { files: 18, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
+});
+
+test("CLI ignores the package-manager separator before the bundle path", () => {
+  const root = fixture();
+  const script = path.join(path.dirname(fileURLToPath(import.meta.url)), "validate-native-bundle.mjs");
+  const output = execFileSync(process.execPath, [script, "--", root], { encoding: "utf8" });
+  assert.deepEqual(JSON.parse(output), { files: 18, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
 });
 
 test("rejects missing runtime assets and instance secrets", () => {
