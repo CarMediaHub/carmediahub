@@ -33,7 +33,7 @@ Core 使用显式数据目录，不要求运行时环境变量或通过系统 PA
 准备运营者自己的组件发布记录时，可以显式暂存普通二进制并生成摘要绑定的未签名记录：
 
 ```powershell
-pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --output .\releases\ffmpeg-7.json
+pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
 该命令不会读取私钥、签名、安装或覆盖已有 staging artifact。提交给 Core 前，必须通过运营者自己控制的签名流程完成签名。

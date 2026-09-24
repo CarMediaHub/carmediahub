@@ -49,7 +49,7 @@ The Core does not require runtime environment variables or executables discovere
 To prepare an operator-owned component release, stage a regular binary and produce an unsigned, digest-bound release record:
 
 ```powershell
-pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --output .\releases\ffmpeg-7.json
+pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
 The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.

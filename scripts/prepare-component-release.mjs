@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const identifier = /^[a-z][a-z0-9-]{1,63}$/u;
 const version = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 const platform = /^(?:windows|linux)-(?:x64|arm64)$/u;
+const keyIdPattern = /^[a-f0-9]{16}$/u;
 
 function fail(message) { throw new Error(`Component release preparation failed: ${message}`); }
 
@@ -33,9 +34,11 @@ export function prepareComponentRelease(input) {
   const artifactId = required(input, "artifactId");
   const releaseVersion = required(input, "version");
   const releasePlatform = required(input, "platform");
+  const keyId = required(input, "keyId");
   if (!identifier.test(componentId) || !identifier.test(artifactId)) fail("componentId and artifactId must be lowercase identifiers");
   if (!version.test(releaseVersion)) fail("version must be semantic version 2");
   if (!platform.test(releasePlatform)) fail("platform must be windows-x64, linux-x64, or linux-arm64");
+  if (!keyIdPattern.test(keyId)) fail("keyId must be a 16-character lowercase public-key fingerprint");
   if (input.sourceUrl !== undefined && (typeof input.sourceUrl !== "string" || !/^https:\/\//u.test(input.sourceUrl) || input.sourceUrl.length > 2048)) fail("sourceUrl must be an HTTPS URL");
   if (input.licenseSpdx !== undefined && (typeof input.licenseSpdx !== "string" || !/^[A-Za-z0-9.-]+$/u.test(input.licenseSpdx) || input.licenseSpdx.length > 128)) fail("licenseSpdx is invalid");
   regularFile(artifact, "artifact");
@@ -51,7 +54,7 @@ export function prepareComponentRelease(input) {
   }
   const release = {
     schemaVersion: 1,
-    keyId: "replace-with-trusted-key-fingerprint",
+    keyId,
     componentId,
     version: releaseVersion,
     artifactId,
@@ -71,11 +74,11 @@ function parse(args) {
   const values = new Map();
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index]; const value = args[index + 1];
-    if (!["--data-dir", "--artifact", "--component-id", "--artifact-id", "--version", "--platform", "--source-url", "--license-spdx", "--output"].includes(key) || value === undefined || value.startsWith("--")) fail("usage: prepare-component-release --data-dir <path> --artifact <path> --component-id <id> --artifact-id <id> --version <semver> --platform <windows-x64|linux-x64|linux-arm64> [--source-url <https-url>] [--license-spdx <id>] [--output <path>]");
+    if (!["--data-dir", "--artifact", "--component-id", "--artifact-id", "--version", "--platform", "--key-id", "--source-url", "--license-spdx", "--output"].includes(key) || value === undefined || value.startsWith("--")) fail("usage: prepare-component-release --data-dir <path> --artifact <path> --component-id <id> --artifact-id <id> --version <semver> --platform <windows-x64|linux-x64|linux-arm64> --key-id <16-hex-fingerprint> [--source-url <https-url>] [--license-spdx <id>] [--output <path>]");
     values.set(key, value);
   }
   const get = (key) => values.get(key);
-  return { dataDir: get("--data-dir"), artifact: get("--artifact"), componentId: get("--component-id"), artifactId: get("--artifact-id"), version: get("--version"), platform: get("--platform"), ...(get("--source-url") === undefined ? {} : { sourceUrl: get("--source-url") }), ...(get("--license-spdx") === undefined ? {} : { licenseSpdx: get("--license-spdx") }), ...(get("--output") === undefined ? {} : { output: get("--output") }) };
+  return { dataDir: get("--data-dir"), artifact: get("--artifact"), componentId: get("--component-id"), artifactId: get("--artifact-id"), version: get("--version"), platform: get("--platform"), keyId: get("--key-id"), ...(get("--source-url") === undefined ? {} : { sourceUrl: get("--source-url") }), ...(get("--license-spdx") === undefined ? {} : { licenseSpdx: get("--license-spdx") }), ...(get("--output") === undefined ? {} : { output: get("--output") }) };
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

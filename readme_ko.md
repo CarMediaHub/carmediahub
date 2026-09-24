@@ -27,7 +27,7 @@ Core는 명시적 데이터 디렉터리를 사용하며 런타임 환경 변수
 운영자가 관리하는 구성요소 릴리스를 준비할 때는 일반 바이너리를 명시적으로 staging하고 digest가 연결된 서명 전 릴리스 레코드를 생성할 수 있습니다.
 
 ```powershell
-pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --output .\releases\ffmpeg-7.json
+pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpeg.exe --component-id ffmpeg --artifact-id ffmpeg-7 --version 7.0.0 --platform windows-x64 --key-id 0123456789abcdef --output .\releases\ffmpeg-7.json
 ```
 
 이 명령은 개인 키를 읽거나 서명하거나 설치하거나 기존 staging 아티팩트를 덮어쓰지 않습니다. Core에 제출하기 전에 운영자가 제어하는 서명 절차로 서명을 완료해야 합니다.
