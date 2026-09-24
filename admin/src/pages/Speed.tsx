@@ -3,9 +3,8 @@ import { ProCard, ProLayout, Statistic } from "@ant-design/pro-components";
 import { Button, Progress, Space, message } from "antd";
 import { useState } from "react";
 import { useAdminI18n } from "../i18n";
-import { localizeAdminRoutes } from "../navigation";
+import { AdminShell } from "../navigation";
 
-const routes = [{ path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> }, { path: "/admin/plugins", name: "Plugins", icon: <ThunderboltOutlined /> }, { path: "/admin/jobs", name: "Tasks", icon: <UnorderedListOutlined /> }, { path: "/admin/history", name: "History", icon: <HistoryOutlined /> }, { path: "/admin/catalog", name: "Catalog", icon: <AppstoreOutlined /> }, { path: "/admin/speed", name: "Speed test", icon: <DashboardOutlined /> }, { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> }, { path: "/admin/media", name: "Media roots", icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> }, { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: "Users", icon: <TeamOutlined /> }];
 
 export default function Speed() {
   const { t } = useAdminI18n();
@@ -28,12 +27,12 @@ export default function Speed() {
       const uploadElapsed = Math.max(1, performance.now() - uploadStarted); setUploadThroughput(Number((1024 * 1024 * 8 / (uploadElapsed / 1000) / 1_000_000).toFixed(2)));
     } catch { message.error(t("common.speedTestFailed")); } finally { setRunning(false); }
   };
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: localizeAdminRoutes(routes, t) }} location={{ pathname: "/admin/speed" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
+  return <AdminShell pathname="/admin/speed">
     <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}>
       <ProCard title={t("common.connectionSpeed")} extra={<Button type="primary" onClick={() => void run()} loading={running}>{t("common.runTest")}</Button>}>
         <Progress percent={progress} status={running ? "active" : "normal"} />
         <ProCard split="vertical"><Statistic title={t("common.latency")} value={latency ?? "-"} suffix={latency === undefined ? "" : "ms"} /><Statistic title={t("common.download")} value={throughput ?? "-"} suffix={throughput === undefined ? "" : "Mbps"} /><Statistic title={t("common.upload")} value={uploadThroughput ?? "-"} suffix={uploadThroughput === undefined ? "" : "Mbps"} /></ProCard>
       </ProCard>
     </Space>
-  </ProLayout>;
+  </AdminShell>;
 }

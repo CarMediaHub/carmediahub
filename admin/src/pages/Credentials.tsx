@@ -3,21 +3,10 @@ import { ProCard, ProForm, ProFormSelect, ProFormText, ProFormTextArea, ProLayou
 import { Button, message, Popconfirm, Tag } from "antd";
 import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
-import { localizeAdminRoutes } from "../navigation";
+import { AdminShell } from "../navigation";
 
 type Credential = { id: string; name: string; kind: "cookie" | "authorization"; organizationId: string; userId: string; installationId: string; createdAt: string; revokedAt: string | null };
 type Installation = { id: string; packageId: string; status: "installed" | "disabled" | "uninstalled"; capabilities?: string[] };
-
-const routes = [
-  { path: "/admin/overview", name: "Overview", icon: <AppstoreOutlined /> },
-  { path: "/admin/plugins", name: "Plugins", icon: <CloudServerOutlined /> },
-  { path: "/admin/credentials", name: "Credentials", icon: <LockOutlined /> },
-  { path: "/admin/components", name: "Components", icon: <CloudServerOutlined /> },
-  { path: "/admin/media", name: "Media roots", icon: <CloudServerOutlined /> },
-  { path: "/admin/keys", name: "Entry keys", icon: <KeyOutlined /> },
-  { path: "/admin/security", name: "Security", icon: <SafetyCertificateOutlined /> },
-  { path: "/admin/users", name: "Users", icon: <TeamOutlined /> },
-];
 
 export default function Credentials() {
   const { t } = useAdminI18n();
@@ -36,7 +25,7 @@ export default function Credentials() {
     message.success(t("common.credentialRevoked"));
     refresh();
   };
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: localizeAdminRoutes(routes, t) }} location={{ pathname: "/admin/credentials" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
+  return <AdminShell pathname="/admin/credentials">
     <ProCard title={t("common.addCredential")} style={{ margin: 24 }}>
       <ProForm onFinish={async (values) => {
         const response = await fetch("/api/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) });
@@ -54,5 +43,5 @@ export default function Credentials() {
     <ProCard title={t("common.storedCredentials")} style={{ margin: 24 }}>
       <ProTable<Credential> rowKey="id" search={false} options={false} dataSource={credentials} columns={[{ title: t("common.label"), dataIndex: "name" }, { title: t("common.type"), dataIndex: "kind", render: (value) => <Tag>{value}</Tag> }, { title: t("common.pluginInstallation"), dataIndex: "installationId" }, { title: t("common.created"), dataIndex: "createdAt" }, { title: t("common.secretValue"), render: () => <Tag color="green">{t("common.neverDisplayed")}</Tag> }, { title: t("common.action"), render: (_, row) => <Popconfirm title={t("common.revokeCredential")} onConfirm={() => void revoke(row.id)}><Button danger>{t("common.revoke")}</Button></Popconfirm> }]} />
     </ProCard>
-  </ProLayout>;
+  </AdminShell>;
 }

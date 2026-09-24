@@ -3,6 +3,7 @@ import { ProCard, ProForm, ProFormSelect, ProFormText, ProLayout } from "@ant-de
 import { Alert, Button, Descriptions, Modal, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
+import { AdminShell } from "../navigation";
 
 type TotpSetup = { secret: string; otpauthUrl: string };
 
@@ -17,8 +18,7 @@ export default function Security() {
   const [density, setDensity] = useState("comfortable");
   const refresh = () => { void Promise.all([fetch("/api/auth/totp").then((response) => response.json() as Promise<{ enabled?: boolean }>), fetch("/api/me").then(async (response) => response.ok ? await response.json() as { user?: { locale?: string; timeZone?: string; theme?: string; density?: string } } : {})]).then(([totp, profile]) => { setEnabled(Boolean(totp.enabled)); setLocale(profile.user?.locale ?? "en"); setTimeZone(profile.user?.timeZone ?? "UTC"); setTheme(profile.user?.theme ?? "system"); setDensity(profile.user?.density ?? "comfortable"); }); };
   useEffect(refresh, []);
-  const navigation = [{ path: "/admin/overview", name: t("nav.overview"), icon: <AppstoreOutlined /> }, { path: "/admin/components", name: t("nav.components"), icon: <CloudServerOutlined /> }, { path: "/admin/media", name: t("nav.media"), icon: <FolderOpenOutlined /> }, { path: "/admin/keys", name: t("nav.keys"), icon: <KeyOutlined /> }, { path: "/admin/security", name: t("nav.security"), icon: <SafetyCertificateOutlined /> }, { path: "/admin/users", name: t("nav.users"), icon: <TeamOutlined /> }];
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: navigation }} location={{ pathname: "/admin/security" }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; }}>{t("nav.signOut")}</Button>]}> 
+  return <AdminShell pathname="/admin/security">
     <ProCard title={t("security.account")} style={{ margin: 24, maxWidth: 780 }}>
       <Descriptions items={[{ key: "totp", label: t("security.authenticator"), children: enabled ? t("security.enabled") : t("security.disabled") }]} />
       {!enabled && <Button type="primary" onClick={async () => { const response = await fetch("/api/auth/totp/setup", { method: "POST" }); if (!response.ok) { message.error(t("security.updateFailed")); return; } setSetup(await response.json()); }}>{t("security.setup")}</Button>}
@@ -42,5 +42,5 @@ export default function Security() {
       {setup !== undefined && <Space direction="vertical" size="middle" style={{ width: "100%" }}><Typography.Paragraph>{t("security.setupDescription")}</Typography.Paragraph><Typography.Text code copyable>{setup.secret}</Typography.Text><ProForm onFinish={async (values) => { const response = await fetch("/api/auth/totp/enable", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(values) }); if (!response.ok) { message.error(t("security.invalidCode")); return false; } const result = await response.json(); setRecoveryCodes(result.recoveryCodes); setSetup(undefined); setEnabled(true); return true; }}><ProFormText name="code" label={t("security.verificationCode")} rules={[{ required: true, pattern: /^\d{6}$/u, message: t("security.sixDigits") }]} /></ProForm></Space>}
     </Modal>
     <Modal title={t("security.saveCodes")} open={recoveryCodes !== undefined} footer={<Button type="primary" onClick={() => setRecoveryCodes(undefined)}>{t("security.savedCodes")}</Button>} closable={false}><Alert type="warning" showIcon message={t("security.codesWarning")} /><Typography.Paragraph copyable style={{ whiteSpace: "pre-line", marginTop: 16 }}>{recoveryCodes?.join("\n")}</Typography.Paragraph></Modal>
-  </ProLayout>;
+  </AdminShell>;
 }
