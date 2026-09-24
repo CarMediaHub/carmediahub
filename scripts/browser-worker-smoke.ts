@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   try {
     worker = await startBrowserWorker({
       dataDir: options.dataDir,
-      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${process.platform === "win32" ? "chromium.exe" : "chromium"}`, checksum },
+      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${process.platform === "win32" ? "chromium.exe" : "chromium"}`, checksum, verified: true },
       catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
       scope: { organizationId: "smoke-org", userId: "smoke-user", installationId: "smoke-plugin", sessionId: "smoke-session" },
       targetRegistry: registry,
