@@ -603,6 +603,8 @@ export class Repository {
   createEntryKey(applicationId: string, userId: string, expiresAt?: string): { id: string; key: string } {
     const application = this.db.prepare("SELECT id FROM applications WHERE id = ? AND enabled = 1").get(applicationId);
     if (application === undefined) throw new Error("Application not found");
+    const user = this.db.prepare("SELECT id FROM users WHERE id = ? AND revoked_at IS NULL").get(userId);
+    if (user === undefined) throw new Error("User is unavailable");
     if (expiresAt !== undefined) {
       const parsed = Date.parse(expiresAt);
       if (!Number.isFinite(parsed) || parsed <= Date.now() || new Date(parsed).toISOString() !== expiresAt) throw new Error("Invalid entry key expiry");

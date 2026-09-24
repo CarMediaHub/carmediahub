@@ -124,6 +124,20 @@ test("revoking a user also revokes the user's entry keys", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("entry keys cannot be issued to a revoked user", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-entry-revoked-user-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, Buffer.alloc(32, 8));
+    const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+    const member = repository.createUser({ organizationId: admin.organizationId, username: "member", password: "correct horse battery staple", role: "member", locale: "en" });
+    const application = repository.applications().find((item) => item.route === "/system");
+    assert.ok(application);
+    assert.equal(repository.revokeUser(member.id, admin.organizationId), "revoked");
+    assert.throws(() => repository.createEntryKey(application.id, member.id), /User is unavailable/);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("password change verifies the old password and revokes other sessions", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-password-change-"));
   const database = openDatabase(dataDir);
