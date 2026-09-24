@@ -10,7 +10,10 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, ["--import", "tsx", path.join(root, "src", "cli.ts"), "--", "--data-dir", dataDir, "--port", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
 let output = "";
 let exited = false;
-child.once("exit", () => { exited = true; });
+let exitCode;
+let spawnError;
+child.once("exit", (code) => { exited = true; exitCode = code; });
+child.once("error", (error) => { spawnError = error; exited = true; });
 child.stdout.on("data", (chunk) => { output += String(chunk); });
 child.stderr.on("data", (chunk) => { output += String(chunk); });
 
@@ -21,6 +24,8 @@ async function request(pathname, init) {
 try {
   let live;
   for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (spawnError !== undefined) throw new Error(`Core process failed to start: ${spawnError.message}`);
+    if (exited) throw new Error(`Core process exited before liveness (code ${exitCode ?? "unknown"}): ${output}`);
     try { live = await request("/health/live"); if (live.ok) break; } catch { /* wait for startup */ }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
