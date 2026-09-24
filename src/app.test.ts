@@ -14,6 +14,21 @@ import { canonicalPluginManifest } from "./plugin-release.js";
 import { canonicalPluginPackageRelease } from "./plugin-package-release.js";
 import { BrowserTargetRegistry } from "./browser-target-registry.js";
 
+function packageDigest(root: string): string {
+  const files: string[] = [];
+  const collect = (current: string) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const location = path.join(current, entry.name);
+      if (entry.isDirectory()) collect(location);
+      else if (entry.isFile()) files.push(path.relative(root, location).split(path.sep).join("/"));
+    }
+  };
+  collect(root);
+  const hash = crypto.createHash("sha256");
+  for (const relative of files.sort()) hash.update(`${relative}\0${crypto.createHash("sha256").update(fs.readFileSync(path.join(root, relative))).digest("hex")}\n`, "utf8");
+  return hash.digest("hex");
+}
+
 test("gateway forwards only protocol headers and never session or authorization material", () => {
   assert.deepEqual(filterGatewayHeaders({ range: "bytes=0-1", accept: "video/*", cookie: "cmh_session=secret", authorization: "Bearer secret", "x-cmh-device-class": "vehicle", "x-forwarded-for": "127.0.0.1" }), { range: "bytes=0-1", accept: "video/*" });
 });
@@ -578,6 +593,45 @@ test("gateway starts the trusted WDR Worker and writes its response through the 
     fs.rmSync(dataDir, { recursive: true, force: true });
     fs.rmSync(mediaRoot, { recursive: true, force: true });
   }
+});
+
+test("upgrades a plugin through a health gate and restores the previous version on failure", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-plugin-upgrade-health-"));
+  const pluginKeyPair = crypto.generateKeyPairSync("ed25519");
+  const pluginPublicKey = pluginKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const sourcePackage = path.resolve(import.meta.dirname, "..", "..", "carmediahub-plugins", "dist", "packages", "wdr-media");
+  const app = await createApp({ dataDir, pluginTrustKeys: [pluginPublicKey], trustedWorkerPackages: [{ packageId: "wdr-media", packageVersion: "0.1.0", packageRoot: sourcePackage, workerEntry: "./worker.js" }] });
+  const keyId = crypto.createHash("sha256").update(pluginPublicKey).digest("hex").slice(0, 16);
+  const baseManifest = { id: "wdr-media", sdk: "^0.1.0", name: { en: "WDR Media", "zh-CN": "WDR", ko: "WDR" }, description: { en: "Media", "zh-CN": "媒体", ko: "미디어" }, category: "official", runtime: "isolated-worker", capabilities: ["db", "storage", "media", "history", "events"], routes: [{ path: "/", methods: ["GET"] }, { path: "/health", methods: ["GET", "HEAD"] }], worker: { entry: "./worker.js", protocol: "0.1" }, ui: { entry: "./ui/index.html", vehicleSupported: true } } as const;
+  const sign = (manifest: typeof baseManifest & { version: string }, artifact: { id: string; digest: string }) => ({ keyId, manifest, artifact, signature: crypto.sign(null, canonicalPluginPackageRelease({ keyId, manifest, artifact }), pluginKeyPair.privateKey).toString("base64") });
+  const stage = (version: string, broken: boolean): { id: string; digest: string } => {
+    const id = `wdr-${version.replaceAll(".", "-")}`;
+    const root = path.join(dataDir, "staging", "plugins", id);
+    fs.mkdirSync(root, { recursive: true });
+    fs.copyFileSync(path.join(sourcePackage, "worker.js"), path.join(root, "worker.js"));
+    if (broken) {
+      const worker = fs.readFileSync(path.join(root, "worker.js"), "utf8").replace('return { status: 200, body: { status: "ok", worker: "wdr-media"', 'return { status: 503, body: { status: "bad", worker: "wdr-media"');
+      fs.writeFileSync(path.join(root, "worker.js"), worker);
+    }
+    fs.cpSync(path.join(sourcePackage, "node_modules"), path.join(root, "node_modules"), { recursive: true });
+    return { id, digest: packageDigest(root) };
+  };
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const cookie = login.headers["set-cookie"];
+    const initial = await app.inject({ method: "POST", url: "/api/plugins", headers: { cookie }, payload: { keyId, manifest: { ...baseManifest, version: "0.1.0" }, signature: crypto.sign(null, canonicalPluginManifest({ ...baseManifest, version: "0.1.0" }), pluginKeyPair.privateKey).toString("base64") } });
+    assert.equal(initial.statusCode, 201);
+    const installationId = (initial.json() as { installation: { id: string } }).installation.id;
+    const v2 = stage("0.2.0", false);
+    const upgraded = await app.inject({ method: "POST", url: `/api/plugins/${installationId}/upgrade`, headers: { cookie }, payload: sign({ ...baseManifest, version: "0.2.0" }, v2) });
+    assert.equal(upgraded.statusCode, 200);
+    assert.equal((upgraded.json() as { installation: { packageVersion: string } }).installation.packageVersion, "0.2.0");
+    const v3 = stage("0.3.0", true);
+    const failed = await app.inject({ method: "POST", url: `/api/plugins/${installationId}/upgrade`, headers: { cookie }, payload: sign({ ...baseManifest, version: "0.3.0" }, v3) });
+    assert.equal(failed.statusCode, 502);
+    assert.equal((await app.inject({ method: "GET", url: "/api/plugins", headers: { cookie } })).json().installations.find((item: { id: string }) => item.id === installationId).packageVersion, "0.2.0");
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); }
 });
 
 test("runs the browser contract Worker through Core Broker and enforces capability boundaries", async () => {
