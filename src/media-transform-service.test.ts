@@ -33,7 +33,7 @@ test("runs a verified FFmpeg remux through the scoped media job", { skip: ffmpeg
     const item = media.list("org", "plugin", root.id)[0]!;
     const jobs = new PluginJobService(database.db);
     const executor = new JobExecutor(jobs);
-    registerMediaTransformHandlers({ executor, jobs, media, dataDir, database: database.db, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum, provides: ["media-processing"] } });
+    registerMediaTransformHandlers({ executor, jobs, media, dataDir, database: database.db, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum, verified: true, provides: ["media-processing"] } });
     const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" };
     const job = jobs.enqueueMediaTransform(scope, "media.remux", { mediaId: item.id, mode: "remux", container: "mp4" });
     const completed = await executor.runOnce(scope);
@@ -73,7 +73,7 @@ test("runs a scoped HLS job and reads only validated playlist and segment assets
     const item = media.list("org", "plugin", root.id)[0]!;
     const jobs = new PluginJobService(database.db);
     const executor = new JobExecutor(jobs);
-    registerMediaTransformHandlers({ executor, jobs, media, dataDir, database: database.db, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum, provides: ["media-processing"] } });
+    registerMediaTransformHandlers({ executor, jobs, media, dataDir, database: database.db, ffmpeg: { id: "ffmpeg", version: "7.0.0", executable: `ffmpeg/7.0.0/${path.basename(managedExecutable)}`, checksum, verified: true, provides: ["media-processing"] } });
     const scope = { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" };
     const job = jobs.enqueueHls(scope, { mediaId: item.id, segmentDurationSeconds: 2 });
     const completed = await executor.runOnce(scope);

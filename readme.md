@@ -54,6 +54,8 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.
 
+The administrator component-registration endpoint is metadata-only and marks records as unverified. Unverified records may be inspected and health-checked, but Core will not execute them, launch them as browser engines, or use them as managed runtime components. Only a release that passes trusted signature verification is marked verified.
+
 Plugin data is exposed only through the SDK's scoped logical API and versioned migration ledger. Core owns the physical SQLite/PostgreSQL schema; plugins never receive database connections, DSNs, schema names or SQL channels.
 
 Unauthenticated deployment probes are available at `/health/live`, `/health/ready` and `/health/diagnostic`. They return only bounded status and aggregate counts; they never expose paths, URLs, credentials or user content. Readiness returns HTTP 503 until the local deployment has been initialized.

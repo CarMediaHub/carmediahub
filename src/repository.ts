@@ -637,7 +637,7 @@ export class Repository {
       }));
   }
 
-  registerComponent(input: { id: string; version: string; executable: string; checksum: string }): void {
+  registerComponent(input: { id: string; version: string; executable: string; checksum: string; verified?: boolean }): void {
     if (!componentId.test(input.id) || !componentVersion.test(input.version) || !componentChecksum.test(input.checksum)) throw new Error("Invalid managed component identity");
     if (input.executable.length === 0 || input.executable.length > 512 || input.executable.includes("..") || input.executable.includes("\\") || input.executable.includes("\0") || input.executable.startsWith("/") || /^[A-Za-z]:/.test(input.executable)) throw new Error("Managed component executable must be a relative path");
     const installedAt = now();
@@ -645,14 +645,14 @@ export class Repository {
     try {
       const current = this.db.prepare("SELECT id FROM managed_components WHERE id = ?").get(input.id);
       if (current === undefined) {
-        this.db.prepare("INSERT INTO managed_components (id, version, executable, checksum, installed_at, health) VALUES (?, ?, ?, ?, ?, 'unknown')")
-          .run(input.id, input.version, input.executable, input.checksum, installedAt);
+        this.db.prepare("INSERT INTO managed_components (id, version, executable, checksum, installed_at, health, verified) VALUES (?, ?, ?, ?, ?, 'unknown', ?)")
+          .run(input.id, input.version, input.executable, input.checksum, installedAt, input.verified === true ? 1 : 0);
       }
-      this.db.prepare(`INSERT INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health)
-        VALUES (?, ?, ?, ?, ?, 'unknown')
+      this.db.prepare(`INSERT INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health, verified)
+        VALUES (?, ?, ?, ?, ?, 'unknown', ?)
         ON CONFLICT(component_id, version) DO UPDATE SET executable = excluded.executable,
-          checksum = excluded.checksum, installed_at = excluded.installed_at, health = 'unknown'`)
-        .run(input.id, input.version, input.executable, input.checksum, installedAt);
+          checksum = excluded.checksum, installed_at = excluded.installed_at, health = 'unknown', verified = excluded.verified`)
+        .run(input.id, input.version, input.executable, input.checksum, installedAt, input.verified === true ? 1 : 0);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -670,13 +670,13 @@ export class Repository {
       .run(id("binding"), input.componentId, input.name.trim(), endpoint.toString(), input.installationId ?? null, now());
   }
 
-  components(): Array<Record<string, string>> {
-    return this.db.prepare("SELECT id, version, executable, checksum, installed_at, health FROM managed_components ORDER BY id").all() as Array<Record<string, string>>;
+  components(): Array<{ id: string; version: string; executable: string; checksum: string; installed_at: string; health: string; verified: number }> {
+    return this.db.prepare("SELECT id, version, executable, checksum, installed_at, health, verified FROM managed_components ORDER BY id").all() as Array<{ id: string; version: string; executable: string; checksum: string; installed_at: string; health: string; verified: number }>;
   }
 
-  componentById(componentId: string): { id: string; version: string; executable: string; checksum: string; health: string } | undefined {
-    const row = this.db.prepare("SELECT id, version, executable, checksum, health FROM managed_components WHERE id = ?").get(componentId) as Record<string, string> | undefined;
-    return row === undefined ? undefined : { id: row.id ?? "", version: row.version ?? "", executable: row.executable ?? "", checksum: row.checksum ?? "", health: row.health ?? "unknown" };
+  componentById(componentId: string): { id: string; version: string; executable: string; checksum: string; health: string; verified: boolean } | undefined {
+    const row = this.db.prepare("SELECT id, version, executable, checksum, health, verified FROM managed_components WHERE id = ?").get(componentId) as Record<string, string | number> | undefined;
+    return row === undefined ? undefined : { id: String(row.id ?? ""), version: String(row.version ?? ""), executable: String(row.executable ?? ""), checksum: String(row.checksum ?? ""), health: String(row.health ?? "unknown"), verified: Number(row.verified) === 1 };
   }
 
   updateComponentHealth(componentId: string, health: "healthy" | "unhealthy"): boolean {
@@ -690,13 +690,13 @@ export class Repository {
 
   componentVersions(componentId: string): Array<Record<string, string | number>> {
     return this.db.prepare(`SELECT component_id, version, executable, checksum, installed_at, health,
-      CASE WHEN version = (SELECT version FROM managed_components WHERE id = ?) THEN 1 ELSE 0 END AS active
+      verified, CASE WHEN version = (SELECT version FROM managed_components WHERE id = ?) THEN 1 ELSE 0 END AS active
       FROM managed_component_versions WHERE component_id = ? ORDER BY installed_at DESC`).all(componentId, componentId) as Array<Record<string, string | number>>;
   }
 
-  componentVersionById(componentId: string, version: string): { id: string; version: string; executable: string; checksum: string; health: string } | undefined {
-    const row = this.db.prepare("SELECT component_id, version, executable, checksum, health FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string> | undefined;
-    return row === undefined ? undefined : { id: row.component_id ?? componentId, version: row.version ?? version, executable: row.executable ?? "", checksum: row.checksum ?? "", health: row.health ?? "unknown" };
+  componentVersionById(componentId: string, version: string): { id: string; version: string; executable: string; checksum: string; health: string; verified: boolean } | undefined {
+    const row = this.db.prepare("SELECT component_id, version, executable, checksum, health, verified FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string | number> | undefined;
+    return row === undefined ? undefined : { id: String(row.component_id ?? componentId), version: String(row.version ?? version), executable: String(row.executable ?? ""), checksum: String(row.checksum ?? ""), health: String(row.health ?? "unknown"), verified: Number(row.verified) === 1 };
   }
 
   updateComponentVersionHealth(componentId: string, version: string, health: "healthy" | "unhealthy"): boolean {
@@ -704,12 +704,12 @@ export class Repository {
   }
 
   activateComponentVersion(componentId: string, version: string): boolean {
-    const target = this.db.prepare("SELECT version, executable, checksum, health, installed_at FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string> | undefined;
+    const target = this.db.prepare("SELECT version, executable, checksum, health, verified, installed_at FROM managed_component_versions WHERE component_id = ? AND version = ?").get(componentId, version) as Record<string, string | number> | undefined;
     if (target === undefined || target.health !== "healthy") return false;
     const current = this.componentById(componentId);
     if (current?.version === version) return true;
-    const result = this.db.prepare(`UPDATE managed_components SET version = ?, executable = ?, checksum = ?, installed_at = ?, health = ? WHERE id = ?`)
-      .run(version, target.executable ?? "", target.checksum ?? "", target.installed_at ?? now(), target.health, componentId);
+    const result = this.db.prepare(`UPDATE managed_components SET version = ?, executable = ?, checksum = ?, installed_at = ?, health = ?, verified = ? WHERE id = ?`)
+      .run(version, target.executable ?? "", target.checksum ?? "", target.installed_at ?? now(), target.health, Number(target.verified) === 1 ? 1 : 0, componentId);
     return result.changes === 1;
   }
 

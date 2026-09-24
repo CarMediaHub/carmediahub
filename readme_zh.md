@@ -38,6 +38,8 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 该命令不会读取私钥、签名、安装或覆盖已有 staging artifact。提交给 Core 前，必须通过运营者自己控制的签名流程完成签名。
 
+管理员的组件登记接口仅用于登记元数据，登记结果会标记为“未验证”。未验证记录可以查看并执行健康检查，但 Core 不会执行它们、将其作为浏览器引擎启动或作为正式运行时组件使用。只有通过受信任签名校验的发布记录才会标记为“已验证”。
+
 插件数据只通过 SDK 提供的受作用域逻辑 API 和版本化迁移台账访问。物理 SQLite/PostgreSQL 结构由 Core 管理；插件不会获得数据库连接、DSN、Schema 名称或 SQL 通道。
 
 Native 部署可以使用 `config/core.json` JSON 配置文件，也可以通过 `--config <路径>` 指定文件。可复制 `config/core.example.json` 作为起点，并使用 `config/core.schema.json` 供编辑器和安装工具校验。文件只接受 `dataDir`、`host`、`port`、`publicUrl` 和 `cookieSecure`；命令行参数会覆盖文件值，未知字段或非法值会阻止启动。不要在该文件中写入密码、Cookie、Token 或数据库凭据。默认配置文件可以不存在；显式传入的 `--config` 文件必须存在。

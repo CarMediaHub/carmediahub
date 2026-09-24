@@ -29,7 +29,7 @@ test("browser worker driver launches only the verified browser-engine component"
     targetRegistry.register({ id: "other", origins: ["https://other.example"] });
     const handle = await startBrowserWorker({
       dataDir,
-      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum },
+      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum, verified: true },
       catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
       scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
       targetRegistry,
@@ -68,7 +68,7 @@ test("browser worker driver closes the context when network policy setup fails",
   try {
     await assert.rejects(() => startBrowserWorker({
       dataDir,
-      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum },
+      component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum, verified: true },
       catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
       scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
       targetRegistry: registry,
@@ -84,7 +84,7 @@ test("browser worker driver has a Playwright Chromium runtime by default", async
   try {
     await assert.rejects(() => startBrowserWorker({
       dataDir,
-      component: { id: "chromium", version: "1.0.0", executable: "chromium/1.0.0/chromium", checksum: "0".repeat(64) },
+      component: { id: "chromium", version: "1.0.0", executable: "chromium/1.0.0/chromium", checksum: "0".repeat(64), verified: true },
       catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")),
       scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" },
       targetRegistry: new BrowserTargetRegistry(),
@@ -103,7 +103,7 @@ test("browser worker driver rejects a modified managed browser executable", asyn
   fs.writeFileSync(path.join(location, executable), "modified");
   const registry = new BrowserTargetRegistry(); registry.register({ id: "media", origins: ["https://media.example"] });
   try {
-    await assert.rejects(() => startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", runtime: { launchPersistentContext: async () => { throw new Error("must not launch"); } } }), /digest mismatch/);
+    await assert.rejects(() => startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum, verified: true }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", runtime: { launchPersistentContext: async () => { throw new Error("must not launch"); } } }), /digest mismatch/);
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
@@ -134,7 +134,7 @@ test("browser worker driver bounds active pages before creating another page", a
   registry.register({ id: "media", origins: ["https://media.example"] });
   const context = { close: async () => undefined, route: async () => undefined, unroute: async () => undefined, newPage: async () => { created += 1; return { goto: async () => undefined, close: async () => undefined, once: () => undefined }; } } as never;
   try {
-    const handle = await startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", maxPages: 1, runtime: { launchPersistentContext: async () => context } });
+    const handle = await startBrowserWorker({ dataDir, component: { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executable}`, checksum, verified: true }, catalog: loadComponentCatalog(path.resolve(import.meta.dirname, "..")), scope: { organizationId: "org", userId: "user", installationId: "plugin_abc", sessionId: "browser_session" }, targetRegistry: registry, targetId: "media", maxPages: 1, runtime: { launchPersistentContext: async () => context } });
     await handle.navigate("media");
     await assert.rejects(() => handle.navigate("media"), /page limit exceeded/);
     assert.equal(created, 1);

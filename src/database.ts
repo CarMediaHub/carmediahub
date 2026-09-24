@@ -173,7 +173,8 @@ export function openDatabase(dataDir: string): CoreDatabase {
       executable TEXT NOT NULL,
       checksum TEXT NOT NULL,
       installed_at TEXT NOT NULL,
-      health TEXT NOT NULL
+      health TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS managed_component_versions (
       component_id TEXT NOT NULL REFERENCES managed_components(id) ON DELETE CASCADE,
@@ -182,6 +183,7 @@ export function openDatabase(dataDir: string): CoreDatabase {
       checksum TEXT NOT NULL,
       installed_at TEXT NOT NULL,
       health TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (component_id, version)
     );
     CREATE INDEX IF NOT EXISTS managed_component_versions_index
@@ -364,9 +366,13 @@ export function openDatabase(dataDir: string): CoreDatabase {
   if (!userColumns.some((column) => column.name === "density")) db.exec("ALTER TABLE users ADD COLUMN density TEXT NOT NULL DEFAULT 'comfortable'");
   const browserTaskColumns = db.prepare("PRAGMA table_info(browser_tasks)").all() as Array<{ name: string }>;
   if (!browserTaskColumns.some((column) => column.name === "result_json")) db.exec("ALTER TABLE browser_tasks ADD COLUMN result_json TEXT");
+  const managedComponentColumns = db.prepare("PRAGMA table_info(managed_components)").all() as Array<{ name: string }>;
+  if (!managedComponentColumns.some((column) => column.name === "verified")) db.exec("ALTER TABLE managed_components ADD COLUMN verified INTEGER NOT NULL DEFAULT 0");
+  const managedComponentVersionColumns = db.prepare("PRAGMA table_info(managed_component_versions)").all() as Array<{ name: string }>;
+  if (!managedComponentVersionColumns.some((column) => column.name === "verified")) db.exec("ALTER TABLE managed_component_versions ADD COLUMN verified INTEGER NOT NULL DEFAULT 0");
   db.exec(`
-    INSERT OR IGNORE INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health)
-      SELECT id, version, executable, checksum, installed_at, health FROM managed_components;
+    INSERT OR IGNORE INTO managed_component_versions (component_id, version, executable, checksum, installed_at, health, verified)
+      SELECT id, version, executable, checksum, installed_at, health, verified FROM managed_components;
   `);
   const migration = db.prepare("SELECT version FROM schema_migrations WHERE version = ?").get(CORE_SCHEMA_VERSION) as { version?: number } | undefined;
   if (migration?.version !== CORE_SCHEMA_VERSION) {

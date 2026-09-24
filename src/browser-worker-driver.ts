@@ -15,7 +15,7 @@ export interface BrowserWorkerScope {
 
 export interface BrowserWorkerDriverOptions {
   dataDir: string;
-  component: { id: string; version: string; executable: string; checksum: string };
+  component: { id: string; version: string; executable: string; checksum: string; verified: boolean };
   catalog: readonly ComponentCatalogItem[];
   scope: BrowserWorkerScope;
   targetRegistry: BrowserTargetRegistry;
@@ -52,6 +52,7 @@ export async function navigateToTarget(handle: Pick<BrowserWorkerHandle, "contex
 
 /** Core-owned Playwright adapter. It exposes a context only to Core Worker code. */
 export async function startBrowserWorker(options: BrowserWorkerDriverOptions): Promise<BrowserWorkerHandle> {
+  if (options.component.verified !== true) throw new Error("Browser component is not verified");
   const executable = resolveInstalledExecutable(options.dataDir, options.component);
   const catalogComponent = options.catalog.find((candidate) => candidate.id === options.component.id);
   if (catalogComponent === undefined || !catalogComponent.provides.includes("browser-engine")) throw new Error("Browser component role is unavailable");

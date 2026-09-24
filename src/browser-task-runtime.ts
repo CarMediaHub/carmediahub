@@ -20,7 +20,7 @@ export function createManagedBrowserWorkerOptionsResolver(options: ManagedBrowse
     if (targetId === undefined || options.targetRegistry.get(targetId) === undefined) throw new Error("Browser target is not registered");
     const platform = currentPlatformKey();
     const browserCatalog = options.catalog.filter((item) => item.provides.includes("browser-engine") && item.platforms.includes(platform)).sort((left, right) => left.id.localeCompare(right.id));
-    const component = browserCatalog.map((item) => options.repository.componentById(item.id)).find((item) => item !== undefined && item.health === "healthy");
+    const component = browserCatalog.map((item) => options.repository.componentById(item.id)).find((item) => item !== undefined && item.health === "healthy" && item.verified);
     if (component === undefined) throw new Error("A healthy browser-engine component is not installed");
     return {
       dataDir: options.dataDir,

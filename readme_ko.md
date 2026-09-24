@@ -32,6 +32,8 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 이 명령은 개인 키를 읽거나 서명하거나 설치하거나 기존 staging 아티팩트를 덮어쓰지 않습니다. Core에 제출하기 전에 운영자가 제어하는 서명 절차로 서명을 완료해야 합니다.
 
+관리자 컴포넌트 등록 API는 메타데이터만 기록하며 등록 결과를 "검증되지 않음"으로 표시합니다. 검증되지 않은 기록은 조회하고 상태를 점검할 수 있지만 Core가 실행하거나 브라우저 엔진으로 시작하거나 관리 런타임 컴포넌트로 사용할 수 없습니다. 신뢰된 서명 검증을 통과한 릴리스만 "검증됨"으로 표시됩니다.
+
 플러그인 데이터는 SDK의 범위가 지정된 논리 API와 버전별 마이그레이션 원장을 통해서만 접근합니다. 물리적 SQLite/PostgreSQL 구조는 Core가 관리하며 플러그인에는 데이터베이스 연결, DSN, Schema 이름 또는 SQL 채널을 제공하지 않습니다.
 
 배포 상태 probe는 `/health/live`, `/health/ready`, `/health/diagnostic`에서 제공합니다. 경로, URL, 자격 증명 또는 사용자 콘텐츠를 노출하지 않고 제한된 상태와 집계 수만 반환합니다. 로컬 배포가 초기화되기 전에는 readiness가 HTTP 503을 반환합니다.

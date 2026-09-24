@@ -1297,7 +1297,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (options.componentTrustKeys === undefined || options.componentTrustKeys.length === 0) throw new Error("No component release trust keys configured");
       const input = body<SignedComponentRelease>(request);
       const installed = installSignedComponentRelease(options.dataDir, catalog, input, options.componentTrustKeys, currentPlatformKey());
-      repository.registerComponent({ id: installed.id, version: installed.version, executable: installed.executable, checksum: installed.checksum });
+      repository.registerComponent({ id: installed.id, version: installed.version, executable: installed.executable, checksum: installed.checksum, verified: true });
       repository.audit(user.id, "component.installed", `${installed.id}@${installed.version}`);
       return reply.code(201).send({ component: installed });
     } catch {

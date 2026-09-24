@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { runManagedComponent } from "./managed-component-runner.js";
 
-function fixture(): { dataDir: string; component: { id: string; version: string; executable: string } } {
+function fixture(): { dataDir: string; component: { id: string; version: string; executable: string; checksum: string; verified: boolean } } {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-runner-"));
   const location = path.join(dataDir, "components", "fixture", "1.0.0");
   fs.mkdirSync(location, { recursive: true });
@@ -14,7 +14,7 @@ function fixture(): { dataDir: string; component: { id: string; version: string;
   fs.copyFileSync(process.execPath, path.join(location, executable));
   const executablePath = path.join(location, executable);
   const checksum = crypto.createHash("sha256").update(fs.readFileSync(executablePath)).digest("hex");
-  return { dataDir, component: { id: "fixture", version: "1.0.0", executable: `fixture/1.0.0/${executable}`, checksum } };
+  return { dataDir, component: { id: "fixture", version: "1.0.0", executable: `fixture/1.0.0/${executable}`, checksum, verified: true } };
 }
 
 test("runs a verified component with an explicit empty environment", async () => {
@@ -23,6 +23,13 @@ test("runs a verified component with an explicit empty environment", async () =>
     const result = await runManagedComponent(dataDir, component, { args: ["-e", "process.stdout.write(process.env.CMH_TEST_SECRET === undefined ? 'no-secret' : process.env.CMH_TEST_SECRET)"] });
     assert.equal(result.exitCode, 0);
     assert.equal(result.stdout, "no-secret");
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
+test("refuses a component that was only manually registered", async () => {
+  const { dataDir, component } = fixture();
+  try {
+    await assert.rejects(runManagedComponent(dataDir, { ...component, verified: false }), (error: unknown) => (error as { code?: string }).code === "CMH.COMPONENT.NOT_VERIFIED");
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
