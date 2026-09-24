@@ -24,10 +24,18 @@ function redirectDepth(request: { redirectedFrom?: () => { redirectedFrom?: () =
   return depth;
 }
 
+function policyOrigin(value: string, websocket = false): string {
+  const url = new URL(value);
+  if (websocket && url.protocol === "wss:") url.protocol = "https:";
+  else if (websocket && url.protocol === "ws:") url.protocol = "http:";
+  return url.origin;
+}
+
 /** Installs a Core-owned request gate; plugins never receive the route handler. */
 export async function installBrowserNetworkPolicy(context: BrowserNetworkContext, registry: BrowserTargetRegistry, targetId: string): Promise<BrowserNetworkPolicyHandle> {
   if (registry.get(targetId) === undefined) throw new Error("Browser target is not registered");
   let active = true;
+  const activeSockets = new Set<WebSocketRoute>();
   const handler = async (route: Route) => {
     let allowed = false;
     const request = route.request();
@@ -45,13 +53,16 @@ export async function installBrowserNetworkPolicy(context: BrowserNetworkContext
   const webSocketHandler = (socket: WebSocketRoute) => {
     if (!active) { socket.close(); return; }
     let allowed = false;
-    try { allowed = registry.allowsOrigin(targetId, new URL(socket.url()).origin); } catch { allowed = false; }
-    if (!allowed) socket.close();
+    try { allowed = registry.allowsOrigin(targetId, policyOrigin(socket.url(), true)); } catch { allowed = false; }
+    if (!allowed) { socket.close(); return; }
+    activeSockets.add(socket);
   };
   if (context.routeWebSocket !== undefined) await context.routeWebSocket("**/*", webSocketHandler);
   return { remove: async () => {
     active = false;
     await context.unroute("**/*", handler);
     if (typeof context.unrouteWebSocket === "function" && context.routeWebSocket !== undefined) await context.unrouteWebSocket("**/*", webSocketHandler);
+    for (const socket of activeSockets) socket.close();
+    activeSockets.clear();
   } };
 }
