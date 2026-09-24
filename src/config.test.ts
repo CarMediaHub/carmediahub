@@ -17,6 +17,12 @@ test("uses explicit configuration rather than environment variables", () => {
   assert.equal(parseConfig(["--cookie-secure"]).cookieSecure, true);
 });
 
+test("ignores the package-manager separator before CLI options", () => {
+  const config = parseConfig(["--", "--data-dir", "C:/cmh/data", "--port", "9081"], "C:/ignored");
+  assert.equal(config.dataDir.replaceAll("\\", "/"), "C:/cmh/data");
+  assert.equal(config.port, 9081);
+});
+
 test("production Core source does not read process environment variables", () => {
   const sourceRoot = path.resolve(process.cwd(), "src");
   const files: string[] = [];

@@ -63,14 +63,15 @@ export function listeningAddress(config: Pick<CoreConfig, "host" | "port" | "pub
 }
 
 export function parseConfig(args: readonly string[], workingDirectory = process.cwd()): CoreConfig {
+  const normalizedArgs = args.filter((value) => value !== "--");
   let configPath = path.join(workingDirectory, "config", "core.json");
   let explicitConfig = false;
   let configCount = 0;
-  for (let index = 0; index < args.length; index += 1) {
-    if (args[index] !== "--config") continue;
+  for (let index = 0; index < normalizedArgs.length; index += 1) {
+    if (normalizedArgs[index] !== "--config") continue;
     configCount += 1;
     if (configCount > 1) throw new Error("--config may only be specified once");
-    const next = args[index + 1];
+    const next = normalizedArgs[index + 1];
     if (next === undefined || next.startsWith("--")) throw new Error("--config requires a value");
     configPath = path.resolve(workingDirectory, next);
     explicitConfig = true;
@@ -84,9 +85,9 @@ export function parseConfig(args: readonly string[], workingDirectory = process.
   let cookieSecure = file.cookieSecure ?? false;
   let cookieSecureExplicit = file.cookieSecure !== undefined;
 
-  for (let index = 0; index < args.length; index += 1) {
-    const value = args[index];
-    const next = args[index + 1];
+  for (let index = 0; index < normalizedArgs.length; index += 1) {
+    const value = normalizedArgs[index];
+    const next = normalizedArgs[index + 1];
     if (value === "--config") {
       index += 1;
     } else if (value === "--data-dir") {
