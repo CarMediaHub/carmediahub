@@ -59,6 +59,23 @@ test("exposes safe liveness, readiness, and diagnostic probes", async () => {
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("password change keeps the current HTTP session and revokes other sessions", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-password-http-"));
+  const app = await createApp({ dataDir });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "old password 123" } });
+    const first = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "old password 123", deviceLabel: "desktop" } });
+    const second = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "old password 123", deviceLabel: "vehicle" } });
+    const firstCookie = first.headers["set-cookie"];
+    const secondCookie = second.headers["set-cookie"];
+    const changed = await app.inject({ method: "POST", url: "/api/auth/password", headers: { cookie: firstCookie }, payload: { currentPassword: "old password 123", newPassword: "new password 123" } });
+    assert.equal(changed.statusCode, 204);
+    assert.equal((await app.inject({ method: "GET", url: "/api/me", headers: { cookie: firstCookie } })).statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: "/api/me", headers: { cookie: secondCookie } })).statusCode, 401);
+    assert.equal((await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "new password 123" } })).statusCode, 200);
+  } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("component health checks verify the managed file digest without executing it", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-component-health-"));
   const executable = path.join(dataDir, "components", "alist", "1.0.0", "alist");
