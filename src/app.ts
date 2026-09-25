@@ -11,7 +11,7 @@ import { computeInstalledComponentDigest, loadComponentCatalog, normalizeCompone
 import { installSignedComponentRelease, type SignedComponentRelease } from "./component-release.js";
 import { currentPlatformKey } from "./components.js";
 import { RuntimeBroker } from "./runtime-broker.js";
-import { createPluginDataStore, deletePluginData, exportPluginData } from "./data-service.js";
+import { createPluginDataProvider } from "./plugin-data-provider.js";
 import { PluginJobService } from "./job-service.js";
 import { verifyPluginRelease, type SignedPluginRelease } from "./plugin-release.js";
 import { WorkerSupervisor } from "./worker-supervisor.js";
@@ -136,6 +136,7 @@ function resolvePluginUiFile(dataDir: string, manifest: { ui?: { entry: string }
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const browserTargetRegistry = options.browserTargetRegistry ?? loadBrowserTargetRegistry(options.dataDir);
   const database = openDatabase(options.dataDir);
+  const pluginData = createPluginDataProvider({ kind: "sqlite", db: database.db });
   cleanupExpiredTransformOutputs(database.db, options.dataDir);
   const serverKey = ensureServerKey(options.dataDir);
   const repository = new Repository(database.db, serverKey);
@@ -254,7 +255,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");
         const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown; version?: unknown; name?: unknown } | undefined;
         if (input === undefined && request.method !== "data.migrations") throw new Error("Invalid data request");
-        const store = createPluginDataStore(database.db, scope);
+        const store = pluginData.store(scope);
         if (request.method === "data.migrations") return { migrations: await store.migrations() };
         if (input === undefined) throw new Error("Invalid data request");
         if (request.method !== "data.migrate" && typeof input.collection !== "string") throw new Error("Invalid data collection");
@@ -1093,7 +1094,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const scope = session === undefined ? undefined : repository.runtimeScope(user.id, installationId, session.sessionId, session.deviceLabel);
     if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
     try {
-      const result = exportPluginData(database.db, scope);
+      const result = await pluginData.export(scope);
       repository.audit(user.id, "plugin.data.exported", installationId);
       return reply.header("cache-control", "no-store").send(result);
     } catch {
@@ -1111,7 +1112,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const installationId = (request.params as { id: string }).id;
     const scope = session === undefined ? undefined : repository.runtimeScope(user.id, installationId, session.sessionId, session.deviceLabel);
     if (scope === undefined) return reply.code(404).send({ code: "CMH.PLUGIN.NOT_FOUND", messageKey: "errors.plugin.notFound" });
-    const deleted = deletePluginData(database.db, scope);
+    const deleted = await pluginData.delete(scope);
     repository.audit(user.id, "plugin.data.deleted", `${installationId}:${deleted}`);
     return { deleted };
   });
