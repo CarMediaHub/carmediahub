@@ -14,12 +14,12 @@ COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub
 COPY carmediahub/admin/src ./carmediahub/admin/src
 RUN npm install --global pnpm@11.19.0 \
   && pnpm --dir carmediahub-sdk install --frozen-lockfile --ignore-scripts \
-  && find /workspace/carmediahub-sdk/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
+  && find /workspace/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
   && pnpm --dir carmediahub-sdk build \
   && pnpm --dir carmediahub install --frozen-lockfile --ignore-scripts \
-  && find /workspace/carmediahub/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
+  && find /workspace/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
   && pnpm --dir carmediahub/admin install --frozen-lockfile --ignore-scripts \
-  && find /workspace/carmediahub/admin/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
+  && find /workspace/node_modules/.pnpm -path '*/node_modules/esbuild/install.js' -type f -exec node {} \; \
   && test -x /workspace/carmediahub/admin/node_modules/.bin/max \
   && pnpm --dir carmediahub build \
   && pnpm --dir carmediahub build:admin
