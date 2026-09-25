@@ -70,6 +70,12 @@ pnpm component:sign-release -- --release .\releases\ffmpeg-7.json --private-key 
 
 The CLI requires an Ed25519 key whose public-key fingerprint matches `release.keyId`, refuses an existing output, and never copies the private key into staging or runtime bundles. A complete platform matrix can be checked with `pnpm exec node scripts/validate-component-release-matrix.mjs --matrix <matrix.json>`.
 
+After signing one record per platform, assemble the matrix with an explicit platform list:
+
+```powershell
+pnpm component:assemble-matrix -- --component-id ffmpeg --version 7.0.0 --platforms windows-x64,linux-x64,linux-arm64 --release-dir .\releases\ffmpeg-7 --output .\releases\ffmpeg-7-matrix.json
+```
+
 The administrator component-registration endpoint is metadata-only and marks records as unverified. Unverified records may be inspected and health-checked, but Core will not execute them, launch them as browser engines, or use them as managed runtime components. Only a release that passes trusted signature verification is marked verified.
 
 Plugin data is exposed only through the SDK's scoped logical API and versioned migration ledger. Core owns the physical SQLite/PostgreSQL schema; plugins never receive database connections, DSNs, schema names or SQL channels.
