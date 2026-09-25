@@ -32,6 +32,7 @@
     "test:resources": "node --test scripts/preflight-resources.test.mjs",
     "test:upgrade": "node --test --import tsx src/upgrade-preflight.test.ts",
     "test:component-release": "node --test scripts/prepare-component-release.test.mjs",
+    "test:component-release-matrix": "node --test scripts/validate-component-release-matrix.test.mjs",
     "test:postgres": "node scripts/postgres-smoke.mjs",
     "test:mysql": "node --import tsx --test src/mysql-data-service.test.ts",
     "test:mysql:service": "node scripts/mysql-smoke.mjs",
@@ -45,7 +46,7 @@
     "smoke:media-http": "tsx scripts/media-http-smoke.ts",
     "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
-    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-executor && pnpm test:native-install-preview && pnpm test:native-install-plan && pnpm test:mysql",
+    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:component-release-matrix && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-executor && pnpm test:native-install-preview && pnpm test:native-install-plan && pnpm test:mysql",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:coverage": "tsx --test --test-concurrency=1 --experimental-test-coverage src/**/*.test.ts"
   },

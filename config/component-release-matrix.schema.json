@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://carmediahub.github.io/schemas/component-release-matrix.schema.json",
+  "title": "CarMediaHub component release matrix",
+  "description": "A complete, platform-keyed set of signed component release records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "componentId", "version", "platforms", "releases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "componentId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$" },
+    "platforms": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^(?:windows|linux|darwin)-(?:x64|arm64)$" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "releases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["release", "signature"],
+        "properties": {
+          "release": { "$ref": "component-release.schema.json" },
+          "signature": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
+        }
+      }
+    }
+  }
+}
