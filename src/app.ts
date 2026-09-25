@@ -851,7 +851,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/components", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { components: repository.components(), bindings: repository.serviceBindings(), bindingGrants: repository.serviceBindingGrants() };
+    if (user === undefined) return undefined;
+    const components = repository.components().map(({ executable: _executable, checksum: _checksum, ...component }) => component);
+    const bindings = repository.serviceBindings().map(({ endpoint: _endpoint, ...binding }) => binding);
+    return { components, bindings, bindingGrants: repository.serviceBindingGrants() };
   });
 
   app.get("/api/credentials", async (request, reply) => {
@@ -1362,7 +1365,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (user === undefined) return undefined;
     const componentId = (request.params as { id: string }).id;
     if (repository.componentById(componentId) === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.NOT_FOUND", messageKey: "errors.component.notFound" });
-    return { versions: repository.componentVersions(componentId) };
+    const versions = repository.componentVersions(componentId).map(({ executable: _executable, checksum: _checksum, ...version }) => version);
+    return { versions };
   });
 
   app.post("/api/components/:id/versions/:version/health", async (request, reply) => {
@@ -1390,7 +1394,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (repository.componentVersionById(params.id, params.version) === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.VERSION_NOT_FOUND", messageKey: "errors.component.versionNotFound" });
     if (!repository.activateComponentVersion(params.id, params.version)) return reply.code(409).send({ code: "CMH.COMPONENT.VERSION_NOT_HEALTHY", messageKey: "errors.component.versionNotHealthy" });
     repository.audit(user.id, "component.versionActivated", `${params.id}@${params.version}`);
-    return { component: repository.componentById(params.id) };
+    const component = repository.componentById(params.id);
+    if (component === undefined) return reply.code(404).send({ code: "CMH.COMPONENT.NOT_FOUND", messageKey: "errors.component.notFound" });
+    const { executable: _executable, checksum: _checksum, ...safeComponent } = component;
+    return { component: safeComponent };
   });
 
   const pluginUiHandler = async (request: FastifyRequest, reply: import("fastify").FastifyReply) => {

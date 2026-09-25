@@ -178,6 +178,14 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "ffmpeg", version: "7.0.0", executable: "ffmpeg/ffmpeg", checksum: `sha256:${"b".repeat(64)}` } })).statusCode, 201);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "ffmpeg", name: "invalid-ffmpeg-binding", endpoint: "http://127.0.0.1:9000" } })).statusCode, 400);
     assert.equal((await app.inject({ method: "POST", url: "/api/service-bindings", headers: { cookie }, payload: { componentId: "alist", name: "health-check", endpoint: "http://127.0.0.1:1" } })).statusCode, 201);
+    const redactedComponents = (await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json() as { components: Array<Record<string, unknown>>; bindings: Array<Record<string, unknown>> };
+    assert.equal("executable" in redactedComponents.components[0]!, false);
+    assert.equal("checksum" in redactedComponents.components[0]!, false);
+    assert.equal("endpoint" in redactedComponents.bindings[0]!, false);
+    const redactedVersions = await app.inject({ method: "GET", url: "/api/components/alist/versions", headers: { cookie } });
+    assert.equal(redactedVersions.statusCode, 200);
+    assert.equal("executable" in (redactedVersions.json().versions as Array<Record<string, unknown>>)[0]!, false);
+    assert.equal("checksum" in (redactedVersions.json().versions as Array<Record<string, unknown>>)[0]!, false);
     const health = await app.inject({ method: "POST", url: "/api/service-bindings/unknown/health", headers: { cookie } });
     assert.equal(health.statusCode, 404);
     const healthBinding = ((await app.inject({ method: "GET", url: "/api/components", headers: { cookie } })).json().bindings as Array<{ id: string; name: string }>).find((binding) => binding.name === "health-check");
