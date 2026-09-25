@@ -1,7 +1,7 @@
-import { AppstoreOutlined, AuditOutlined, BellOutlined, ChromeOutlined, CloudServerOutlined, DashboardOutlined, DatabaseOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LockOutlined, LogoutOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, AuditOutlined, BellOutlined, ChromeOutlined, CloudServerOutlined, DashboardOutlined, DatabaseOutlined, FolderOpenOutlined, HistoryOutlined, KeyOutlined, LockOutlined, LogoutOutlined, MenuOutlined, SafetyCertificateOutlined, TeamOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { ProLayout } from "@ant-design/pro-components";
-import { Button } from "antd";
-import type { ReactNode } from "react";
+import { Button, Drawer, Menu } from "antd";
+import { useState, type ReactNode } from "react";
 import { useAdminI18n, type Translator } from "./i18n";
 import "./admin-shell.css";
 
@@ -58,6 +58,17 @@ export function adminRoutes(t: Translator): RouteLike[] {
 
 export function AdminShell({ pathname, children }: { pathname: string; children: ReactNode }) {
   const { t } = useAdminI18n();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const routes = adminRoutes(t);
   const logout = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; };
-  return <ProLayout className="cmh-admin-shell" title="CarMediaHub" logo={false} route={{ routes: adminRoutes(t) }} location={{ pathname }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={() => void logout()}>{t("nav.signOut")}</Button>]}>{children}</ProLayout>;
+  const navigate = (path: string) => { setMobileMenuOpen(false); window.location.href = path; };
+  return <>
+    <ProLayout className="cmh-admin-shell" title="CarMediaHub" logo={false} route={{ routes }} location={{ pathname }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [
+      <Button className="cmh-mobile-nav-trigger" key="mobile-menu" icon={<MenuOutlined />} aria-label="Open navigation" onClick={() => setMobileMenuOpen(true)} />,
+      <Button key="logout" icon={<LogoutOutlined />} onClick={() => void logout()}>{t("nav.signOut")}</Button>,
+    ]}>{children}</ProLayout>
+    <Drawer className="cmh-mobile-nav-drawer" title="CarMediaHub" placement="left" open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>
+      <Menu mode="inline" selectedKeys={[pathname]} items={routes.map((route) => ({ key: route.path, icon: route.icon, label: route.name }))} onClick={({ key }) => navigate(String(key))} />
+    </Drawer>
+  </>;
 }

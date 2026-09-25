@@ -78,7 +78,9 @@ async function main(): Promise<void> {
     if (await page.getByRole("button", { name: labels.signOut }).count() !== 1) throw new Error("admin logout control is unavailable");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator(".ant-pro-layout").waitFor({ state: "visible", timeout: 10_000 });
-    const mobileLayout = await page.evaluate(() => ({ viewportWidth: window.innerWidth, documentWidth: document.documentElement.scrollWidth, navigationVisible: document.querySelectorAll(".ant-menu-item").length > 0 }));
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await page.locator(".cmh-mobile-nav-drawer .ant-menu-item").first().waitFor({ state: "visible", timeout: 10_000 });
+    const mobileLayout = await page.evaluate(() => ({ viewportWidth: window.innerWidth, documentWidth: document.documentElement.scrollWidth, navigationVisible: document.querySelectorAll(".cmh-mobile-nav-drawer .ant-menu-item").length > 0 }));
     if (mobileLayout.documentWidth > mobileLayout.viewportWidth + 1 || !mobileLayout.navigationVisible || await page.getByRole("button", { name: labels.signOut }).count() !== 1) throw new Error(`mobile admin layout is unusable: ${JSON.stringify(mobileLayout)}`);
     if (failures.length > 0) throw new Error(`admin browser failures: ${failures.join("; ")}`);
     console.log(JSON.stringify({ url: page.url(), locale: options.locale, navigationItems: navigation.length, mobileLayout, silent: true }, null, 2));

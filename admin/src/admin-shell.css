@@ -9,6 +9,10 @@
   min-width: 0;
 }
 
+.cmh-mobile-nav-trigger {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .cmh-admin-shell .ant-pro-layout-sider,
   .cmh-admin-shell .ant-layout-sider {
@@ -42,5 +46,9 @@
   .cmh-admin-shell .ant-pro-layout-header-actions {
     max-width: calc(100vw - 72px);
     overflow-x: auto;
+  }
+
+  .cmh-mobile-nav-trigger {
+    display: inline-flex;
   }
 }
