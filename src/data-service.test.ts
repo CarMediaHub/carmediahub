@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "./database.js";
 import { createPluginDataStore, deletePluginData, exportPluginData } from "./data-service.js";
+import { CredentialVault } from "./credential-vault.js";
+import { ensureServerKey } from "./security.js";
 
 test("persistent plugin data is isolated by user and installation", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-data-"));
@@ -35,6 +37,23 @@ test("persistent plugin data is isolated by user and installation", async () => 
     assert.deepEqual((await first.list("settings", { prefix: "part_" })).map((record) => record.key), ["part_alpha"]);
     assert.equal(deletePluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }), 3);
     assert.deepEqual(exportPluginData(database.db, { ...base, userId: "user-a", installationId: "wdr" }).collections, []);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("plugin data export never includes Core-owned credentials", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-export-secrets-"));
+  const database = openDatabase(dataDir);
+  try {
+    database.db.exec("INSERT INTO deployments (id, created_at, locale) VALUES ('deployment', '2026-01-01T00:00:00.000Z', 'en'); INSERT INTO organizations (id, deployment_id, name) VALUES ('org', 'deployment', 'Organization'); INSERT INTO users (id, organization_id, username, password_hash, role, locale, created_at) VALUES ('user-a', 'org', 'a', 'hash', 'member', 'en', '2026-01-01T00:00:00.000Z');");
+    const scope = { deploymentId: "deployment", organizationId: "org", userId: "user-a", deviceId: "device", sessionId: "session", installationId: "wdr" } as const;
+    const vault = new CredentialVault(dataDir, ensureServerKey(dataDir));
+    vault.create(scope, { name: "upstream", kind: "cookie", value: "session=must-not-export" });
+    const exported = exportPluginData(database.db, scope);
+    assert.equal(JSON.stringify(exported).includes("must-not-export"), false);
+    assert.equal(fs.readFileSync(path.join(dataDir, "secrets", "credentials.json"), "utf8").includes("must-not-export"), false);
   } finally {
     database.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
