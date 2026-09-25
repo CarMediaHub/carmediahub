@@ -60,3 +60,60 @@ test("reports partial application without claiming installation succeeded", () =
     return true;
   });
 });
+
+test("runs explicitly enabled compensation in reverse order and records completion", () => {
+  const calls = [];
+  assert.throws(() => executeNativeInstallActions(linuxActions, "linux", {
+    apply: true,
+    inspectEnsure: () => "missing",
+    execute: (executable, args) => {
+      if (args.at(-1) === "/etc/carmediahub") throw new Error("simulated install failure");
+      return { status: 0 };
+    },
+    compensateOnFailure: true,
+    compensate: (applied) => {
+      calls.push(applied.command);
+      return { status: "reverted-by-platform-adapter" };
+    },
+  }), (error) => {
+    assert.equal(error instanceof NativeInstallExecutionError, true);
+    assert.deepEqual(calls, ["install", "useradd"]);
+    assert.equal(error.compensation?.attempted, true);
+    assert.equal(error.compensation?.status, "completed");
+    assert.equal(error.compensation?.results.length, 2);
+    return true;
+  });
+});
+
+test("never attempts compensation implicitly", () => {
+  let called = false;
+  assert.throws(() => executeNativeInstallActions(linuxActions, "linux", {
+    apply: true,
+    inspectEnsure: () => "missing",
+    execute: (executable, args) => {
+      if (args.at(-1) === "/etc/carmediahub") throw new Error("simulated install failure");
+      return { status: 0 };
+    },
+    compensate: () => { called = true; },
+  }), (error) => {
+    assert.equal(error.compensation, undefined);
+    assert.equal(called, false);
+    return true;
+  });
+});
+
+test("reports a missing handler when compensation is explicitly requested", () => {
+  assert.throws(() => executeNativeInstallActions(linuxActions, "linux", {
+    apply: true,
+    inspectEnsure: () => "missing",
+    execute: (executable, args) => {
+      if (args.at(-1) === "/etc/carmediahub") throw new Error("simulated install failure");
+      return { status: 0 };
+    },
+    compensateOnFailure: true,
+  }), (error) => {
+    assert.equal(error.compensation?.status, "handler-missing");
+    assert.equal(error.appliedActions.length, 2);
+    return true;
+  });
+});

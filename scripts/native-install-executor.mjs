@@ -18,12 +18,13 @@ const commandPaths = {
 function fail(message) { throw new Error(`Native install executor failed: ${message}`); }
 
 export class NativeInstallExecutionError extends Error {
-  constructor(message, { platform, failedActionIndex, appliedActions, cause } = {}) {
+  constructor(message, { platform, failedActionIndex, appliedActions, compensation, cause } = {}) {
     super(`Native install executor failed: ${message}`, { cause });
     this.name = "NativeInstallExecutionError";
     this.platform = platform;
     this.failedActionIndex = failedActionIndex;
     this.appliedActions = appliedActions;
+    this.compensation = compensation;
   }
 }
 
@@ -70,10 +71,41 @@ export function executeNativeInstallActions(actions, platform, options = {}) {
       const result = execute(executable, item.args, item.stdin);
       executed.push({ command: item.command, executable, args: [...item.args], applied: true, idempotency: item.idempotency, result });
     } catch (error) {
+      const appliedActions = executed.filter((entry) => entry.applied);
+      let compensation;
+      if (options.compensateOnFailure === true) {
+        if (typeof options.compensate !== "function") {
+          throw new NativeInstallExecutionError(`action ${index} (${item.command}) failed and compensation was requested without a compensation handler`, {
+            platform,
+            failedActionIndex: index,
+            appliedActions,
+            compensation: { attempted: false, status: "handler-missing" },
+            cause: error,
+          });
+        }
+        const results = [];
+        let compensationError;
+        for (const applied of [...appliedActions].reverse()) {
+          try {
+            results.push({ action: applied, result: options.compensate(applied) });
+          } catch (cause) {
+            compensationError = cause;
+            results.push({ action: applied, error: cause });
+            break;
+          }
+        }
+        compensation = {
+          attempted: true,
+          status: compensationError ? "failed" : "completed",
+          results,
+          error: compensationError,
+        };
+      }
       throw new NativeInstallExecutionError(`action ${index} (${item.command}) failed after ${executed.filter((entry) => entry.applied).length} action(s) were applied`, {
         platform,
         failedActionIndex: index,
-        appliedActions: executed.filter((entry) => entry.applied),
+        appliedActions,
+        compensation,
         cause: error,
       });
     }
