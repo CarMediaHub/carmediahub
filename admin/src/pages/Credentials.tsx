@@ -34,7 +34,7 @@ export default function Credentials() {
         return true;
       }}>
         <ProFormSelect name="installationId" label={t("common.pluginInstallation")} options={installations.filter((item) => item.status === "installed" && item.capabilities?.includes("secrets")).map((item) => ({ label: `${item.packageId} (${item.id})`, value: item.id }))} rules={[{ required: true }]} />
-        <ProFormSelect name="kind" label={t("common.credentialType")} options={[{ label: "Cookie", value: "cookie" }, { label: "Authorization", value: "authorization" }]} rules={[{ required: true }]} />
+        <ProFormSelect name="kind" label={t("common.credentialType")} options={[{ label: t("common.cookieCredential"), value: "cookie" }, { label: t("common.authorizationCredential"), value: "authorization" }]} rules={[{ required: true }]} />
         <ProFormText name="name" label={t("common.label")} rules={[{ required: true, max: 80 }]} />
         <ProFormTextArea name="value" label={t("common.secretValue")} fieldProps={{ rows: 4 }} rules={[{ required: true, max: 16384 }]} />
       </ProForm>
