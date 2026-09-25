@@ -180,13 +180,13 @@ jobs:
               for restored_attempt in $(seq 1 20); do
                 if docker exec carmediahub-core-ci node -e \
                   "fetch('http://127.0.0.1:8788/health/ready').then(response => process.exit(response.status === 200 ? 0 : 1)).catch(() => process.exit(1))"; then
-                  docker exec carmediahub-core-ci kill "$restored_pid" 2>/dev/null || true
+                  docker exec carmediahub-core-ci node -e "process.kill(Number('$restored_pid'), 'SIGTERM')" 2>/dev/null || true
                   exit 0
                 fi
                 sleep 1
               done
               docker exec carmediahub-core-ci cat /tmp/cmh-restored.log >&2 || true
-              docker exec carmediahub-core-ci kill "$restored_pid" 2>/dev/null || true
+              docker exec carmediahub-core-ci node -e "process.kill(Number('$restored_pid'), 'SIGTERM')" 2>/dev/null || true
               echo "Restored Core data directory did not become ready" >&2
               exit 1
             fi
