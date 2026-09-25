@@ -737,7 +737,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.get("/api/components/catalog", async (request, reply) => {
     const user = await requireAdmin(request, reply);
-    return user === undefined ? undefined : { components: catalog.map(({ executable: _executablePath, ...component }) => ({ ...component, executable: _executablePath })) };
+    return user === undefined ? undefined : { components: catalog.map(({ executable: _executablePath, ...component }) => component) };
   });
 
   app.get("/api/media-roots", async (request, reply) => {
@@ -799,7 +799,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       if (input.credentialRef !== undefined && credentialVault.resolve({ deploymentId: "core", organizationId: user.organizationId, userId: user.id, deviceId: "admin", sessionId: "media-source", installationId: input.installationId }, input.credentialRef) === undefined) throw new Error("Credential is unavailable");
       const source = remoteMediaSources.register({ organizationId: user.organizationId, userId: user.id, deviceId: "admin", installationId: input.installationId }, { name: input.name, binding: input.binding, rootPath: input.rootPath, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) });
       repository.audit(user.id, "mediaSource.created", source.sourceHandle);
-      return reply.code(201).send({ source: { sourceHandle: source.sourceHandle, name: input.name.trim(), binding: source.binding, rootPath: source.rootPath } });
+      return reply.code(201).send({ source: { sourceHandle: source.sourceHandle, name: input.name.trim(), binding: source.binding } });
     } catch {
       return reply.code(400).send({ code: "CMH.MEDIA_SOURCE.INVALID", messageKey: "errors.mediaSource.invalid" });
     }
@@ -1122,7 +1122,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!registerVerifiedPluginRuntime(verified)) throw new Error("Verified plugin package integrity check failed");
         const installation = repository.installPlugin(release.manifest);
         repository.audit(user.id, "plugin.package.recovered", `${verified.packageId}@${verified.packageVersion}`);
-        return reply.code(201).send({ package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location }, installation });
+        return reply.code(201).send({ package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest }, installation });
       }
       const workerEntry = release.manifest.worker?.entry;
       const runtimeEntry = release.manifest.runtimeEntry?.entry;
@@ -1137,7 +1137,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       }
       const installation = repository.installPlugin(release.manifest);
       repository.audit(user.id, "plugin.package.installed", `${installed.packageId}@${installed.version}`);
-      return reply.code(201).send({ package: installed, installation });
+      return reply.code(201).send({ package: { packageId: installed.packageId, version: installed.version, digest: installed.digest }, installation });
     } catch (error) {
       if (error instanceof Error && error.message === "Plugin package already installed") return reply.code(409).send({ code: "CMH.PLUGIN.ALREADY_INSTALLED", messageKey: "errors.plugin.alreadyInstalled" });
       return reply.code(400).send({ code: "CMH.PLUGIN.PACKAGE_INVALID", messageKey: "errors.plugin.packageInvalid" });
@@ -1206,7 +1206,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         }
       }
       repository.audit(user.id, "plugin.upgraded", `${installationId}:${upgraded.packageVersion}`);
-      return { installation: upgraded, package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest, location: verified.location } };
+      return { installation: upgraded, package: { packageId: verified.packageId, version: verified.packageVersion, digest: verified.digest } };
     } catch (error) {
       if (error instanceof Error && error.message === "Plugin upgrade package is not installed") return reply.code(409).send({ code: "CMH.PLUGIN.PACKAGE_NOT_INSTALLED", messageKey: "errors.plugin.packageNotInstalled" });
       return reply.code(400).send({ code: "CMH.PLUGIN.UPGRADE_INVALID", messageKey: "errors.plugin.upgradeInvalid" });

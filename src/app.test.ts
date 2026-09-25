@@ -104,7 +104,7 @@ test("component health checks verify the managed file digest without executing i
     const cookie = login.headers["set-cookie"];
     const catalog = await app.inject({ method: "GET", url: "/api/components/catalog", headers: { cookie } });
     assert.equal(catalog.statusCode, 200);
-    assert.equal((catalog.json().components as Array<{ executablePath?: string; executable: string }>).some((component) => component.executablePath !== undefined || path.isAbsolute(component.executable)), false);
+    assert.equal((catalog.json().components as Array<Record<string, unknown>>).some((component) => "executable" in component || "executablePath" in component), false);
     assert.equal((await app.inject({ method: "POST", url: "/api/components", headers: { cookie }, payload: { id: "alist", version: "1.0.0", executable: "alist/1.0.0/alist", checksum: `sha256:${digest}` } })).statusCode, 201);
     const healthy = await app.inject({ method: "POST", url: "/api/components/alist/health", headers: { cookie } });
     assert.equal(healthy.statusCode, 200);
@@ -827,7 +827,7 @@ test("administrator installs only a signed staged plugin package", async () => {
     const release = { ...unsigned, signature: crypto.sign(null, canonicalPluginPackageRelease(unsigned), pair.privateKey).toString("base64") };
     const response = await app.inject({ method: "POST", url: "/api/plugins/packages/install", headers: { cookie: login.headers["set-cookie"] }, payload: release });
     assert.equal(response.statusCode, 201);
-    assert.match(response.json().package.location, /^plugins\/wdr-media\/0\.1\.0\//);
+    assert.equal("location" in response.json().package, false);
     const installation = response.json().installation as { id: string };
     assert.ok(installation.id.startsWith("plugin_"));
     const ui = await app.inject({ method: "GET", url: `/apps/wdr-media/${installation.id}`, headers: { cookie: login.headers["set-cookie"] } });
@@ -930,14 +930,17 @@ test("administrator registers and revokes a scoped remote media source", async (
     assert.equal(created.statusCode, 201);
     assert.doesNotMatch(created.body, /5244/u);
     assert.doesNotMatch(created.body, /endpoint/u);
+    assert.doesNotMatch(created.body, /rootPath|credentialRef/u);
     const handle = (created.json() as { source: { sourceHandle: string } }).source.sourceHandle;
     const listed = await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } });
     assert.equal((listed.json() as { sources: unknown[] }).sources.length, 1);
+    assert.doesNotMatch(listed.body, /rootPath|credentialRef|5244/u);
     await app.close();
     app = await createApp({ dataDir });
     const restored = await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } });
     assert.equal(restored.statusCode, 200);
     assert.equal((restored.json() as { sources: unknown[] }).sources.length, 1);
+    assert.doesNotMatch(restored.body, /rootPath|credentialRef|5244/u);
     assert.equal((await app.inject({ method: "POST", url: `/api/media-sources/${handle}/revoke?installationId=plugin_media_source`, headers: { cookie } })).statusCode, 204);
     assert.equal(((await app.inject({ method: "GET", url: "/api/media-sources?installationId=plugin_media_source", headers: { cookie } })).json() as { sources: unknown[] }).sources.length, 0);
   } finally { await app.close(); try { fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch { /* Windows may release a transient SQLite handle after the test tick. */ } }
