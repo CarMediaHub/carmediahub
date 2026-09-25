@@ -36,10 +36,11 @@ RUN npm install --global pnpm@11.19.0 \
   && pnpm --dir carmediahub-sdk build \
   && pnpm --dir carmediahub install --frozen-lockfile --ignore-scripts \
   && install_esbuild /workspace/carmediahub/node_modules/.pnpm \
-  && pnpm --dir carmediahub/admin install --frozen-lockfile --ignore-scripts \
-  && pnpm --dir carmediahub build \
-  && pnpm --dir carmediahub/admin build \
-  && node carmediahub/scripts/copy-admin.mjs
+  && cd /workspace/carmediahub/admin \
+  && pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts \
+  && pnpm --dir /workspace/carmediahub build \
+  && pnpm --dir /workspace/carmediahub/admin build \
+  && node /workspace/carmediahub/scripts/copy-admin.mjs
 
 FROM node:22-bookworm-slim
 WORKDIR /app

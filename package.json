@@ -19,7 +19,7 @@
     "native-install-plan": "node scripts/native-install-plan.mjs",
     "test:native-install-actions": "node --test scripts/native-install-actions.test.mjs",
     "build": "tsc -p tsconfig.json",
-    "build:admin": "pnpm --dir admin build && node scripts/copy-admin.mjs",
+    "build:admin": "cd admin && pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts && pnpm build && cd .. && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
     "test:deployment": "node --test scripts/validate-deployment.test.mjs",
     "check:native-bundle": "node scripts/validate-native-bundle.mjs",
