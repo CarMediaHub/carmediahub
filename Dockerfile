@@ -6,7 +6,6 @@ COPY carmediahub-sdk/src ./carmediahub-sdk/src
 COPY carmediahub-sdk/spec ./carmediahub-sdk/spec
 COPY carmediahub/package.json carmediahub/pnpm-lock.yaml carmediahub/tsconfig.json ./carmediahub/
 COPY carmediahub/pnpm-workspace.yaml ./carmediahub/
-COPY carmediahub/.npmrc ./carmediahub/
 COPY carmediahub/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY carmediahub/src ./carmediahub/src
 COPY carmediahub/config/components.json carmediahub/config/components.schema.json carmediahub/config/component-release.schema.json carmediahub/config/core.schema.json carmediahub/config/core.example.json ./carmediahub/config/
