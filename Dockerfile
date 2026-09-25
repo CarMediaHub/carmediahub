@@ -13,13 +13,31 @@ COPY carmediahub/public ./carmediahub/public
 COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub/admin/tsconfig.json carmediahub/admin/.umirc.ts ./carmediahub/admin/
 COPY carmediahub/admin/src ./carmediahub/admin/src
 RUN npm install --global pnpm@11.19.0 \
+  && install_esbuild() { \
+       root="$1"; \
+       found=0; \
+       for installer in "$root"/*/node_modules/esbuild/install.js; do \
+         [ -f "$installer" ] || continue; \
+         found=1; \
+         echo "[docker] running esbuild installer: $installer"; \
+         (cd "$(dirname "$installer")" && node install.js) || { \
+           status=$?; \
+           echo "[docker] esbuild installer failed (status $status): $installer" >&2; \
+           return "$status"; \
+         }; \
+       done; \
+       if [ "$found" -eq 0 ]; then \
+         echo "[docker] no esbuild installer found under $root" >&2; \
+         return 1; \
+       fi; \
+     } \
   && pnpm --dir carmediahub-sdk install --frozen-lockfile --ignore-scripts \
-  && find /workspace -path '*/node_modules/.pnpm/*/node_modules/esbuild/install.js' -type f -exec sh -c 'cd "$(dirname "$1")" && node install.js' sh {} \; \
+  && install_esbuild /workspace/carmediahub-sdk/node_modules/.pnpm \
   && pnpm --dir carmediahub-sdk build \
   && pnpm --dir carmediahub install --frozen-lockfile --ignore-scripts \
-  && find /workspace -path '*/node_modules/.pnpm/*/node_modules/esbuild/install.js' -type f -exec sh -c 'cd "$(dirname "$1")" && node install.js' sh {} \; \
+  && install_esbuild /workspace/carmediahub/node_modules/.pnpm \
   && pnpm --dir carmediahub/admin install --frozen-lockfile --ignore-scripts \
-  && find /workspace -path '*/node_modules/.pnpm/*/node_modules/esbuild/install.js' -type f -exec sh -c 'cd "$(dirname "$1")" && node install.js' sh {} \; \
+  && install_esbuild /workspace/carmediahub/admin/node_modules/.pnpm \
   && test -x /workspace/carmediahub/admin/node_modules/.bin/max \
   && pnpm --dir carmediahub build \
   && pnpm --dir carmediahub build:admin
