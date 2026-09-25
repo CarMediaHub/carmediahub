@@ -13,10 +13,13 @@ COPY carmediahub/public ./carmediahub/public
 COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub/admin/tsconfig.json carmediahub/admin/.umirc.ts ./carmediahub/admin/
 COPY carmediahub/admin/src ./carmediahub/admin/src
 RUN npm install --global pnpm@11.19.0 \
-  && pnpm --dir carmediahub-sdk install --frozen-lockfile --config.only-built-dependencies=esbuild \
+  && pnpm --dir carmediahub-sdk install --frozen-lockfile --ignore-scripts \
+  && npm --prefix /workspace/carmediahub-sdk rebuild esbuild \
   && pnpm --dir carmediahub-sdk build \
-  && pnpm --dir carmediahub install --frozen-lockfile --config.only-built-dependencies=esbuild \
-  && pnpm --dir carmediahub/admin install --frozen-lockfile --config.only-built-dependencies=esbuild \
+  && pnpm --dir carmediahub install --frozen-lockfile --ignore-scripts \
+  && npm --prefix /workspace/carmediahub rebuild esbuild \
+  && pnpm --dir carmediahub/admin install --frozen-lockfile --ignore-scripts \
+  && npm --prefix /workspace/carmediahub/admin rebuild esbuild \
   && pnpm --dir carmediahub build \
   && pnpm --dir carmediahub build:admin
 
