@@ -14,6 +14,25 @@ function action(command, args, description, stdin, idempotency = "repeatable") {
   return stdin === undefined ? { command, args, description, ...metadata } : { command, args, description, stdin, ...metadata };
 }
 
+const allowedCommands = {
+  windows: new Set(["icacls.exe", "sc.exe"]),
+  linux: new Set(["useradd", "install", "chown", "systemctl"]),
+};
+
+export function validateNativeInstallActions(actions, platform) {
+  if (platform !== "windows" && platform !== "linux") fail("platform is invalid");
+  if (!Array.isArray(actions) || actions.length === 0) fail("actions must be a non-empty array");
+  for (const [index, item] of actions.entries()) {
+    if (item === null || typeof item !== "object") fail(`action ${index} is invalid`);
+    if (typeof item.command !== "string" || !allowedCommands[platform].has(item.command)) fail(`action ${index} command is not allowed`);
+    if (!Array.isArray(item.args) || item.args.some((value) => typeof value !== "string" || /[\u0000\r\n]/u.test(value))) fail(`action ${index} arguments are invalid`);
+    if (typeof item.description !== "string" || item.description.length === 0 || /[\u0000\r\n]/u.test(item.description)) fail(`action ${index} description is invalid`);
+    if (item.idempotency !== "repeatable" && item.idempotency !== "ensure") fail(`action ${index} idempotency is invalid`);
+    if (item.stdin !== undefined && (platform !== "linux" || item.command !== "install" || item.args.at(-2) !== "/dev/stdin" || typeof item.stdin !== "string" || /\u0000/u.test(item.stdin))) fail(`action ${index} stdin is not allowed`);
+  }
+  return actions;
+}
+
 export function createNativeInstallActions(plan) {
   if (plan?.platform !== "windows" && plan?.platform !== "linux") fail("platform is invalid");
   const platform = plan.platform;
@@ -29,19 +48,19 @@ export function createNativeInstallActions(plan) {
     const bundleAcl = `${account}:(OI)(CI)(RX)`;
     const configAcl = `${account}:(R)`;
     const dataAcl = `${account}:(OI)(CI)(M)`;
-    return [
+    return validateNativeInstallActions([
       action("icacls.exe", [bundleRoot, "/grant", bundleAcl], "grant read-execute access to the bundle"),
       action("icacls.exe", [configPath, "/grant", configAcl], "grant read-only access to configuration"),
       action("icacls.exe", [dataDir, "/grant", dataAcl], "grant read-write access to data"),
       action("sc.exe", plan.service.createArguments, "register the Core Windows service", undefined, "ensure"),
       action("sc.exe", plan.service.descriptionArguments, "set the Core Windows service description"),
       action("sc.exe", ["start", plan.service.serviceName], "start the Core Windows service"),
-    ];
+    ], platform);
   }
   if (!/^[a-z_][a-z0-9_-]{0,31}$/u.test(account)) fail("serviceAccount is invalid for Linux");
   if (typeof plan.service?.unitText !== "string" || plan.service.unitText.length === 0 || /\0/u.test(plan.service.unitText)) fail("systemd unit text is invalid");
   const unitPath = `/etc/systemd/system/${plan.service.unitName}`;
-  return [
+  return validateNativeInstallActions([
     action("useradd", ["--system", "--no-create-home", "--shell", "/usr/sbin/nologin", account], "create the restricted service account if absent", undefined, "ensure"),
     action("install", ["-d", "-o", account, "-g", account, "-m", "0750", dataDir], "create the writable data directory"),
     action("install", ["-d", "-o", "root", "-g", "root", "-m", "0755", path.posix.dirname(configPath)], "create the configuration directory"),
@@ -49,5 +68,5 @@ export function createNativeInstallActions(plan) {
     action("chown", ["-R", `${account}:${account}`, dataDir], "apply data directory ownership"),
     action("systemctl", ["daemon-reload"], "reload systemd units"),
     action("systemctl", ["enable", "--now", plan.service.unitName], "enable and start the Core systemd service"),
-  ];
+  ], platform);
 }

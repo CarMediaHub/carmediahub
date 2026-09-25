@@ -87,6 +87,8 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 
 The plan contains the `sc.exe` or systemd specification plus explicit Bundle/config/data ACL intents. It defaults to a non-administrator service identity (`LocalService` on Windows and `carmediahub` on Linux), but does not create the identity, register a service or write deployment files.
 
+Before a future privileged installer consumes the plan, Core validates the serialized action list again. The validator allows only the platform-specific commands emitted by Core, rejects unsafe argument bytes, enforces the declared idempotency mode, and permits stdin only for the generated Linux systemd unit. This is an execution boundary, not evidence of a completed Native installation.
+
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
 ```powershell

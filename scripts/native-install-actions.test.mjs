@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNativeInstallActions } from "./native-install-actions.mjs";
+import { createNativeInstallActions, validateNativeInstallActions } from "./native-install-actions.mjs";
 
 const base = (platform) => ({
   platform,
@@ -43,4 +43,13 @@ test("rejects unsafe action plan paths and accounts", () => {
   assert.throws(() => createNativeInstallActions({ ...base("windows"), resources: { ...base("windows").resources, dataDir: "relative" } }), /absolute/);
   assert.throws(() => createNativeInstallActions({ ...base("linux"), service: { ...base("linux").service, unitText: "" } }), /systemd unit text/);
   assert.throws(() => createNativeInstallActions({ ...base("windows"), serviceAccount: "DOMAIN\\\\User;bad" }), /serviceAccount/);
+});
+
+test("validates serialized actions before a privileged executor consumes them", () => {
+  const actions = createNativeInstallActions(base("linux"));
+  assert.equal(validateNativeInstallActions(JSON.parse(JSON.stringify(actions)), "linux").length, 7);
+  assert.throws(() => validateNativeInstallActions([{ ...actions[0], command: "sh" }], "linux"), /command is not allowed/);
+  assert.throws(() => validateNativeInstallActions([{ ...actions[0], args: ["--bad\n"] }], "linux"), /arguments are invalid/);
+  assert.throws(() => validateNativeInstallActions([{ ...actions[0], idempotency: "ignore" }], "linux"), /idempotency is invalid/);
+  assert.throws(() => validateNativeInstallActions([{ ...actions[0], stdin: "unexpected" }], "linux"), /stdin is not allowed/);
 });

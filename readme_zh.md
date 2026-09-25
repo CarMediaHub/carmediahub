@@ -90,3 +90,5 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 ```
 
 计划包含 `sc.exe` 或 systemd 规格，以及 Bundle、配置和数据目录的明确 ACL 意图。默认使用非管理员服务身份（Windows 为 `LocalService`，Linux 为 `carmediahub`），但不会创建账号、注册系统服务或写入部署文件。
+
+未来的特权安装器消费计划前，Core 还会再次校验序列化后的动作列表：只允许 Core 针对平台生成的命令，拒绝危险参数字节，强制检查声明的幂等策略，并且只允许 Linux systemd 单元使用 stdin。这是执行边界，不代表 Native 实机安装已经完成。
