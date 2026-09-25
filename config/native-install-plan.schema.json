@@ -6,6 +6,10 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["platform", "bundle", "resources", "service", "serviceAccount", "acl", "actions"],
+  "allOf": [
+    { "if": { "properties": { "platform": { "const": "windows" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/windowsService" } } } },
+    { "if": { "properties": { "platform": { "const": "linux" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/linuxService" } } } }
+  ],
   "properties": {
     "platform": { "enum": ["windows", "linux"] },
     "bundle": { "$ref": "#/$defs/bundle" },
