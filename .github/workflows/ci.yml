@@ -96,7 +96,12 @@ jobs:
           path: ${{ runner.temp }}/carmediahub-core.cdx.json
       - name: Create and validate the real Native bundle
         run: |
-          pnpm deploy --filter . --prod --legacy --config.node-linker=hoisted "$RUNNER_TEMP/carmediahub-runtime"
+          rm -rf "$RUNNER_TEMP/carmediahub-runtime" "$RUNNER_TEMP/carmediahub-sdk"
+          cp -a ../carmediahub-sdk "$RUNNER_TEMP/carmediahub-sdk"
+          mkdir -p "$RUNNER_TEMP/carmediahub-runtime"
+          cp package.json pnpm-lock.yaml "$RUNNER_TEMP/carmediahub-runtime/"
+          pnpm --dir "$RUNNER_TEMP/carmediahub-runtime" install \
+            --prod --frozen-lockfile --ignore-scripts --config.node-linker=hoisted
           pnpm create:native-bundle -- \
             --runtime-node-modules "$RUNNER_TEMP/carmediahub-runtime/node_modules" \
             "$RUNNER_TEMP/carmediahub-native"
