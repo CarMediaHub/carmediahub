@@ -33,6 +33,12 @@ function validatePublicUrl(value: unknown): string {
   return url.toString().replace(/\/$/u, "");
 }
 
+/** Preserve an explicitly absolute path from another platform during config validation. */
+function resolveConfiguredPath(workingDirectory: string, value: string): string {
+  if (path.isAbsolute(value) || path.win32.isAbsolute(value)) return value;
+  return path.resolve(workingDirectory, value);
+}
+
 function readConfigFile(filePath: string, required: boolean): ConfigFileValues {
   if (!fs.existsSync(filePath)) {
     if (required) throw new Error(`Configuration file does not exist: ${filePath}`);
@@ -78,7 +84,7 @@ export function parseConfig(args: readonly string[], workingDirectory = process.
     index += 1;
   }
   const file = readConfigFile(configPath, explicitConfig);
-  let dataDir = path.resolve(workingDirectory, file.dataDir ?? "data");
+  let dataDir = resolveConfiguredPath(workingDirectory, file.dataDir ?? "data");
   let host = file.host ?? "127.0.0.1";
   let port = file.port ?? 8787;
   let publicUrl: string | undefined = file.publicUrl;
@@ -92,7 +98,7 @@ export function parseConfig(args: readonly string[], workingDirectory = process.
       index += 1;
     } else if (value === "--data-dir") {
       if (next === undefined || next.startsWith("--")) throw new Error("--data-dir requires a value");
-      dataDir = path.resolve(workingDirectory, next);
+      dataDir = resolveConfiguredPath(workingDirectory, next);
       index += 1;
     } else if (value === "--host") {
       if (next === undefined || next.startsWith("--")) throw new Error("--host requires a valid value");
