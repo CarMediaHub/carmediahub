@@ -66,6 +66,7 @@ jobs:
       - run: pnpm check:deployment
       - run: pnpm test:deployment
       - run: pnpm check
+      - run: pnpm --dir admin install --frozen-lockfile --ignore-scripts
       - run: pnpm --dir admin check
       - run: pnpm test
       - run: pnpm build
