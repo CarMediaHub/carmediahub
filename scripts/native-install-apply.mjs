@@ -25,15 +25,23 @@ function createEnsureInspector(platform) {
       if (item.command !== "sc.exe" || item.args[0] !== "create") return "missing";
       const result = run(executable, ["query", item.args[1]]);
       if (result.status === 1060 || /does not exist/iu.test(result.stdout + result.stderr)) return "missing";
-      if (result.status === 0) return "mismatch";
+      if (result.status === 0) {
+        const config = run(executable, ["qc", item.args[1]]);
+        const expectedPath = item.args.find((value) => value.startsWith("binPath= "))?.slice("binPath= ".length).trim();
+        const expectedAccount = item.args.find((value) => value.startsWith("obj= "))?.slice("obj= ".length).trim();
+        if (config.status === 0 && expectedPath !== undefined && expectedAccount !== undefined && config.stdout.includes(expectedPath) && config.stdout.includes(expectedAccount)) return "matching";
+        return "mismatch";
+      }
       fail(`could not inspect Windows service ${item.args[1]}`);
     };
   }
   return (item) => {
     if (item.command !== "useradd") return "missing";
     const account = item.args.at(-1);
-    const passwd = fs.readFileSync("/etc/passwd", "utf8");
-    return passwd.split(/\r?\n/u).some((line) => line.startsWith(`${account}:`)) ? "mismatch" : "missing";
+    const record = fs.readFileSync("/etc/passwd", "utf8").split(/\r?\n/u).find((line) => line.startsWith(`${account}:`));
+    if (record === undefined) return "missing";
+    const fields = record.split(":");
+    return fields[6] === "/usr/sbin/nologin" ? "matching" : "mismatch";
   };
 }
 

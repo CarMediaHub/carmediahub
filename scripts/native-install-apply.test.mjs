@@ -50,3 +50,10 @@ test("CLI never enters apply mode without the confirmation phrase", () => {
   const preview = JSON.parse(execFileSync(process.execPath, [script, "--plan", planPath], { encoding: "utf8" }));
   assert.equal(preview.applied, false);
 });
+
+test("treats a matching Linux account as idempotent", () => {
+  const calls = [];
+  const result = applyNativeInstallPlan(plan, { apply: true, confirm: "CARMEDIAHUB_APPLY", inspectEnsure: () => "matching", execute: (executable, args) => { calls.push({ executable, args }); return { status: 0, stdout: "", stderr: "" }; } });
+  assert.equal(result.actions[0].skipped, true);
+  assert.equal(calls.length, 6);
+});
