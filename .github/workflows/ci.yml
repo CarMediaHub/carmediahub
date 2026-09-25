@@ -147,6 +147,7 @@ jobs:
               2>&1 || true
             docker rm --force carmediahub-core-ci 2>&1 || true
             docker volume rm "$volume_name" 2>&1 || true
+
             exit "$status"
           }
           trap cleanup EXIT
@@ -193,3 +194,39 @@ jobs:
           done
           echo "Core container did not become ready" >&2
           exit 1
+
+  native-windows-contract:
+    name: Native Windows contract
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: CarMediaHub/carmediahub-sdk
+          path: carmediahub-sdk
+      - name: Place SDK beside Core checkout
+        shell: pwsh
+        run: Move-Item -LiteralPath carmediahub-sdk -Destination ..\carmediahub-sdk
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Declare SDK build policy
+        shell: pwsh
+        run: Set-Content -LiteralPath ..\carmediahub-sdk\pnpm-workspace.yaml -Value "onlyBuiltDependencies:`n  - esbuild`n" -Encoding utf8
+      - run: pnpm --dir ..\carmediahub-sdk install --frozen-lockfile --ignore-scripts
+      - run: pnpm --dir ..\carmediahub-sdk check
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm check
+      - run: pnpm test:native-service
+      - run: pnpm test:native-linux-service
+      - run: pnpm test:native-install-actions
+      - run: pnpm test:native-install-executor
+      - run: pnpm test:native-install-preview
+      - run: pnpm test:native-install-apply
+      - run: pnpm test:native-install-plan
