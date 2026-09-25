@@ -82,27 +82,27 @@ export class PluginJobService {
     const placeholders = allowedTypes.map(() => "?").join(", ");
     const timestamp = now();
     const claimed = this.db.prepare(`UPDATE plugin_jobs SET status = 'running', updated_at = ?
-      WHERE id = (SELECT id FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'queued' AND type IN (${placeholders}) ORDER BY created_at ASC LIMIT 1)
+      WHERE id = (SELECT id FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND status = 'queued' AND type IN (${placeholders}) ORDER BY created_at ASC, rowid ASC LIMIT 1)
       AND status = 'queued' RETURNING *`).get(timestamp, organizationId, userId, installationId, ...allowedTypes) as Record<string, string | number | null> | undefined;
     return claimed === undefined ? undefined : jobFromRow(claimed);
   }
 
   list(scope: ScopeContext, limit = 100): PluginJob[] {
     const [organizationId, userId, installationId] = scopeValues(scope);
-    return (this.db.prepare(`SELECT * FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC LIMIT ?`)
+    return (this.db.prepare(`SELECT * FROM plugin_jobs WHERE organization_id = ? AND user_id = ? AND installation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?`)
       .all(organizationId, userId, installationId, Math.min(Math.max(limit, 1), 500)) as Array<Record<string, string | number | null>>).map(jobFromRow);
   }
 
   listOrganization(organizationId: string, limit = 200): Array<PluginJob & { userId: string; installationId: string }> {
     assertIdentifier(organizationId, "organizationId");
-    return (this.db.prepare("SELECT * FROM plugin_jobs WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?")
+    return (this.db.prepare("SELECT * FROM plugin_jobs WHERE organization_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
       .all(organizationId, Math.min(Math.max(limit, 1), 500)) as Array<Record<string, string | number | null>>).map((row) => ({ ...jobFromRow(row), userId: String(row.user_id), installationId: String(row.installation_id) }));
   }
 
   /** Returns only opaque scope coordinates for the Core-owned recovery scheduler. */
   queuedScopes(limit = 500): Array<{ organizationId: string; userId: string; installationId: string }> {
     const bounded = Math.min(Math.max(Math.floor(limit), 1), 500);
-    return (this.db.prepare("SELECT organization_id, user_id, installation_id FROM plugin_jobs WHERE status = 'queued' GROUP BY organization_id, user_id, installation_id ORDER BY MIN(created_at) LIMIT ?")
+    return (this.db.prepare("SELECT organization_id, user_id, installation_id FROM plugin_jobs WHERE status = 'queued' GROUP BY organization_id, user_id, installation_id ORDER BY MIN(created_at) ASC, MIN(rowid) ASC LIMIT ?")
       .all(bounded) as Array<Record<string, string>>).map((row) => ({ organizationId: String(row.organization_id), userId: String(row.user_id), installationId: String(row.installation_id) }));
   }
 
