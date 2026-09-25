@@ -130,7 +130,17 @@ jobs:
           set -euo pipefail
           data_dir="$RUNNER_TEMP/carmediahub-data"
           mkdir -p "$data_dir"
-          docker run --detach --rm --name carmediahub-core-ci \
+          cleanup() {
+            status=$?
+            docker logs carmediahub-core-ci 2>&1 || true
+            docker inspect carmediahub-core-ci \
+              --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' \
+              2>&1 || true
+            docker rm --force carmediahub-core-ci 2>&1 || true
+            exit "$status"
+          }
+          trap cleanup EXIT
+          docker run --detach --name carmediahub-core-ci \
             --publish 127.0.0.1:8787:8787 \
             --volume "$data_dir:/var/lib/carmediahub" \
             --read-only --tmpfs /tmp \
