@@ -251,14 +251,14 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (input.credentialRef !== undefined && typeof input.credentialRef !== "string") throw new Error("Invalid credential reference");
         return executeNetworkRequest({ binding: input.binding, method: input.method, path: input.path, headers: input.headers, body: input.body, quotaKey: `${scope.organizationId}:${scope.userId}:${scope.installationId}:${input.binding}`, ...(input.credentialRef === undefined ? {} : { credentialRef: input.credentialRef }) }, (name) => repository.serviceBindingByName(name, scope.installationId), (credentialRef) => credentialVault.resolve(scope, credentialRef));
       }
-      if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list" || request.method === "data.migrate" || request.method === "data.migrations") {
+      if (request.method === "data.get" || request.method === "data.put" || request.method === "data.delete" || request.method === "data.list" || request.method === "data.migrate" || request.method === "data.migrateBatch" || request.method === "data.migrations") {
         if (!repository.pluginHasCapability(scope.installationId, "db")) throw new Error("Plugin db capability is not granted");
-        const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown; version?: unknown; name?: unknown } | undefined;
+        const input = request.params as { collection?: unknown; key?: unknown; value?: unknown; prefix?: unknown; limit?: unknown; version?: unknown; name?: unknown; migrations?: unknown } | undefined;
         if (input === undefined && request.method !== "data.migrations") throw new Error("Invalid data request");
         const store = pluginData.store(scope);
         if (request.method === "data.migrations") return { migrations: await store.migrations() };
         if (input === undefined) throw new Error("Invalid data request");
-        if (request.method !== "data.migrate" && typeof input.collection !== "string") throw new Error("Invalid data collection");
+        if (request.method !== "data.migrate" && request.method !== "data.migrateBatch" && typeof input.collection !== "string") throw new Error("Invalid data collection");
         if (request.method === "data.get") {
           if (typeof input.key !== "string") throw new Error("Invalid data key");
           return { record: await store.get(input.collection as string, input.key) };
@@ -274,6 +274,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (request.method === "data.migrate") {
           if (typeof input.version !== "number" || !Number.isSafeInteger(input.version) || typeof input.name !== "string") throw new Error("Invalid data migration");
           return { migration: await store.migrate({ version: input.version, name: input.name }) };
+        }
+        if (request.method === "data.migrateBatch") {
+          if (!Array.isArray(input.migrations)) throw new Error("Invalid data migration batch");
+          return { migrations: await store.migrateBatch(input.migrations as Array<{ version: number; name: string }>) };
         }
         if (input.prefix !== undefined && typeof input.prefix !== "string") throw new Error("Invalid data prefix");
         if (input.limit !== undefined && typeof input.limit !== "number") throw new Error("Invalid data limit");

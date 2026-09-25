@@ -152,6 +152,12 @@ export function createPostgresPluginDataStore(client: PostgresQueryClient, scope
       await client.query("INSERT INTO carmediahub_plugin_data_migrations (organization_id, user_id, installation_id, version, name, applied_at) VALUES ($1, $2, $3, $4, $5, $6)", [organizationId, userId, installationId, input.version, input.name, appliedAt]);
       return { version: input.version, name: input.name, appliedAt };
     },
+    async migrateBatch(inputs: readonly { version: number; name: string }[]): Promise<readonly PluginDataMigration[]> {
+      if (!Array.isArray(inputs) || inputs.length > 100) throw new Error("Invalid plugin data migration batch");
+      await client.query("BEGIN");
+      try { const result: PluginDataMigration[] = []; for (const input of inputs) result.push(await this.migrate(input)); await client.query("COMMIT"); return result; }
+      catch (error) { await client.query("ROLLBACK"); throw error; }
+    },
     async migrations(): Promise<readonly PluginDataMigration[]> {
       const result = await client.query<{ version: number; name: string; applied_at: string }>("SELECT version, name, applied_at FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 ORDER BY version", [organizationId, userId, installationId]);
       return result.rows.map((row) => ({ version: row.version, name: row.name, appliedAt: row.applied_at }));

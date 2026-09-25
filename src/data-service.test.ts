@@ -22,6 +22,8 @@ test("persistent plugin data is isolated by user and installation", async () => 
     assert.deepEqual(await first.migrations(), [migration]);
     assert.deepEqual(await first.migrate({ version: 1, name: "initial-history" }), migration);
     await assert.rejects(() => first.migrate({ version: 1, name: "other" }));
+    await assert.rejects(() => first.migrateBatch([{ version: 2, name: "second" }, { version: 1, name: "conflict" }]));
+    assert.deepEqual((await first.migrations()).map((item) => item.version), [1]);
     assert.deepEqual((await first.get("history", "road-trip"))?.value, { position: 42 });
     assert.equal(await otherUser.get("history", "road-trip"), undefined);
     assert.equal(await otherInstallation.get("history", "road-trip"), undefined);
