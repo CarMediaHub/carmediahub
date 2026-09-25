@@ -82,6 +82,18 @@ test("loads an explicit JSON configuration and lets CLI values override it", () 
   assert.equal(cliRelative.dataDir.replaceAll("\\", "/"), `${root.replaceAll("\\", "/")}/cli-state`);
 });
 
+test("resolves relative defaults and explicit config from the installation root", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-config-install-root-"));
+  fs.mkdirSync(path.join(root, "config"));
+  fs.writeFileSync(path.join(root, "config", "core.json"), JSON.stringify({ dataDir: "managed-data", port: 9010 }));
+  const config = parseConfig(["--config", "config/core.json"], root);
+  assert.equal(config.dataDir.replaceAll("\\", "/"), `${root.replaceAll("\\", "/")}/managed-data`);
+  assert.equal(config.port, 9010);
+  const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-config-empty-root-"));
+  const defaults = parseConfig([], emptyRoot);
+  assert.equal(defaults.dataDir.replaceAll("\\", "/"), `${emptyRoot.replaceAll("\\", "/")}/data`);
+});
+
 test("rejects unknown or invalid configuration file fields", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-config-"));
   const configPath = path.join(root, "core.json");
