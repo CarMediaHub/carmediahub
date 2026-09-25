@@ -55,3 +55,17 @@ test("credential vault rejects malformed persisted scope and timestamps", () => 
   fs.writeFileSync(location, JSON.stringify([{ id: "cred_bad", name: "bad", kind: "cookie", organizationId: "org", userId: "user", installationId: "plugin-a", createdAt: "not-a-time", revokedAt: null, value: "encrypted" }]));
   assert.throws(() => new CredentialVault(dataDir, crypto.randomBytes(32)), /invalid/);
 });
+
+test("credential revocation keeps memory and disk updates atomic", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-credentials-revoke-"));
+  const vault = new CredentialVault(dataDir, crypto.randomBytes(32));
+  const scope = { deploymentId: "d", organizationId: "o", userId: "u", deviceId: "pc", sessionId: "s", installationId: "plugin-a" } as const;
+  const credential = vault.create(scope, { name: "session", kind: "cookie", value: "secret" });
+  const originalPersist = (vault as unknown as { persist: (records?: unknown) => void }).persist;
+  (vault as unknown as { persist: (records?: unknown) => void }).persist = () => { throw new Error("disk unavailable"); };
+  assert.throws(() => vault.revoke(scope, credential.id), /disk unavailable/);
+  assert.deepEqual(vault.resolve(scope, credential.id), { name: "cookie", value: "secret" });
+  (vault as unknown as { persist: (records?: unknown) => void }).persist = originalPersist;
+  const reopened = new CredentialVault(dataDir, (vault as unknown as { key: Buffer }).key);
+  assert.deepEqual(reopened.resolve(scope, credential.id), { name: "cookie", value: "secret" });
+});

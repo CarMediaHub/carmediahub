@@ -58,28 +58,38 @@ export class CredentialVault {
   revoke(scope: CredentialUserScope, credentialId: string): boolean {
     const record = this.records.find((candidate) => candidate.id === credentialId && candidate.organizationId === scope.organizationId && candidate.userId === scope.userId && candidate.revokedAt === null);
     if (record === undefined) return false;
-    record.revokedAt = now();
-    this.persist();
+    const timestamp = now();
+    const nextRecords = this.records.map((candidate) => candidate.id === record.id ? { ...candidate, revokedAt: timestamp } : candidate);
+    this.persist(nextRecords);
+    this.records = nextRecords;
     return true;
   }
 
   revokeInstallation(organizationId: string, installationId: string): number {
     const timestamp = now();
-    const count = this.records.reduce((total, record) => {
-      if (record.organizationId === organizationId && record.installationId === installationId && record.revokedAt === null) { record.revokedAt = timestamp; return total + 1; }
-      return total;
-    }, 0);
-    if (count > 0) this.persist();
+    let count = 0;
+    const nextRecords = this.records.map((record) => {
+      if (record.organizationId === organizationId && record.installationId === installationId && record.revokedAt === null) {
+        count += 1;
+        return { ...record, revokedAt: timestamp };
+      }
+      return record;
+    });
+    if (count > 0) { this.persist(nextRecords); this.records = nextRecords; }
     return count;
   }
 
   revokeUser(organizationId: string, userId: string): number {
     const timestamp = now();
-    const count = this.records.reduce((total, record) => {
-      if (record.organizationId === organizationId && record.userId === userId && record.revokedAt === null) { record.revokedAt = timestamp; return total + 1; }
-      return total;
-    }, 0);
-    if (count > 0) this.persist();
+    let count = 0;
+    const nextRecords = this.records.map((record) => {
+      if (record.organizationId === organizationId && record.userId === userId && record.revokedAt === null) {
+        count += 1;
+        return { ...record, revokedAt: timestamp };
+      }
+      return record;
+    });
+    if (count > 0) { this.persist(nextRecords); this.records = nextRecords; }
     return count;
   }
 
