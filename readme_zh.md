@@ -46,6 +46,14 @@ pnpm component:prepare-release -- --data-dir .\data --artifact .\downloads\ffmpe
 
 该命令不会读取私钥、签名、安装或覆盖已有 staging artifact。提交给 Core 前，必须通过运营者自己控制的签名流程完成签名。
 
+签名步骤必须在发布者工作站上显式执行：
+
+```powershell
+pnpm component:sign-release -- --release .\releases\ffmpeg-7.json --private-key .\secrets\component-ed25519.pem --output .\releases\ffmpeg-7.signed.json
+```
+
+CLI 要求私钥为 Ed25519，且公钥指纹必须与 `release.keyId` 一致；已有输出会被拒绝，私钥不会复制到 staging 或运行时制品。完整的平台矩阵可使用 `node scripts/validate-component-release-matrix.mjs --matrix <matrix.json>` 校验。
+
 管理员的组件登记接口仅用于登记元数据，登记结果会标记为“未验证”。未验证记录可以查看并执行健康检查，但 Core 不会执行它们、将其作为浏览器引擎启动或作为正式运行时组件使用。只有通过受信任签名校验的发布记录才会标记为“已验证”。
 
 插件数据只通过 SDK 提供的受作用域逻辑 API 和版本化迁移台账访问。物理 SQLite/PostgreSQL 结构由 Core 管理；插件不会获得数据库连接、DSN、Schema 名称或 SQL 通道。

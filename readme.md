@@ -62,6 +62,14 @@ The signed release envelope is defined by the machine-readable [`config/componen
 
 The command never reads a private key, signs, installs, or overwrites an existing staging artifact. Sign the record through an operator-controlled process before submitting it to Core.
 
+The operator signing step is explicit and must run only on the release workstation:
+
+```powershell
+pnpm component:sign-release -- --release .\releases\ffmpeg-7.json --private-key .\secrets\component-ed25519.pem --output .\releases\ffmpeg-7.signed.json
+```
+
+The CLI requires an Ed25519 key whose public-key fingerprint matches `release.keyId`, refuses an existing output, and never copies the private key into staging or runtime bundles. A complete platform matrix can be checked with `pnpm exec node scripts/validate-component-release-matrix.mjs --matrix <matrix.json>`.
+
 The administrator component-registration endpoint is metadata-only and marks records as unverified. Unverified records may be inspected and health-checked, but Core will not execute them, launch them as browser engines, or use them as managed runtime components. Only a release that passes trusted signature verification is marked verified.
 
 Plugin data is exposed only through the SDK's scoped logical API and versioned migration ledger. Core owns the physical SQLite/PostgreSQL schema; plugins never receive database connections, DSNs, schema names or SQL channels.
