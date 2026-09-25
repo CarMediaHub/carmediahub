@@ -93,4 +93,6 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 
 未来的特权安装器消费计划前，Core 还会再次校验序列化后的动作列表：只允许 Core 针对平台生成的命令，拒绝危险参数字节，强制检查声明的幂等策略，并且只允许 Linux systemd 单元使用 stdin。这是执行边界，不代表 Native 实机安装已经完成。
 
+校验器还要求完整的平台动作顺序：Windows 必须先完成 bundle、配置和数据目录 ACL，再创建服务、设置描述并启动；Linux 必须先创建账号和目录，再写入 systemd 单元、应用所有权、重载 systemd 并启用服务。缺失、重复或乱序的阶段都会被拒绝。
+
 Bundle 还包含 `config/native-install-plan.schema.json`，外部安装器可以在执行任何特权操作前独立校验计划结构。

@@ -19,6 +19,19 @@ const allowedCommands = {
   linux: new Set(["useradd", "install", "chown", "systemctl"]),
 };
 
+const requiredCommandSequences = {
+  windows: ["icacls.exe", "icacls.exe", "icacls.exe", "sc.exe", "sc.exe", "sc.exe"],
+  linux: ["useradd", "install", "install", "install", "chown", "systemctl", "systemctl"],
+};
+
+function validateCommandSequence(actions, platform) {
+  const expected = requiredCommandSequences[platform];
+  if (actions.length !== expected.length) fail(`${platform} action sequence must contain exactly ${expected.length} actions`);
+  for (const [index, command] of expected.entries()) {
+    if (actions[index]?.command !== command) fail(`${platform} action ${index} must be ${command}`);
+  }
+}
+
 export function validateNativeInstallActions(actions, platform) {
   if (platform !== "windows" && platform !== "linux") fail("platform is invalid");
   if (!Array.isArray(actions) || actions.length === 0) fail("actions must be a non-empty array");
@@ -30,6 +43,7 @@ export function validateNativeInstallActions(actions, platform) {
     if (item.idempotency !== "repeatable" && item.idempotency !== "ensure") fail(`action ${index} idempotency is invalid`);
     if (item.stdin !== undefined && (platform !== "linux" || item.command !== "install" || item.args.at(-2) !== "/dev/stdin" || typeof item.stdin !== "string" || /\u0000/u.test(item.stdin))) fail(`action ${index} stdin is not allowed`);
   }
+  validateCommandSequence(actions, platform);
   return actions;
 }
 

@@ -89,6 +89,8 @@ The plan contains the `sc.exe` or systemd specification plus explicit Bundle/con
 
 Before a future privileged installer consumes the plan, Core validates the serialized action list again. The validator allows only the platform-specific commands emitted by Core, rejects unsafe argument bytes, enforces the declared idempotency mode, and permits stdin only for the generated Linux systemd unit. This is an execution boundary, not evidence of a completed Native installation.
 
+The validator also requires the complete platform sequence: Windows ACL grants must precede service creation, description and start; Linux account and directory preparation must precede unit installation, ownership, daemon reload and service activation. Missing, duplicated or reordered stages are rejected.
+
 The bundle also includes `config/native-install-plan.schema.json`, so an external installer can validate the plan shape independently before invoking any privileged operation.
 
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:

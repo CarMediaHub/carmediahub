@@ -53,3 +53,19 @@ test("validates serialized actions before a privileged executor consumes them", 
   assert.throws(() => validateNativeInstallActions([{ ...actions[0], idempotency: "ignore" }], "linux"), /idempotency is invalid/);
   assert.throws(() => validateNativeInstallActions([{ ...actions[0], stdin: "unexpected" }], "linux"), /stdin is not allowed/);
 });
+
+test("rejects incomplete, duplicated, or reordered platform action stages", () => {
+  const windows = createNativeInstallActions(base("windows"));
+  const linux = createNativeInstallActions(base("linux"));
+
+  assert.throws(() => validateNativeInstallActions(windows.slice(0, -1), "windows"), /exactly 6 actions/);
+  assert.throws(() => validateNativeInstallActions([...windows, windows.at(-1)], "windows"), /exactly 6 actions/);
+
+  const reorderedWindows = [...windows];
+  [reorderedWindows[0], reorderedWindows[3]] = [reorderedWindows[3], reorderedWindows[0]];
+  assert.throws(() => validateNativeInstallActions(reorderedWindows, "windows"), /action 0 must be icacls\.exe/);
+
+  const reorderedLinux = [...linux];
+  [reorderedLinux[3], reorderedLinux[5]] = [reorderedLinux[5], reorderedLinux[3]];
+  assert.throws(() => validateNativeInstallActions(reorderedLinux, "linux"), /action 3 must be install/);
+});
