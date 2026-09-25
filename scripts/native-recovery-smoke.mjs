@@ -36,6 +36,33 @@ async function waitForLive(baseUrl, child, getStderr) {
   fail("liveness did not become ready");
 }
 
+async function waitForReady(baseUrl, child, getStderr) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (child.exitCode !== null) fail(`Core exited before readiness with code ${child.exitCode}${getStderr().length > 0 ? `: ${getStderr().trim()}` : ""}`);
+    try {
+      const response = await fetch(`${baseUrl}/health/ready`);
+      if (response.status === 200) return;
+    } catch { /* wait for the explicit startup window */ }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  fail("readiness did not become ready");
+}
+
+function startCore(bundleRoot, dataDir, port) {
+  let stderr = "";
+  const child = spawn(process.execPath, [path.join(bundleRoot, "dist", "cli.js"), "--data-dir", dataDir, "--host", "127.0.0.1", "--port", String(port)], { cwd: bundleRoot, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  return { child, stderr: () => stderr, baseUrl: `http://127.0.0.1:${port}` };
+}
+
+async function stopCore(child) {
+  if (child.exitCode === null) {
+    const exited = new Promise((resolve) => child.once("exit", resolve));
+    child.kill();
+    await exited;
+  }
+}
+
 export async function reserveLoopbackPort() {
   const server = net.createServer();
   await new Promise((resolve, reject) => {
@@ -56,22 +83,14 @@ export async function runNativeRecoverySmoke(bundleRoot) {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "cmh-native-recovery-data-"));
   const restoredDir = `${dataDir}-restored`;
   const snapshot = `${dataDir}-snapshot`;
-  const port = await reserveLoopbackPort();
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, [path.join(bundleRoot, "dist", "cli.js"), "--data-dir", dataDir, "--host", "127.0.0.1", "--port", String(port)], { cwd: bundleRoot, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
-  let stderr = "";
-  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  const started = startCore(bundleRoot, dataDir, await reserveLoopbackPort());
 
   try {
-    await waitForLive(baseUrl, child, () => stderr);
-    const bootstrap = await fetch(`${baseUrl}/api/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "smoke-admin", password: "correct horse battery staple", locale: "en" }) });
+    await waitForLive(started.baseUrl, started.child, started.stderr);
+    const bootstrap = await fetch(`${started.baseUrl}/api/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "smoke-admin", password: "correct horse battery staple", locale: "en" }) });
     if (bootstrap.status !== 201) fail(`bootstrap returned ${bootstrap.status}`);
   } finally {
-    if (child.exitCode === null) {
-      const exited = new Promise((resolve) => child.once("exit", resolve));
-      child.kill();
-      await exited;
-    }
+    await stopCore(started.child);
   }
   try {
     await execFileAsync(process.execPath, [path.join(bundleRoot, "dist", "backup-cli.js"), "backup", "--data-dir", dataDir, "--output", snapshot], { cwd: bundleRoot });
@@ -79,12 +98,19 @@ export async function runNativeRecoverySmoke(bundleRoot) {
     const { stdout } = await execFileAsync(process.execPath, [path.join(bundleRoot, "scripts", "upgrade-preflight.mjs"), "--bundle-root", bundleRoot, "--data-dir", dataDir, "--snapshot", snapshot], { cwd: bundleRoot });
     const result = JSON.parse(stdout);
     if (result.currentSchemaVersion !== result.targetSchemaVersion) fail("schema versions do not match");
-    const summary = { bundleFiles: result.bundleRoot === bundleRoot, restored: true, currentSchemaVersion: result.currentSchemaVersion, targetSchemaVersion: result.targetSchemaVersion };
+    const restored = startCore(bundleRoot, restoredDir, await reserveLoopbackPort());
+    try {
+      await waitForLive(restored.baseUrl, restored.child, restored.stderr);
+      await waitForReady(restored.baseUrl, restored.child, restored.stderr);
+    } finally {
+      await stopCore(restored.child);
+    }
+    const summary = { bundleFiles: result.bundleRoot === bundleRoot, restored: true, restoredReady: true, currentSchemaVersion: result.currentSchemaVersion, targetSchemaVersion: result.targetSchemaVersion };
     console.log(JSON.stringify(summary));
     return summary;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    fail(`${detail}${stderr.length > 0 ? `; ${stderr.trim()}` : ""}`);
+    fail(`${detail}${started.stderr().length > 0 ? `; ${started.stderr().trim()}` : ""}`);
   } finally {
     await Promise.all([fs.rm(dataDir, { recursive: true, force: true }), fs.rm(restoredDir, { recursive: true, force: true }), fs.rm(snapshot, { recursive: true, force: true })]);
   }
