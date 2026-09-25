@@ -47,6 +47,11 @@ jobs:
           path: carmediahub-sdk
       - name: Place SDK beside Core checkout
         run: mv carmediahub-sdk ../carmediahub-sdk
+      - name: Declare pnpm build policy for both checkouts
+        working-directory: ..
+        run: |
+          printf 'onlyBuiltDependencies:\n  - esbuild\n' > carmediahub-sdk/pnpm-workspace.yaml
+          printf 'onlyBuiltDependencies:\n  - esbuild\n' > carmediahub/pnpm-workspace.yaml
       - uses: pnpm/action-setup@v4
         with:
           version: 11.19.0
