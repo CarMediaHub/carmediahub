@@ -18,3 +18,19 @@ test("credential vault returns opaque metadata and resolves only the exact plugi
   assert.equal(vault.revoke(scope, credential.id), true);
   assert.equal(vault.resolve(scope, credential.id), undefined);
 });
+
+test("credential vault hides expired credentials and accepts legacy records without expiry", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-credentials-expiry-"));
+  const vault = new CredentialVault(dataDir, crypto.randomBytes(32));
+  const scope = { deploymentId: "d", organizationId: "o", userId: "u", deviceId: "pc", sessionId: "s", installationId: "plugin-a" } as const;
+  assert.throws(() => vault.create(scope, { name: "expired", kind: "cookie", value: "x", expiresAt: "2000-01-01T00:00:00.000Z" }));
+  const credential = vault.create(scope, { name: "future", kind: "cookie", value: "session=x", expiresAt: "2999-01-01T00:00:00.000Z" });
+  assert.equal(credential.expiresAt, "2999-01-01T00:00:00.000Z");
+  assert.equal(vault.list(scope).length, 1);
+  const file = path.join(dataDir, "secrets", "credentials.json");
+  const stored = JSON.parse(fs.readFileSync(file, "utf8")) as Array<Record<string, unknown>>;
+  stored[0]!.expiresAt = "2000-01-01T00:00:00.000Z";
+  fs.writeFileSync(file, JSON.stringify(stored));
+  const expiredVault = new CredentialVault(dataDir, (vault as unknown as { key: Buffer }).key);
+  assert.equal(expiredVault.list(scope).length, 0);
+});

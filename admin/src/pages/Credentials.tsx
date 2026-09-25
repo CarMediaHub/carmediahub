@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
 import { AdminShell } from "../navigation";
 
-type Credential = { id: string; name: string; kind: "cookie" | "authorization"; organizationId: string; userId: string; installationId: string; createdAt: string; revokedAt: string | null };
+type Credential = { id: string; name: string; kind: "cookie" | "authorization"; organizationId: string; userId: string; installationId: string; createdAt: string; expiresAt: string | null; revokedAt: string | null };
 type Installation = { id: string; packageId: string; status: "installed" | "disabled" | "uninstalled"; capabilities?: string[] };
 
 export default function Credentials() {
@@ -37,10 +37,11 @@ export default function Credentials() {
         <ProFormSelect name="kind" label={t("common.credentialType")} options={[{ label: t("common.cookieCredential"), value: "cookie" }, { label: t("common.authorizationCredential"), value: "authorization" }]} rules={[{ required: true }]} />
         <ProFormText name="name" label={t("common.label")} rules={[{ required: true, max: 80 }]} />
         <ProFormTextArea name="value" label={t("common.secretValue")} fieldProps={{ rows: 4 }} rules={[{ required: true, max: 16384 }]} />
+        <ProFormText name="expiresAt" label={t("common.expires")} placeholder="2027-01-01T00:00:00.000Z" rules={[{ pattern: /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/, message: t("common.expires") }]} />
       </ProForm>
     </ProCard>
     <ProCard title={t("common.storedCredentials")} style={{ margin: 24 }}>
-      <ProTable<Credential> rowKey="id" search={false} options={false} dataSource={credentials} columns={[{ title: t("common.label"), dataIndex: "name" }, { title: t("common.type"), dataIndex: "kind", render: (value) => <Tag>{value}</Tag> }, { title: t("common.pluginInstallation"), dataIndex: "installationId" }, { title: t("common.created"), dataIndex: "createdAt" }, { title: t("common.secretValue"), render: () => <Tag color="green">{t("common.neverDisplayed")}</Tag> }, { title: t("common.action"), render: (_, row) => <Popconfirm title={t("common.revokeCredential")} onConfirm={() => void revoke(row.id)}><Button danger>{t("common.revoke")}</Button></Popconfirm> }]} />
+      <ProTable<Credential> rowKey="id" search={false} options={false} dataSource={credentials} columns={[{ title: t("common.label"), dataIndex: "name" }, { title: t("common.type"), dataIndex: "kind", render: (value) => <Tag>{value}</Tag> }, { title: t("common.pluginInstallation"), dataIndex: "installationId" }, { title: t("common.created"), dataIndex: "createdAt" }, { title: t("common.expires"), dataIndex: "expiresAt", render: (value) => value ?? t("common.never") }, { title: t("common.secretValue"), render: () => <Tag color="green">{t("common.neverDisplayed")}</Tag> }, { title: t("common.action"), render: (_, row) => <Popconfirm title={t("common.revokeCredential")} onConfirm={() => void revoke(row.id)}><Button danger>{t("common.revoke")}</Button></Popconfirm> }]} />
     </ProCard>
   </AdminShell>;
 }

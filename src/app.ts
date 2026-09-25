@@ -866,12 +866,12 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = await requireAdmin(request, reply);
     if (user === undefined) return undefined;
     try {
-      const input = body<{ name?: unknown; kind?: unknown; value?: unknown; installationId?: unknown }>(request);
-      if (typeof input?.name !== "string" || (input.kind !== "cookie" && input.kind !== "authorization") || typeof input.value !== "string" || typeof input.installationId !== "string") throw new Error("Invalid credential");
+      const input = body<{ name?: unknown; kind?: unknown; value?: unknown; installationId?: unknown; expiresAt?: unknown }>(request);
+      if (typeof input?.name !== "string" || (input.kind !== "cookie" && input.kind !== "authorization") || typeof input.value !== "string" || typeof input.installationId !== "string" || (input.expiresAt !== undefined && input.expiresAt !== null && typeof input.expiresAt !== "string")) throw new Error("Invalid credential");
       const installation = repository.pluginInstallation(input.installationId);
       if (installation?.status !== "installed" || !repository.pluginHasCapability(input.installationId, "secrets")) throw new Error("Plugin installation is unavailable");
       const scope: ScopeContext = { deploymentId: "admin", organizationId: user.organizationId, userId: user.id, deviceId: "admin", sessionId: "admin", installationId: input.installationId };
-      const credential = credentialVault.create(scope, { name: input.name, kind: input.kind, value: input.value });
+      const credential = credentialVault.create(scope, { name: input.name, kind: input.kind, value: input.value, expiresAt: input.expiresAt ?? null });
       repository.audit(user.id, "credential.created", credential.id);
       return reply.code(201).send({ credential });
     } catch {

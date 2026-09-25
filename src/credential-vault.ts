@@ -5,7 +5,7 @@ import { decryptSecret, encryptSecret } from "./security.js";
 import type { ScopeContext } from "@carmediahub/sdk";
 
 export type CredentialKind = "cookie" | "authorization";
-export interface CredentialRecord { id: string; name: string; kind: CredentialKind; organizationId: string; userId: string; installationId: string; createdAt: string; revokedAt: string | null; }
+export interface CredentialRecord { id: string; name: string; kind: CredentialKind; organizationId: string; userId: string; installationId: string; createdAt: string; expiresAt: string | null; revokedAt: string | null; }
 export interface CredentialUserScope { organizationId: string; userId: string; }
 interface StoredCredential extends CredentialRecord { value: string; }
 
@@ -24,13 +24,15 @@ export class CredentialVault {
   }
 
   list(scope: CredentialUserScope): CredentialRecord[] {
-    return this.records.filter((record) => record.organizationId === scope.organizationId && record.userId === scope.userId && record.revokedAt === null).map(({ value: _value, ...record }) => ({ ...record }));
+    return this.records.filter((record) => record.organizationId === scope.organizationId && record.userId === scope.userId && record.revokedAt === null && !this.expired(record)).map(({ value: _value, ...record }) => ({ ...record }));
   }
 
-  create(scope: ScopeContext, input: { name: string; kind: CredentialKind; value: string }): CredentialRecord {
+  create(scope: ScopeContext, input: { name: string; kind: CredentialKind; value: string; expiresAt?: string | null }): CredentialRecord {
     if (!/^[^\r\n]{1,80}$/u.test(input.name.trim()) || input.value.length < 1 || input.value.length > 16_384) throw new Error("Invalid credential");
     if (input.kind !== "cookie" && input.kind !== "authorization") throw new Error("Invalid credential kind");
-    const record: StoredCredential = { id: id(), name: input.name.trim(), kind: input.kind, organizationId: scope.organizationId, userId: scope.userId, installationId: scope.installationId, createdAt: now(), revokedAt: null, value: encryptSecret(input.value, this.key) };
+    const expiresAt = input.expiresAt ?? null;
+    if (expiresAt !== null && !this.validFutureExpiry(expiresAt)) throw new Error("Invalid credential expiry");
+    const record: StoredCredential = { id: id(), name: input.name.trim(), kind: input.kind, organizationId: scope.organizationId, userId: scope.userId, installationId: scope.installationId, createdAt: now(), expiresAt, revokedAt: null, value: encryptSecret(input.value, this.key) };
     this.records.push(record);
     this.persist();
     const { value: _value, ...publicRecord } = record;
@@ -66,7 +68,7 @@ export class CredentialVault {
   }
 
   resolve(scope: ScopeContext, credentialId: string): { name: "cookie" | "authorization"; value: string } | undefined {
-    const record = this.records.find((candidate) => candidate.id === credentialId && candidate.organizationId === scope.organizationId && candidate.userId === scope.userId && candidate.installationId === scope.installationId && candidate.revokedAt === null);
+    const record = this.records.find((candidate) => candidate.id === credentialId && candidate.organizationId === scope.organizationId && candidate.userId === scope.userId && candidate.installationId === scope.installationId && candidate.revokedAt === null && !this.expired(candidate));
     if (record === undefined) return undefined;
     return { name: record.kind, value: decryptSecret(record.value, this.key) };
   }
@@ -76,11 +78,14 @@ export class CredentialVault {
     try {
       const value = JSON.parse(fs.readFileSync(this.location, "utf8")) as unknown;
       if (!Array.isArray(value)) return [];
-      return value.filter((record): record is StoredCredential => typeof record === "object" && record !== null && typeof (record as StoredCredential).id === "string" && typeof (record as StoredCredential).value === "string" && ((record as StoredCredential).kind === "cookie" || (record as StoredCredential).kind === "authorization"));
+      return value.filter((record): record is StoredCredential => typeof record === "object" && record !== null && typeof (record as StoredCredential).id === "string" && typeof (record as StoredCredential).value === "string" && ((record as StoredCredential).kind === "cookie" || (record as StoredCredential).kind === "authorization")).map((record) => ({ ...record, expiresAt: typeof record.expiresAt === "string" ? record.expiresAt : null, revokedAt: typeof record.revokedAt === "string" ? record.revokedAt : null }));
     } catch {
       throw new Error("Credential vault is invalid");
     }
   }
+
+  private expired(record: CredentialRecord): boolean { return record.expiresAt !== null && Date.parse(record.expiresAt) <= Date.now(); }
+  private validFutureExpiry(value: string): boolean { return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now(); }
 
   private persist(): void {
     const temporary = `${this.location}.${crypto.randomUUID()}.tmp`;
