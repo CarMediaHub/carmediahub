@@ -15,6 +15,10 @@ function unitQuote(value) {
   return `"${value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("$", "\\$").replaceAll("`", "\\`")}"`;
 }
 
+function unitPath(value) {
+  return value.replaceAll("\\", "\\\\").replaceAll(" ", "\\x20").replaceAll("\t", "\\x09").replaceAll("\n", "\\x0a").replaceAll('"', "\\x22");
+}
+
 export function createLinuxServiceSpec(input) {
   const serviceName = text(input.serviceName, "serviceName");
   if (!/^[a-z][a-z0-9-]{0,62}$/u.test(serviceName)) throw new Error("serviceName is invalid");
@@ -37,7 +41,7 @@ export function createLinuxServiceSpec(input) {
     "Type=simple",
     `User=${serviceAccount}`,
     `Group=${serviceAccount}`,
-    `WorkingDirectory=${unitQuote(bundleRoot)}`,
+    `WorkingDirectory=${unitPath(bundleRoot)}`,
     `ExecStart=${unitQuote(nodePath)} ${unitQuote(cliPath)} --config ${unitQuote(configPath)} --data-dir ${unitQuote(dataDir)} --host 127.0.0.1 --port 8787`,
     "Restart=on-failure",
     "RestartSec=5",
@@ -45,7 +49,7 @@ export function createLinuxServiceSpec(input) {
     "PrivateTmp=true",
     "ProtectSystem=strict",
     "ProtectHome=true",
-    `ReadWritePaths=${unitQuote(dataDir)}`,
+    `ReadWritePaths=${unitPath(dataDir)}`,
     "",
     "[Install]",
     "WantedBy=multi-user.target",

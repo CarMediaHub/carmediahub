@@ -12,13 +12,13 @@ test("creates a hardened explicit systemd unit", () => {
   assert.match(spec.unitText, /User=carmediahub/iu);
   assert.match(spec.unitText, /Group=carmediahub/iu);
   assert.match(spec.unitText, /ProtectSystem=strict/iu);
-  assert.match(spec.unitText, /ReadWritePaths="\/var\/lib\/carmediahub"/u);
+  assert.match(spec.unitText, /ReadWritePaths=\/var\/lib\/carmediahub/u);
   assert.doesNotMatch(spec.unitText, /Environment=/u);
 });
 
 test("quotes paths and rejects implicit or unsafe values", () => {
   const spec = createLinuxServiceSpec({ ...valid, bundleRoot: "/opt/car media", description: "Core $service" });
-  assert.match(spec.unitText, /WorkingDirectory="\/opt\/car media"/u);
+  assert.match(spec.unitText, /WorkingDirectory=\/opt\/car\\x20media/u);
   assert.match(spec.unitText, /Core \$service/u);
   assert.throws(() => createLinuxServiceSpec({ ...valid, nodePath: "node" }), /nodePath.*absolute POSIX/);
   assert.throws(() => createLinuxServiceSpec({ ...valid, serviceName: "Core.Service" }), /serviceName/);
