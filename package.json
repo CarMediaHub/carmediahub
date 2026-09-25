@@ -23,6 +23,8 @@
     "test:native-install-actions": "node --test scripts/native-install-actions.test.mjs",
     "test:native-install-executor": "node --test scripts/native-install-executor.test.mjs",
     "test:native-install-preview": "node --test scripts/native-install-preview.test.mjs",
+    "native-install-apply": "node scripts/native-install-apply.mjs",
+    "test:native-install-apply": "node --test scripts/native-install-apply.test.mjs",
     "build": "tsc -p tsconfig.json",
     "build:admin": "cd admin && pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts && pnpm build && cd .. && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
@@ -52,7 +54,7 @@
     "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "smoke:native-recovery": "node scripts/native-recovery-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
-    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:component-release-matrix && pnpm test:component-signing && pnpm test:component-matrix-assembly && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:native-recovery && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-executor && pnpm test:native-install-preview && pnpm test:native-install-plan && pnpm test:mysql",
+    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:component-release-matrix && pnpm test:component-signing && pnpm test:component-matrix-assembly && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:native-recovery && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-executor && pnpm test:native-install-preview && pnpm test:native-install-apply && pnpm test:native-install-plan && pnpm test:mysql",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:coverage": "tsx --test --test-concurrency=1 --experimental-test-coverage src/**/*.test.ts"
   },

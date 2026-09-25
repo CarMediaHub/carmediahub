@@ -107,4 +107,9 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 
 검증기는 플랫폼별 전체 작업 순서와 단계별 인자도 요구합니다. Windows ACL은 절대 경로를 대상으로 해야 하며 이후 서비스 생성/설명/시작 인자와 일치해야 합니다. Linux에서는 계정과 디렉터리를 먼저 준비한 뒤 일치하는 systemd 유닛을 쓰고 해당 소유권을 적용하고 systemd를 다시 로드한 다음 해당 서비스를 활성화해야 합니다. 단계가 누락되거나 중복되거나 순서 또는 대상이 맞지 않으면 거부됩니다.
 
-Bundle에는 `config/native-install-plan.schema.json`도 포함되므로 외부 설치 프로그램이 권한 있는 작업을 실행하기 전에 계획 구조를 독립적으로 검증할 수 있습니다.
+Bundle에는 `config/native-install-plan.schema.json`도 포함되므로 외부 설치 프로그램이 권한 있는 작업을 실행하기 전에 계획 구조를 독립적으로 검증할 수 있습니다. Core 실행기는 기본적으로 미리보기만 수행합니다. `--apply`와 `--confirm CARMEDIAHUB_APPLY`를 모두 명시한 경우에만 작업을 실행하며, 이미 존재하는 서비스나 계정은 덮어쓰지 않고 불일치로 거부합니다.
+
+```powershell
+pnpm native-install-apply -- --plan <plan.json>
+pnpm native-install-apply -- --plan <plan.json> --apply --confirm CARMEDIAHUB_APPLY
+```

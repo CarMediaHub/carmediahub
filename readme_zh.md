@@ -113,4 +113,9 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 
 校验器还要求完整的平台动作顺序和阶段参数：Windows 的 ACL 必须指向绝对路径，并与后续服务创建、描述和启动参数对应；Linux 必须先创建账号和目录，再写入匹配的 systemd 单元、应用对应所有权、重载 systemd 并启用对应服务。缺失、重复、乱序或目标不匹配的阶段都会被拒绝。
 
-Bundle 还包含 `config/native-install-plan.schema.json`，外部安装器可以在执行任何特权操作前独立校验计划结构。
+Bundle 还包含 `config/native-install-plan.schema.json`，外部安装器可以在执行任何特权操作前独立校验计划结构。Core 随包提供的执行入口默认仍是预览模式；只有同时显式传入 `--apply` 和 `--confirm CARMEDIAHUB_APPLY` 才会执行动作，已有服务或账号会被视为不匹配而拒绝覆盖。
+
+```powershell
+pnpm native-install-apply -- --plan <plan.json>
+pnpm native-install-apply -- --plan <plan.json> --apply --confirm CARMEDIAHUB_APPLY
+```

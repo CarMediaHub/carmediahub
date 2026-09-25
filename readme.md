@@ -109,7 +109,12 @@ Before a future privileged installer consumes the plan, Core validates the seria
 
 The validator also requires the complete platform sequence and stage-specific arguments: Windows ACL grants must target absolute paths before matching service creation, description and start arguments; Linux account and directory preparation must precede a matching unit installation, ownership, daemon reload and service activation. Missing, duplicated, reordered or mismatched stages are rejected.
 
-The bundle also includes `config/native-install-plan.schema.json`, so an external installer can validate the plan shape independently before invoking any privileged operation.
+The bundle also includes `config/native-install-plan.schema.json`, so an external installer can validate the plan shape independently before invoking any privileged operation. The bundled executor remains preview-only unless the operator explicitly supplies both `--apply` and `--confirm CARMEDIAHUB_APPLY`; an existing service or account is treated as a mismatch rather than overwritten.
+
+```powershell
+pnpm native-install-apply -- --plan <plan.json>
+pnpm native-install-apply -- --plan <plan.json> --apply --confirm CARMEDIAHUB_APPLY
+```
 
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
