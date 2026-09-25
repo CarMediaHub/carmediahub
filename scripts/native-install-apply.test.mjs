@@ -10,6 +10,11 @@ import { applyNativeInstallPlan } from "./native-install-apply.mjs";
 const plan = {
   schemaVersion: 1,
   platform: "linux",
+  bundle: { files: 1 },
+  resources: { bundleRoot: "/opt/cmh", configPath: "/etc/cmh/core.json", dataDir: "/var/lib/cmh" },
+  service: { serviceName: "cmh", unitName: "cmh.service" },
+  serviceAccount: "cmh_test",
+  acl: [{ path: "/opt/cmh" }, { path: "/etc/cmh/core.json" }, { path: "/var/lib/cmh" }],
   actions: [
     { command: "useradd", args: ["--system", "--no-create-home", "--shell", "/usr/sbin/nologin", "cmh_test"], description: "create account if absent", idempotency: "ensure" },
     { command: "install", args: ["-d", "-o", "cmh_test", "-g", "cmh_test", "-m", "0750", "/var/lib/cmh"], description: "create data", idempotency: "repeatable" },
@@ -31,6 +36,11 @@ test("previews a plan by default and never invokes an action", () => {
 
 test("requires a separate confirmation for actual application", () => {
   assert.throws(() => applyNativeInstallPlan(plan, { apply: true }), /CARMEDIAHUB_APPLY/u);
+});
+
+test("rejects an action list without a complete Core plan envelope", () => {
+  const incomplete = { schemaVersion: 1, platform: "linux", actions: plan.actions };
+  assert.throws(() => applyNativeInstallPlan(incomplete), /plan is missing bundle/u);
 });
 
 test("applies only after explicit confirmation and ensure inspection", () => {

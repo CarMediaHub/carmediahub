@@ -48,6 +48,12 @@ function createEnsureInspector(platform) {
 export function applyNativeInstallPlan(plan, options = {}) {
   if (plan === null || typeof plan !== "object" || plan.schemaVersion !== 1) fail("plan schemaVersion must be 1");
   if (plan.platform !== "windows" && plan.platform !== "linux") fail("plan platform is invalid");
+  for (const key of ["bundle", "resources", "service", "serviceAccount", "acl"]) {
+    if (plan[key] === undefined || plan[key] === null) fail(`plan is missing ${key}`);
+  }
+  if (typeof plan.serviceAccount !== "string" || plan.serviceAccount.length === 0 || /[\u0000\r\n]/u.test(plan.serviceAccount)) fail("plan serviceAccount is invalid");
+  if (!Array.isArray(plan.acl) || plan.acl.length !== 3) fail("plan acl is invalid");
+  if (!Array.isArray(plan.actions)) fail("plan actions must be an array");
   validateNativeInstallActions(plan.actions, plan.platform);
   const apply = options.apply === true;
   if (apply && options.confirm !== "CARMEDIAHUB_APPLY") fail("--apply requires explicit confirmation CARMEDIAHUB_APPLY");
