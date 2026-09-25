@@ -10,7 +10,7 @@ const base = (platform) => ({
     : { bundleRoot: "C:/Program Files/CarMediaHub", configPath: "C:/ProgramData/CarMediaHub/core.json", dataDir: "C:/ProgramData/CarMediaHub/data" },
   service: platform === "linux"
     ? { serviceName: "carmediahub-core", unitName: "carmediahub-core.service", unitText: "[Unit]\nDescription=CarMediaHub Core\n" }
-    : { serviceName: "CarMediaHubCore", createArguments: ["create", "CarMediaHubCore"], descriptionArguments: ["description", "CarMediaHubCore", "CarMediaHub Core"] },
+    : { serviceName: "CarMediaHubCore", createArguments: ["create", "CarMediaHubCore", "binPath= C:\\Program Files\\CarMediaHub\\node.exe", "start= auto", "DisplayName= CarMediaHub Core", "obj= \"NT AUTHORITY\\LocalService\""], descriptionArguments: ["description", "CarMediaHubCore", "CarMediaHub Core"] },
 });
 
 test("creates Windows ACL and service actions without executing them", () => {
@@ -68,4 +68,18 @@ test("rejects incomplete, duplicated, or reordered platform action stages", () =
   const reorderedLinux = [...linux];
   [reorderedLinux[3], reorderedLinux[5]] = [reorderedLinux[5], reorderedLinux[3]];
   assert.throws(() => validateNativeInstallActions(reorderedLinux, "linux"), /action 3 must be install/);
+});
+
+test("rejects stage arguments that target the wrong object or operation", () => {
+  const windows = createNativeInstallActions(base("windows"));
+  windows[5] = { ...windows[5], args: ["stop", "CarMediaHubCore"] };
+  assert.throws(() => validateNativeInstallActions(windows, "windows"), /start arguments/);
+
+  const linux = createNativeInstallActions(base("linux"));
+  linux[4] = { ...linux[4], args: ["-R", "other:other", "/var/lib/carmediahub"] };
+  assert.throws(() => validateNativeInstallActions(linux, "linux"), /ownership action arguments/);
+
+  const mismatched = createNativeInstallActions(base("linux"));
+  mismatched[6] = { ...mismatched[6], args: ["enable", "--now", "other.service"] };
+  assert.throws(() => validateNativeInstallActions(mismatched, "linux"), /service activation arguments/);
 });

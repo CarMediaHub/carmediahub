@@ -32,6 +32,38 @@ function validateCommandSequence(actions, platform) {
   }
 }
 
+function validateWindowsStages(actions) {
+  const aclAccess = ["(OI)(CI)(RX)", "(R)", "(OI)(CI)(M)"];
+  for (const [index, access] of aclAccess.entries()) {
+    const args = actions[index].args;
+    if (args.length !== 3 || !path.win32.isAbsolute(args[0]) || args[1] !== "/grant" || !args[2].endsWith(`:${access}`)) fail(`windows action ${index} arguments are invalid`);
+  }
+  const create = actions[3].args;
+  if (create.length !== 6 || create[0] !== "create" || !/^[A-Za-z][A-Za-z0-9_.-]{0,79}$/u.test(create[1]) || !create[2].startsWith("binPath= ") || create[3] !== "start= auto" || !create[4].startsWith("DisplayName= ") || !/^obj= ".+"$/u.test(create[5])) fail("windows service create arguments are invalid");
+  const description = actions[4].args;
+  if (description.length !== 3 || description[0] !== "description" || !/^[A-Za-z][A-Za-z0-9_.-]{0,79}$/u.test(description[1]) || description[2].length === 0) fail("windows service description arguments are invalid");
+  const start = actions[5].args;
+  if (start.length !== 2 || start[0] !== "start" || !/^[A-Za-z][A-Za-z0-9_.-]{0,79}$/u.test(start[1])) fail("windows service start arguments are invalid");
+  if (create[1] !== description[1] || create[1] !== start[1]) fail("windows service names do not match");
+}
+
+function validateLinuxStages(actions) {
+  const account = actions[0].args.at(-1);
+  if (!/^[a-z_][a-z0-9_-]{0,31}$/u.test(account)) fail("linux account action arguments are invalid");
+  if (actions[0].args.join(" ") !== `--system --no-create-home --shell /usr/sbin/nologin ${account}`) fail("linux account action arguments are invalid");
+  const data = actions[1].args;
+  if (data.length !== 8 || data.slice(0, 7).join(" ") !== `-d -o ${account} -g ${account} -m 0750` || !path.posix.isAbsolute(data[7])) fail("linux data directory action arguments are invalid");
+  const config = actions[2].args;
+  if (config.length !== 8 || config.slice(0, 7).join(" ") !== "-d -o root -g root -m 0755" || !path.posix.isAbsolute(config[7])) fail("linux configuration directory action arguments are invalid");
+  const unit = actions[3].args;
+  if (unit.length !== 6 || unit.slice(0, 4).join(" ") !== "-m 0644 --owner=root --group=root" || unit[4] !== "/dev/stdin" || !/^\/etc\/systemd\/system\/[a-z][a-z0-9-]{0,62}\.service$/u.test(unit[5])) fail("linux systemd unit action arguments are invalid");
+  const ownership = actions[4].args;
+  if (ownership.length !== 3 || ownership[0] !== "-R" || ownership[1] !== `${account}:${account}` || !path.posix.isAbsolute(ownership[2])) fail("linux ownership action arguments are invalid");
+  if (actions[5].args.length !== 1 || actions[5].args[0] !== "daemon-reload") fail("linux daemon reload arguments are invalid");
+  const activation = actions[6].args;
+  if (activation.length !== 3 || activation[0] !== "enable" || activation[1] !== "--now" || activation[2] !== unit[5].slice("/etc/systemd/system/".length)) fail("linux service activation arguments are invalid");
+}
+
 export function validateNativeInstallActions(actions, platform) {
   if (platform !== "windows" && platform !== "linux") fail("platform is invalid");
   if (!Array.isArray(actions) || actions.length === 0) fail("actions must be a non-empty array");
@@ -44,6 +76,8 @@ export function validateNativeInstallActions(actions, platform) {
     if (item.stdin !== undefined && (platform !== "linux" || item.command !== "install" || item.args.at(-2) !== "/dev/stdin" || typeof item.stdin !== "string" || /\u0000/u.test(item.stdin))) fail(`action ${index} stdin is not allowed`);
   }
   validateCommandSequence(actions, platform);
+  if (platform === "windows") validateWindowsStages(actions);
+  else validateLinuxStages(actions);
   return actions;
 }
 
