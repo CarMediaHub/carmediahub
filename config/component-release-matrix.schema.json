@@ -24,7 +24,7 @@
         "additionalProperties": false,
         "required": ["release", "signature"],
         "properties": {
-          "release": { "$ref": "component-release.schema.json" },
+          "release": { "$ref": "component-release.schema.json#/$defs/release" },
           "signature": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
         }
       }

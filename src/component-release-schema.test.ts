@@ -19,3 +19,8 @@ test("component release schema mirrors the signed release contract", () => {
   assert.deepEqual(schema.$defs?.provenance?.required, ["sourceUrl", "licenseSpdx"]);
   assert.equal(schema.$defs?.provenance?.additionalProperties, false);
 });
+
+test("component release matrix references the release payload definition", () => {
+  const schema = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "config", "component-release-matrix.schema.json"), "utf8")) as { properties?: { releases?: { items?: { properties?: { release?: { $ref?: string } } } } } };
+  assert.equal(schema.properties?.releases?.items?.properties?.release?.$ref, "component-release.schema.json#/$defs/release");
+});
