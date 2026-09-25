@@ -9,3 +9,15 @@ sbom/
 .env
 .env.*
 !.env.example
+*.log
+logs/
+tmp/
+temp/
+.cache/
+.DS_Store
+Thumbs.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+backups/
