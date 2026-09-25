@@ -156,7 +156,6 @@ jobs:
             --read-only --tmpfs /tmp \
             --security-opt no-new-privileges:true \
             carmediahub/core:ci
-          trap 'docker logs carmediahub-core-ci || true; docker stop carmediahub-core-ci || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8787/health/live >/dev/null; then
               bootstrap_status=$(curl --silent --show-error --request POST \
