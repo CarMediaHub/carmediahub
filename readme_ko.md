@@ -8,6 +8,8 @@ CarMediaHub Core는 플랫폼에 필요한 자체 호스팅 런타임, Agent, �
 
 플러그인 Manifest의 `sdk` 범위는 설치와 업그레이드 시 현재 SDK 계약 버전과 함께 검증되며 호환되지 않는 패키지는 런타임에 들어갈 수 없습니다.
 
+플러그인 논리 데이터 계약은 SQLite를 기본으로 사용하며 Core가 관리하는 명시적 PostgreSQL 및 MySQL adapter를 제공합니다. 연결 필드는 명시적으로 설정해야 하며 플러그인은 연결, Schema, 자격 증명 또는 SQL을 받지 않습니다.
+
 ## 로컬 개발
 
 ```powershell

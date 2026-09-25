@@ -8,6 +8,8 @@ CarMediaHub Core 提供平台所需的自托管运行时、Agent、管理端、�
 
 插件 Manifest 的 `sdk` 范围会在安装和升级时与当前 SDK 契约版本校验；不兼容的包不会进入运行时。
 
+插件逻辑数据契约默认使用 SQLite，并提供由 Core 管理的显式 PostgreSQL 和 MySQL 适配器。连接字段必须显式配置；插件不会获得连接、Schema、凭据或 SQL。
+
 ## 本地开发
 
 ```powershell

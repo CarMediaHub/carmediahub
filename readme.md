@@ -8,6 +8,8 @@ See the SDK and documentation repositories for plugin contracts, deployment and 
 
 Core checks each plugin Manifest `sdk` range during installation and upgrade; an incompatible package never enters the runtime.
 
+The logical plugin data contract has SQLite as the default adapter, with explicit PostgreSQL and MySQL Core-owned adapters. Adapter connection fields must be supplied explicitly; plugins never receive a connection, schema, credentials or SQL.
+
 ## Development
 
 This repository currently contains the v0 Core foundation: an explicit data directory, SQLite state, local bootstrap user, cookie session, application registry, revocable entry keys, managed-component records and service bindings.
