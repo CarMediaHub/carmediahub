@@ -8,7 +8,9 @@
   "required": ["schemaVersion", "platform", "bundle", "resources", "service", "serviceAccount", "acl", "actions"],
   "allOf": [
     { "if": { "properties": { "platform": { "const": "windows" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/windowsService" } } } },
-    { "if": { "properties": { "platform": { "const": "linux" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/linuxService" } } } }
+    { "if": { "properties": { "platform": { "const": "linux" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/linuxService" } } } },
+    { "if": { "properties": { "platform": { "const": "windows" } } }, "then": { "properties": { "actions": { "items": { "properties": { "command": { "enum": ["icacls.exe", "sc.exe"] } } } } } } },
+    { "if": { "properties": { "platform": { "const": "linux" } } }, "then": { "properties": { "actions": { "items": { "properties": { "command": { "enum": ["useradd", "install", "chown", "systemctl"] } } } } } } }
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
