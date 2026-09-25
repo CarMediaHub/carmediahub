@@ -64,7 +64,7 @@ export function AdminShell({ pathname, children }: { pathname: string; children:
   const navigate = (path: string) => { setMobileMenuOpen(false); window.location.href = path; };
   return <>
     <ProLayout className="cmh-admin-shell" title="CarMediaHub" logo={false} route={{ routes }} location={{ pathname }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [
-      <Button className="cmh-mobile-nav-trigger" key="mobile-menu" icon={<MenuOutlined />} aria-label="Open navigation" onClick={() => setMobileMenuOpen(true)} />,
+      <Button className="cmh-mobile-nav-trigger" key="mobile-menu" icon={<MenuOutlined />} aria-label={t("nav.openNavigation")} onClick={() => setMobileMenuOpen(true)} />,
       <Button key="logout" icon={<LogoutOutlined />} onClick={() => void logout()}>{t("nav.signOut")}</Button>,
     ]}>{children}</ProLayout>
     <Drawer className="cmh-mobile-nav-drawer" title="CarMediaHub" placement="left" open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>

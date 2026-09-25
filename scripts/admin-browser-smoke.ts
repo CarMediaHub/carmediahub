@@ -27,10 +27,10 @@ function parseArgs(argv: readonly string[]): Options {
   return { executable: path.resolve(executable), keep, locale };
 }
 
-function localeStrings(locale: SmokeLocale): { username: string; password: string; submit: string; overview: string; plugins: string; signOut: string } {
-  if (locale === "zh-CN") return { username: "用户名", password: "密码", submit: "登录", overview: "总览", plugins: "插件", signOut: "退出登录" };
-  if (locale === "ko") return { username: "사용자 이름", password: "비밀번호", submit: "로그인", overview: "개요", plugins: "플러그인", signOut: "로그아웃" };
-  return { username: "Username", password: "Password", submit: "Sign in", overview: "Overview", plugins: "Plugins", signOut: "Sign out" };
+function localeStrings(locale: SmokeLocale): { username: string; password: string; submit: string; overview: string; plugins: string; signOut: string; openNavigation: string } {
+  if (locale === "zh-CN") return { username: "用户名", password: "密码", submit: "登录", overview: "总览", plugins: "插件", signOut: "退出登录", openNavigation: "打开导航" };
+  if (locale === "ko") return { username: "사용자 이름", password: "비밀번호", submit: "로그인", overview: "개요", plugins: "플러그인", signOut: "로그아웃", openNavigation: "탐색 메뉴 열기" };
+  return { username: "Username", password: "Password", submit: "Sign in", overview: "Overview", plugins: "Plugins", signOut: "Sign out", openNavigation: "Open navigation" };
 }
 
 async function main(): Promise<void> {
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     if (await page.getByRole("button", { name: labels.signOut }).count() !== 1) throw new Error("admin logout control is unavailable");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator(".ant-pro-layout").waitFor({ state: "visible", timeout: 10_000 });
-    await page.getByRole("button", { name: "Open navigation" }).click();
+    await page.getByRole("button", { name: labels.openNavigation }).click();
     await page.locator(".cmh-mobile-nav-drawer .ant-menu-item").first().waitFor({ state: "visible", timeout: 10_000 });
     const mobileLayout = await page.evaluate(() => ({ viewportWidth: window.innerWidth, documentWidth: document.documentElement.scrollWidth, navigationVisible: document.querySelectorAll(".cmh-mobile-nav-drawer .ant-menu-item").length > 0 }));
     if (mobileLayout.documentWidth > mobileLayout.viewportWidth + 1 || !mobileLayout.navigationVisible || await page.getByRole("button", { name: labels.signOut }).count() !== 1) throw new Error(`mobile admin layout is unusable: ${JSON.stringify(mobileLayout)}`);
