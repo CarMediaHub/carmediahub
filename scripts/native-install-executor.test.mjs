@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeNativeInstallActions } from "./native-install-executor.mjs";
+import { executeNativeInstallActions, NativeInstallExecutionError } from "./native-install-executor.mjs";
 import { createNativeInstallActions } from "./native-install-actions.mjs";
 
 const linuxActions = createNativeInstallActions({
@@ -39,4 +39,24 @@ test("rejects an ensure target whose existing properties differ", () => {
 
 test("rejects relative command path overrides", () => {
   assert.throws(() => executeNativeInstallActions(linuxActions, "linux", { commandPaths: { useradd: "useradd" } }), /must be absolute/);
+});
+
+test("reports partial application without claiming installation succeeded", () => {
+  const calls = [];
+  assert.throws(() => executeNativeInstallActions(linuxActions, "linux", {
+    apply: true,
+    inspectEnsure: () => "missing",
+    execute: (executable, args) => {
+      calls.push({ executable, args });
+      if (calls.length === 2) throw new Error("simulated install failure");
+      return { status: 0 };
+    },
+  }), (error) => {
+    assert.equal(error instanceof NativeInstallExecutionError, true);
+    assert.equal(error.platform, "linux");
+    assert.equal(error.failedActionIndex, 1);
+    assert.equal(error.appliedActions.length, 1);
+    assert.equal(error.appliedActions[0].command, "useradd");
+    return true;
+  });
 });

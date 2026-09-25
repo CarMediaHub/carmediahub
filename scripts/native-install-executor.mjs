@@ -17,6 +17,16 @@ const commandPaths = {
 
 function fail(message) { throw new Error(`Native install executor failed: ${message}`); }
 
+export class NativeInstallExecutionError extends Error {
+  constructor(message, { platform, failedActionIndex, appliedActions, cause } = {}) {
+    super(`Native install executor failed: ${message}`, { cause });
+    this.name = "NativeInstallExecutionError";
+    this.platform = platform;
+    this.failedActionIndex = failedActionIndex;
+    this.appliedActions = appliedActions;
+  }
+}
+
 function validateCommandPaths(platform, overrides = {}) {
   const selected = { ...commandPaths[platform], ...overrides };
   for (const [command, executable] of Object.entries(selected)) {
@@ -39,7 +49,7 @@ export function executeNativeInstallActions(actions, platform, options = {}) {
   });
   const inspectEnsure = options.inspectEnsure;
   const executed = [];
-  for (const item of actions) {
+  for (const [index, item] of actions.entries()) {
     const executable = paths[item.command];
     if (executable === undefined) fail(`no explicit executable path for ${item.command}`);
     if (!apply) {
@@ -56,8 +66,17 @@ export function executeNativeInstallActions(actions, platform, options = {}) {
         continue;
       }
     }
-    const result = execute(executable, item.args, item.stdin);
-    executed.push({ command: item.command, executable, args: [...item.args], applied: true, idempotency: item.idempotency, result });
+    try {
+      const result = execute(executable, item.args, item.stdin);
+      executed.push({ command: item.command, executable, args: [...item.args], applied: true, idempotency: item.idempotency, result });
+    } catch (error) {
+      throw new NativeInstallExecutionError(`action ${index} (${item.command}) failed after ${executed.filter((entry) => entry.applied).length} action(s) were applied`, {
+        platform,
+        failedActionIndex: index,
+        appliedActions: executed.filter((entry) => entry.applied),
+        cause: error,
+      });
+    }
   }
   return { platform, applied: apply, actions: executed };
 }
