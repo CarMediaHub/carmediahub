@@ -533,16 +533,22 @@ test("credential HTTP lifecycle requires secrets capability and never returns pl
     const created = await app.inject({ method: "POST", url: "/api/credentials", headers: { cookie }, payload: { name: "BBC login", kind: "cookie", value: "session=do-not-return", installationId: allowedId } });
     assert.equal(created.statusCode, 201);
     assert.equal(JSON.stringify(created.json()).includes("do-not-return"), false);
-    const credentialId = (created.json() as { credential: { id: string } }).credential.id;
-    const listed = await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } });
+      const credentialId = (created.json() as { credential: { id: string } }).credential.id;
+      const rotated = await app.inject({ method: "POST", url: `/api/credentials/${credentialId}/rotate`, headers: { cookie }, payload: { value: "session=rotated", expiresAt: "2999-01-01T00:00:00.000Z" } });
+      assert.equal(rotated.statusCode, 201);
+      assert.equal(JSON.stringify(rotated.json()).includes("session=rotated"), false);
+      const replacementId = (rotated.json() as { credential: { id: string } }).credential.id;
+      assert.notEqual(replacementId, credentialId);
+      assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${credentialId}`, headers: { cookie } })).statusCode, 404);
+      const listed = await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } });
     assert.equal(listed.statusCode, 200);
     assert.equal(JSON.stringify(listed.json()).includes("do-not-return"), false);
-    assert.equal((listed.json() as { credentials: Array<{ id: string }> }).credentials.some((item) => item.id === credentialId), true);
+      assert.equal((listed.json() as { credentials: Array<{ id: string }> }).credentials.some((item) => item.id === replacementId), true);
     const second = await app.inject({ method: "POST", url: "/api/credentials", headers: { cookie }, payload: { name: "Second login", kind: "authorization", value: "Bearer do-not-return", installationId: allowedId } });
     assert.equal(second.statusCode, 201);
     assert.equal((await app.inject({ method: "PATCH", url: `/api/plugins/${allowedId}/capabilities`, headers: { cookie }, payload: { capabilities: ["network"] } })).statusCode, 200);
     assert.equal((await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } })).json().credentials.length, 0);
-    assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${credentialId}`, headers: { cookie } })).statusCode, 404);
+      assert.equal((await app.inject({ method: "DELETE", url: `/api/credentials/${replacementId}`, headers: { cookie } })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/credentials", headers: { cookie } })).json().credentials.length, 0);
   } finally { await app.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });

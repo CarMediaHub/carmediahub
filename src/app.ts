@@ -888,6 +888,28 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/credentials/:id/rotate", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ value?: unknown; expiresAt?: unknown }>(request);
+      if (typeof input.value !== "string" || (input.expiresAt !== undefined && input.expiresAt !== null && typeof input.expiresAt !== "string")) throw new Error("Invalid credential");
+      const credentialId = (request.params as { id?: unknown }).id;
+      if (typeof credentialId !== "string") throw new Error("Credential not found");
+      const existing = credentialVault.list({ organizationId: user.organizationId, userId: user.id }).find((item) => item.id === credentialId);
+      if (existing === undefined) return reply.code(404).send({ code: "CMH.CREDENTIAL.NOT_FOUND", messageKey: "errors.credential.notFound" });
+      const installation = repository.pluginInstallation(existing.installationId);
+      if (installation?.status !== "installed" || !repository.pluginHasCapability(existing.installationId, "secrets")) throw new Error("Plugin installation is unavailable");
+      const scope: ScopeContext = { deploymentId: "admin", organizationId: user.organizationId, userId: user.id, deviceId: "admin", sessionId: "admin", installationId: existing.installationId };
+      const rotated = credentialVault.rotate(scope, credentialId, { value: input.value, ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }) });
+      if (rotated === undefined) return reply.code(404).send({ code: "CMH.CREDENTIAL.NOT_FOUND", messageKey: "errors.credential.notFound" });
+      repository.audit(user.id, "credential.rotated", rotated.id);
+      return reply.code(201).send({ credential: rotated });
+    } catch {
+      return reply.code(400).send({ code: "CMH.CREDENTIAL.INVALID", messageKey: "errors.credential.invalid" });
+    }
+  });
+
   app.get("/api/plugins", async (request, reply) => {
     const user = await requireAdmin(request, reply);
     return user === undefined ? undefined : { installations: repository.pluginInstallations().map((installation) => ({ ...installation, capabilities: repository.pluginCapabilities(installation.id), declaredCapabilities: repository.pluginDeclaredCapabilities(installation.id), worker: publicWorkerStatus(supervisor.status(installation.id)) })) };

@@ -34,3 +34,16 @@ test("credential vault hides expired credentials and accepts legacy records with
   const expiredVault = new CredentialVault(dataDir, (vault as unknown as { key: Buffer }).key);
   assert.equal(expiredVault.list(scope).length, 0);
 });
+
+test("credential rotation revokes the old value and preserves the installation scope", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-credentials-rotate-"));
+  const vault = new CredentialVault(dataDir, crypto.randomBytes(32));
+  const scope = { deploymentId: "d", organizationId: "o", userId: "u", deviceId: "pc", sessionId: "s", installationId: "plugin-a" } as const;
+  const original = vault.create(scope, { name: "BBC", kind: "cookie", value: "old" });
+  const replacement = vault.rotate(scope, original.id, { value: "new", expiresAt: "2999-01-01T00:00:00.000Z" });
+  assert.ok(replacement);
+  assert.notEqual(replacement.id, original.id);
+  assert.equal(vault.resolve(scope, original.id), undefined);
+  assert.deepEqual(vault.resolve(scope, replacement.id), { name: "cookie", value: "new" });
+  assert.equal(vault.rotate({ ...scope, installationId: "plugin-b" }, replacement.id, { value: "blocked" }), undefined);
+});

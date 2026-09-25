@@ -39,6 +39,21 @@ export class CredentialVault {
     return publicRecord;
   }
 
+  rotate(scope: ScopeContext, credentialId: string, input: { value: string; expiresAt?: string | null }): CredentialRecord | undefined {
+    if (input.value.length < 1 || input.value.length > 16_384) throw new Error("Invalid credential");
+    const current = this.records.find((record) => record.id === credentialId && record.organizationId === scope.organizationId && record.userId === scope.userId && record.installationId === scope.installationId && record.revokedAt === null && !this.expired(record));
+    if (current === undefined) return undefined;
+    const expiresAt = input.expiresAt ?? null;
+    if (expiresAt !== null && !this.validFutureExpiry(expiresAt)) throw new Error("Invalid credential expiry");
+    const timestamp = now();
+    current.revokedAt = timestamp;
+    const replacement: StoredCredential = { id: id(), name: current.name, kind: current.kind, organizationId: current.organizationId, userId: current.userId, installationId: current.installationId, createdAt: timestamp, expiresAt, revokedAt: null, value: encryptSecret(input.value, this.key) };
+    this.records.push(replacement);
+    this.persist();
+    const { value: _value, ...publicRecord } = replacement;
+    return publicRecord;
+  }
+
   revoke(scope: CredentialUserScope, credentialId: string): boolean {
     const record = this.records.find((candidate) => candidate.id === credentialId && candidate.organizationId === scope.organizationId && candidate.userId === scope.userId && candidate.revokedAt === null);
     if (record === undefined) return false;

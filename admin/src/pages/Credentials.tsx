@@ -1,5 +1,5 @@
 import { ProCard, ProForm, ProFormSelect, ProFormText, ProFormTextArea, ProTable } from "@ant-design/pro-components";
-import { Button, message, Popconfirm, Tag } from "antd";
+import { Button, Input, message, Modal, Popconfirm, Tag } from "antd";
 import { useEffect, useState } from "react";
 import { useAdminI18n } from "../i18n";
 import { AdminShell } from "../navigation";
@@ -11,6 +11,9 @@ export default function Credentials() {
   const { t } = useAdminI18n();
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [installations, setInstallations] = useState<Installation[]>([]);
+  const [rotateTarget, setRotateTarget] = useState<Credential | undefined>();
+  const [rotateValue, setRotateValue] = useState("");
+  const [rotateExpiry, setRotateExpiry] = useState("");
   const refresh = () => {
     void Promise.all([fetch("/api/credentials"), fetch("/api/plugins")]).then(async ([credentialResponse, pluginResponse]) => {
       if (credentialResponse.ok) setCredentials(((await credentialResponse.json()) as { credentials?: Credential[] }).credentials ?? []);
@@ -23,6 +26,13 @@ export default function Credentials() {
     if (!response.ok) { message.error(t("common.revokeCredentialFailed")); return; }
     message.success(t("common.credentialRevoked"));
     refresh();
+  };
+  const rotate = async () => {
+    if (rotateTarget === undefined || rotateValue.length === 0) return;
+    const response = await fetch(`/api/credentials/${rotateTarget.id}/rotate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: rotateValue, expiresAt: rotateExpiry || null }) });
+    if (!response.ok) { message.error(t("common.saveCredentialFailed")); return; }
+    message.success(t("common.credentialSaved"));
+    setRotateTarget(undefined); setRotateValue(""); setRotateExpiry(""); refresh();
   };
   return <AdminShell pathname="/admin/credentials">
     <ProCard title={t("common.addCredential")} style={{ margin: 24 }}>
@@ -41,7 +51,11 @@ export default function Credentials() {
       </ProForm>
     </ProCard>
     <ProCard title={t("common.storedCredentials")} style={{ margin: 24 }}>
-      <ProTable<Credential> rowKey="id" search={false} options={false} dataSource={credentials} columns={[{ title: t("common.label"), dataIndex: "name" }, { title: t("common.type"), dataIndex: "kind", render: (value) => <Tag>{value}</Tag> }, { title: t("common.pluginInstallation"), dataIndex: "installationId" }, { title: t("common.created"), dataIndex: "createdAt" }, { title: t("common.expires"), dataIndex: "expiresAt", render: (value) => value ?? t("common.never") }, { title: t("common.secretValue"), render: () => <Tag color="green">{t("common.neverDisplayed")}</Tag> }, { title: t("common.action"), render: (_, row) => <Popconfirm title={t("common.revokeCredential")} onConfirm={() => void revoke(row.id)}><Button danger>{t("common.revoke")}</Button></Popconfirm> }]} />
+      <ProTable<Credential> rowKey="id" search={false} options={false} dataSource={credentials} columns={[{ title: t("common.label"), dataIndex: "name" }, { title: t("common.type"), dataIndex: "kind", render: (value) => <Tag>{value}</Tag> }, { title: t("common.pluginInstallation"), dataIndex: "installationId" }, { title: t("common.created"), dataIndex: "createdAt" }, { title: t("common.expires"), dataIndex: "expiresAt", render: (value) => value ?? t("common.never") }, { title: t("common.secretValue"), render: () => <Tag color="green">{t("common.neverDisplayed")}</Tag> }, { title: t("common.action"), render: (_, row) => <><Button onClick={() => setRotateTarget(row)}>{t("common.rotate")}</Button> <Popconfirm title={t("common.revokeCredential")} onConfirm={() => void revoke(row.id)}><Button danger>{t("common.revoke")}</Button></Popconfirm></> }]} />
     </ProCard>
+    <Modal open={rotateTarget !== undefined} title={t("common.rotate")} onCancel={() => setRotateTarget(undefined)} onOk={() => void rotate()} okText={t("common.rotate")}>
+      <Input.TextArea value={rotateValue} onChange={(event) => setRotateValue(event.target.value)} placeholder={t("common.secretValue")} rows={4} />
+      <Input value={rotateExpiry} onChange={(event) => setRotateExpiry(event.target.value)} placeholder="2027-01-01T00:00:00.000Z" style={{ marginTop: 12 }} />
+    </Modal>
   </AdminShell>;
 }
