@@ -18,6 +18,7 @@
     "component:prepare-release": "node scripts/prepare-component-release.mjs",
     "native-install-plan": "node scripts/native-install-plan.mjs",
     "test:native-install-actions": "node --test scripts/native-install-actions.test.mjs",
+    "test:native-install-executor": "node --test scripts/native-install-executor.test.mjs",
     "build": "tsc -p tsconfig.json",
     "build:admin": "cd admin && pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts && pnpm build && cd .. && node scripts/copy-admin.mjs",
     "check:deployment": "node scripts/validate-deployment.mjs",
@@ -42,7 +43,7 @@
     "smoke:media-http": "tsx scripts/media-http-smoke.ts",
     "smoke:startup": "node scripts/core-startup-smoke.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
-    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-plan && pnpm test:mysql",
+    "verify": "pnpm check:deployment && pnpm test:deployment && pnpm check && pnpm --dir admin check && pnpm test && pnpm build && pnpm build:admin && pnpm smoke:startup && pnpm test:upgrade && pnpm test:component-release && pnpm test:native-bundle && pnpm test:create-native-bundle && pnpm test:resources && pnpm test:native-service && pnpm test:native-linux-service && pnpm test:native-install-actions && pnpm test:native-install-executor && pnpm test:native-install-plan && pnpm test:mysql",
     "test": "tsx --test --test-concurrency=1 src/**/*.test.ts",
     "test:coverage": "tsx --test --test-concurrency=1 --experimental-test-coverage src/**/*.test.ts"
   },
