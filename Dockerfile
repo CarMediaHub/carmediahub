@@ -37,7 +37,6 @@ RUN npm install --global pnpm@11.19.0 \
   && pnpm --dir carmediahub install --frozen-lockfile --ignore-scripts \
   && install_esbuild /workspace/carmediahub/node_modules/.pnpm \
   && pnpm --dir carmediahub/admin install --frozen-lockfile --ignore-scripts \
-  && test -x /workspace/carmediahub/admin/node_modules/.bin/max \
   && pnpm --dir carmediahub build \
   && pnpm --dir carmediahub build:admin
 
