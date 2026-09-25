@@ -13,10 +13,14 @@ export class HistoryService {
     return entry;
   }
   query(scope: ScopeContext, options: HistoryQuery = {}): HistoryEntry[] {
-    return this.queryPage(["organization_id = ?", "user_id = ?", "installation_id = ?"], [scope.organizationId, scope.userId, scope.installationId], options).entries;
+    return this.queryPage(scope, options).entries;
   }
 
-  queryPage(where: string[], values: string[], options: HistoryQuery = {}): { entries: HistoryEntry[]; total: number } {
+  queryPage(scope: ScopeContext, options: HistoryQuery = {}): { entries: HistoryEntry[]; total: number } {
+    return this.queryPageWhere(["organization_id = ?", "user_id = ?", "installation_id = ?"], [scope.organizationId, scope.userId, scope.installationId], options);
+  }
+
+  private queryPageWhere(where: string[], values: string[], options: HistoryQuery = {}): { entries: HistoryEntry[]; total: number } {
     const clauses = [...where];
     const parameters = [...values];
     if (options.pluginId !== undefined) { clauses.push("plugin_id = ?"); parameters.push(options.pluginId); }
@@ -30,11 +34,11 @@ export class HistoryService {
     return { total, entries: rows.map((row) => ({ id: String(row.id), subjectType: String(row.subject_type), subjectId: String(row.subject_id), pluginId: String(row.plugin_id), route: String(row.route), title: String(row.title), ...(row.category === null ? {} : { category: row.category }), visitedAt: String(row.visited_at), sourceDevice: row.source_device as HistoryEntry["sourceDevice"], ...(row.metadata_digest === null ? {} : { metadataDigest: row.metadata_digest }) })) };
   }
   queryUser(organizationId: string, userId: string, options: HistoryQuery = {}): HistoryEntry[] {
-    return this.queryPage(["organization_id = ?", "user_id = ?"], [organizationId, userId], options).entries;
+    return this.queryPageWhere(["organization_id = ?", "user_id = ?"], [organizationId, userId], options).entries;
   }
 
   queryUserPage(organizationId: string, userId: string, options: HistoryQuery = {}): { entries: HistoryEntry[]; total: number } {
-    return this.queryPage(["organization_id = ?", "user_id = ?"], [organizationId, userId], options);
+    return this.queryPageWhere(["organization_id = ?", "user_id = ?"], [organizationId, userId], options);
   }
   clear(scope: ScopeContext, options: Pick<HistoryQuery, "category"> = {}): number {
     const result = options.category === undefined ? this.db.prepare("DELETE FROM platform_history WHERE organization_id = ? AND user_id = ? AND installation_id = ?").run(scope.organizationId, scope.userId, scope.installationId) : this.db.prepare("DELETE FROM platform_history WHERE organization_id = ? AND user_id = ? AND installation_id = ? AND category = ?").run(scope.organizationId, scope.userId, scope.installationId, options.category);

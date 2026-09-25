@@ -340,6 +340,10 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
         if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
         return { entries: history.query(scope, request.params as Parameters<HistoryService["query"]>[1] | undefined) };
       }
+      if (request.method === "history.queryPage") {
+        if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
+        return history.queryPage(scope, request.params as Parameters<HistoryService["queryPage"]>[1] | undefined);
+      }
       if (request.method === "history.clear") {
         if (!repository.pluginHasCapability(scope.installationId, "history")) throw new Error("Plugin history capability is not granted");
         return { cleared: history.clear(scope, request.params as Parameters<HistoryService["clear"]>[1] | undefined) };
