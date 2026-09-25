@@ -46,10 +46,11 @@ export class CredentialVault {
     const expiresAt = input.expiresAt ?? null;
     if (expiresAt !== null && !this.validFutureExpiry(expiresAt)) throw new Error("Invalid credential expiry");
     const timestamp = now();
-    current.revokedAt = timestamp;
     const replacement: StoredCredential = { id: id(), name: current.name, kind: current.kind, organizationId: current.organizationId, userId: current.userId, installationId: current.installationId, createdAt: timestamp, expiresAt, revokedAt: null, value: encryptSecret(input.value, this.key) };
-    this.records.push(replacement);
-    this.persist();
+    const nextRecords = this.records.map((record) => record.id === current.id ? { ...record, revokedAt: timestamp } : record);
+    nextRecords.push(replacement);
+    this.persist(nextRecords);
+    this.records = nextRecords;
     const { value: _value, ...publicRecord } = replacement;
     return publicRecord;
   }
@@ -102,9 +103,9 @@ export class CredentialVault {
   private expired(record: CredentialRecord): boolean { return record.expiresAt !== null && Date.parse(record.expiresAt) <= Date.now(); }
   private validFutureExpiry(value: string): boolean { return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now(); }
 
-  private persist(): void {
+  private persist(records = this.records): void {
     const temporary = `${this.location}.${crypto.randomUUID()}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify(this.records), { mode: 0o600 });
+    fs.writeFileSync(temporary, JSON.stringify(records), { mode: 0o600 });
     fs.renameSync(temporary, this.location);
   }
 }
