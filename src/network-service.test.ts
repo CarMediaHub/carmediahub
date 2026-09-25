@@ -15,7 +15,7 @@ test("executes only a bound-origin request with filtered headers and redirects",
     assert.equal(request.headers.authorization, undefined);
     if (request.url === "/redirect") { response.writeHead(302, { location: "/media" }); response.end(); return; }
     if (request.url === "/cross") { response.writeHead(302, { location: `http://127.0.0.1:${crossPort}/` }); response.end(); return; }
-    if (request.method === "PROPFIND" && request.url === "/") { response.writeHead(207, { "content-type": "application/xml" }); response.end("<multistatus/>"); return; }
+    if (request.method === "PROPFIND" && request.url === "/") { assert.equal(request.headers.depth, "1"); response.writeHead(207, { "content-type": "application/xml" }); response.end("<multistatus/>"); return; }
     assert.equal(request.headers.range, "bytes=0-1"); response.writeHead(206, { "content-type": "text/plain" }); response.end("ok");
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -25,7 +25,7 @@ test("executes only a bound-origin request with filtered headers and redirects",
     const result = await executeNetworkRequest({ binding: "local-service", method: "GET", path: "/redirect", headers: { range: "bytes=0-1", authorization: "secret" } }, () => ({ endpoint: `http://127.0.0.1:${address.port}` }));
     assert.equal(result.status, 206);
     assert.equal(Buffer.from(result.bodyBase64!, "base64").toString(), "ok");
-    const directory = await executeNetworkRequest({ binding: "local-service", method: "PROPFIND", path: "/", headers: { accept: "application/xml" } }, () => ({ endpoint: `http://127.0.0.1:${address.port}` }));
+    const directory = await executeNetworkRequest({ binding: "local-service", method: "PROPFIND", path: "/", headers: { accept: "application/xml", depth: "1" } }, () => ({ endpoint: `http://127.0.0.1:${address.port}` }));
     assert.equal(directory.status, 207);
     assert.equal(Buffer.from(directory.bodyBase64!, "base64").toString(), "<multistatus/>");
     await assert.rejects(() => executeNetworkRequest({ binding: "local-service", method: "GET", path: "../secret" }, () => ({ endpoint: `http://127.0.0.1:${address.port}` })));
