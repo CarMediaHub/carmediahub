@@ -47,6 +47,15 @@ test("MySQL adapter rejects unsafe identifiers and undefined JSON", async () => 
   assert.equal(calls, 0);
 });
 
+test("MySQL migration batches use one transaction and roll back conflicts", async () => {
+  const queries: string[] = [];
+  const client: MysqlQueryClient = { async query<T>(sql: string) { queries.push(sql); if (sql.startsWith("SELECT version") && queries.filter((item) => item.startsWith("SELECT version")).length > 1) return [[{ version: 1, name: "different", applied_at: "2026-01-01 00:00:00.000" }] as T, {}]; return [[] as T, {}]; } };
+  const store = createMysqlPluginDataStore(client, scope);
+  await assert.rejects(() => store.migrateBatch([{ version: 1, name: "first" }, { version: 1, name: "conflict" }]));
+  assert.equal(queries[0], "START TRANSACTION");
+  assert.equal(queries.at(-1), "ROLLBACK");
+});
+
 test("MySQL pool requires explicit endpoint fields and ignores implicit defaults", () => {
   assert.throws(() => createMysqlPool({}), /explicit host/);
   const pool = createMysqlPool({ host: "db.example", user: "cmh", database: "cmh", port: 3307 });

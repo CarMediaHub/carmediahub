@@ -80,3 +80,12 @@ test("PostgreSQL plugin data export and deletion preserve scope and transaction 
   assert.deepEqual(queries.slice(-4).map((query) => query.text), ["BEGIN", "DELETE FROM carmediahub_plugin_data WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", "DELETE FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3", "COMMIT"]);
   assert.deepEqual(queries.find((query) => query.text.startsWith("SELECT collection"))?.values, ["org", "user", "plugin", 10001]);
 });
+
+test("PostgreSQL migration batches use one transaction and roll back conflicts", async () => {
+  const queries: string[] = [];
+  const client: PostgresQueryClient = { async query<T>(text: string) { queries.push(text); if (text.startsWith("SELECT version") && queries.filter((item) => item.startsWith("SELECT version")).length > 1) return { rows: [{ version: 1, name: "different", applied_at: "2026-01-01T00:00:00.000Z" } as T], rowCount: 1 }; return { rows: [], rowCount: 0 }; } };
+  const store = createPostgresPluginDataStore(client, { deploymentId: "dep", organizationId: "org", userId: "user", deviceId: "device", sessionId: "session", installationId: "plugin" });
+  await assert.rejects(() => store.migrateBatch([{ version: 1, name: "first" }, { version: 1, name: "conflict" }]));
+  assert.deepEqual(queries.slice(0, 2), ["BEGIN", "SELECT version, name, applied_at FROM carmediahub_plugin_data_migrations WHERE organization_id = $1 AND user_id = $2 AND installation_id = $3 AND version = $4"]);
+  assert.equal(queries.at(-1), "ROLLBACK");
+});
