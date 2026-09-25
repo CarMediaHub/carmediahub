@@ -12,6 +12,7 @@ COPY carmediahub/config/components.json carmediahub/config/components.schema.jso
 COPY carmediahub/public ./carmediahub/public
 COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub/admin/tsconfig.json carmediahub/admin/.umirc.ts ./carmediahub/admin/
 COPY carmediahub/admin/src ./carmediahub/admin/src
+COPY carmediahub/scripts/copy-admin.mjs ./carmediahub/scripts/
 RUN npm install --global pnpm@11.19.0 \
   && install_esbuild() { \
        root="$1"; \
