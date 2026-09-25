@@ -6,7 +6,7 @@ import { useAdminI18n } from "../i18n";
 import { AdminShell } from "../navigation";
 
 type Application = { id: string; name: string; category: string; route: string; vehicleSupported: boolean };
-type Component = { id: string; displayName: string; kind: string; version: string; status: string; executable: string };
+type Component = { id: string; displayName: string; kind: string; version: string; status: string };
 
 export default function Overview() {
   const { t } = useAdminI18n();
@@ -17,7 +17,7 @@ export default function Overview() {
     <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}><Button href="/admin/audit" icon={<AuditOutlined />}>{t("nav.audit")}</Button>
       <ProCard split="vertical"><Statistic title={t("overview.applications")} value={applications.length} /><Statistic title={t("overview.components")} value={components.length} /><Statistic title={t("overview.gateway")} value={t("overview.healthy")} /></ProCard>
       <ProCard title={t("overview.applicationList")}><ProTable<Application> rowKey="id" search={false} options={false} dataSource={applications} columns={[{ title: t("overview.name"), dataIndex: "name" }, { title: t("overview.category"), dataIndex: "category" }, { title: t("overview.route"), dataIndex: "route" }, { title: t("overview.vehicle"), dataIndex: "vehicleSupported", render: (_, row) => row.vehicleSupported ? <Tag color="green">{t("overview.supported")}</Tag> : <Tag>{t("overview.desktop")}</Tag> }]} /></ProCard>
-      <ProCard title={t("overview.catalog")}><ProTable<Component> rowKey="id" search={false} options={false} dataSource={components} columns={[{ title: t("overview.component"), dataIndex: "displayName" }, { title: t("overview.kind"), dataIndex: "kind" }, { title: t("overview.version"), dataIndex: "version" }, { title: t("overview.status"), dataIndex: "status" }, { title: t("overview.executable"), dataIndex: "executable" }]} /></ProCard>
+      <ProCard title={t("overview.catalog")}><ProTable<Component> rowKey="id" search={false} options={false} dataSource={components} columns={[{ title: t("overview.component"), dataIndex: "displayName" }, { title: t("overview.kind"), dataIndex: "kind" }, { title: t("overview.version"), dataIndex: "version" }, { title: t("overview.status"), dataIndex: "status" }]} /></ProCard>
     </Space>
   </AdminShell>;
 }
