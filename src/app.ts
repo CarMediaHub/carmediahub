@@ -1497,7 +1497,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
       }
       await runtimeBroker.waitForWorker(application.installationId, scope.userId);
       const stream = runtimeBroker.invokeStream(application.installationId, scope, {
-        method: request.method as "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE",
+        method: request.method as "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "PROPFIND",
         path: relativePath,
         query: request.query as Record<string, string | string[]>,
         headers: pluginRequestHeaders(request),

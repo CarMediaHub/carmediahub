@@ -5,7 +5,7 @@ export interface NetworkExecutionResponse { status: number; headers: Record<stri
 export type BindingResolver = (name: string) => { endpoint: string } | undefined;
 export type CredentialResolver = (credentialRef: string) => { name: "cookie" | "authorization"; value: string } | undefined;
 
-const methods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
+const methods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "PROPFIND"]);
 const headers = new Set(["accept", "accept-language", "content-type", "if-none-match", "range"]);
 const maxRedirects = 3;
 const maxConcurrentPerBinding = 10;
