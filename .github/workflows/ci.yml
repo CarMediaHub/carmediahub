@@ -77,6 +77,7 @@ jobs:
       - run: pnpm check
       - run: pnpm --dir admin install --frozen-lockfile --ignore-scripts
       - run: pnpm --dir admin check
+      - run: pnpm build:admin
       - run: pnpm test
       - run: pnpm build
       - name: Run explicit Core startup smoke
@@ -87,7 +88,6 @@ jobs:
         run: pnpm test:postgres -- --connection-string "postgresql://carmediahub_ci:carmediahub_ci_password@127.0.0.1:5432/carmediahub_ci"
       - name: Exercise the explicit MySQL adapter fixture
         run: pnpm test:mysql:service -- --host 127.0.0.1 --port 3306 --user carmediahub_ci --password carmediahub_ci_password --database carmediahub_ci
-      - run: pnpm build:admin
       - name: Generate CycloneDX SBOM
         run: pnpm run sbom -- "$RUNNER_TEMP/carmediahub-core.cdx.json"
       - uses: actions/upload-artifact@v4
