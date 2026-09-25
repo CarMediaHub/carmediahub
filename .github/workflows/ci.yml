@@ -128,8 +128,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          data_dir="$RUNNER_TEMP/carmediahub-data"
-          mkdir -p "$data_dir"
+          volume_name="carmediahub-core-ci-data"
           cleanup() {
             status=$?
             docker logs carmediahub-core-ci 2>&1 || true
@@ -137,12 +136,13 @@ jobs:
               --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' \
               2>&1 || true
             docker rm --force carmediahub-core-ci 2>&1 || true
+            docker volume rm "$volume_name" 2>&1 || true
             exit "$status"
           }
           trap cleanup EXIT
           docker run --detach --name carmediahub-core-ci \
             --publish 127.0.0.1:8787:8787 \
-            --volume "$data_dir:/var/lib/carmediahub" \
+            --volume "$volume_name:/var/lib/carmediahub" \
             --read-only --tmpfs /tmp \
             --security-opt no-new-privileges:true \
             carmediahub/core:ci
