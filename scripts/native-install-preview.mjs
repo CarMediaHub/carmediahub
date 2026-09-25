@@ -12,7 +12,15 @@ function parse(args) {
 }
 
 export function previewNativeInstallPlan(plan) {
-  if (plan === null || typeof plan !== "object" || !Array.isArray(plan.actions) || typeof plan.platform !== "string") fail("plan must contain platform and actions");
+  if (plan === null || typeof plan !== "object") fail("plan must be an object");
+  if (plan.schemaVersion !== 1) fail("plan schemaVersion must be 1");
+  if (plan.platform !== "linux" && plan.platform !== "windows") fail("plan platform is invalid");
+  for (const key of ["bundle", "resources", "service", "serviceAccount", "acl"]) {
+    if (plan[key] === undefined || plan[key] === null) fail(`plan is missing ${key}`);
+  }
+  if (typeof plan.serviceAccount !== "string" || plan.serviceAccount.length === 0) fail("plan serviceAccount is invalid");
+  if (!Array.isArray(plan.acl) || plan.acl.length === 0) fail("plan acl is invalid");
+  if (!Array.isArray(plan.actions)) fail("plan actions must be an array");
   return executeNativeInstallActions(plan.actions, plan.platform);
 }
 

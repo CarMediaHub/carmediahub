@@ -4,6 +4,12 @@ import { createNativeInstallActions } from "./native-install-actions.mjs";
 import { previewNativeInstallPlan } from "./native-install-preview.mjs";
 
 const plan = {
+  schemaVersion: 1,
+  bundle: { files: 20, packageVersion: "0.1.0", databaseSchemaVersion: 1 },
+  resources: { bundleRoot: "/opt/carmediahub", configPath: "/etc/carmediahub/core.json", dataDir: "/var/lib/carmediahub", freeBytes: 4096, requiredFreeBytes: 1 },
+  serviceAccount: "carmediahub",
+  acl: [{ path: "/var/lib/carmediahub", access: "read-write" }],
+  service: { serviceName: "carmediahub-core", unitName: "carmediahub-core.service", unitText: "[Unit]\nDescription=CarMediaHub Core\n" },
   platform: "linux",
   actions: createNativeInstallActions({
     platform: "linux",
@@ -21,5 +27,11 @@ test("previews a serialized plan without applying system actions", () => {
 });
 
 test("rejects an invalid serialized action plan", () => {
-  assert.throws(() => previewNativeInstallPlan({ platform: "linux", actions: [{ command: "sh", args: [], description: "bad", idempotency: "repeatable" }] }), /command is not allowed/);
+  assert.throws(() => previewNativeInstallPlan({ ...plan, actions: [{ command: "sh", args: [], description: "bad", idempotency: "repeatable" }] }), /command is not allowed/);
+});
+
+test("rejects a plan that is missing its versioned contract fields", () => {
+  assert.throws(() => previewNativeInstallPlan({ platform: "linux", actions: [] }), /schemaVersion/);
+  assert.throws(() => previewNativeInstallPlan({ ...plan, schemaVersion: 2 }), /schemaVersion/);
+  assert.throws(() => previewNativeInstallPlan({ ...plan, resources: undefined }), /resources/);
 });
