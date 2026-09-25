@@ -294,6 +294,27 @@ test("installs staged components only from a trusted signed release", async () =
   } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("component install endpoint rejects a release matrix envelope", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
+  const keyPair = crypto.generateKeyPairSync("ed25519");
+  const publicKey = keyPair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const app = await createApp({ dataDir, componentTrustKeys: [publicKey] });
+  try {
+    await app.inject({ method: "POST", url: "/api/bootstrap", payload: { username: "admin", password: "correct horse battery staple" } });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "admin", password: "correct horse battery staple" } });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/components/install",
+      headers: { cookie: login.headers["set-cookie"] },
+      payload: { schemaVersion: 1, componentId: "ffmpeg", version: "7.0.0", platforms: [currentPlatformKey()], releases: [] }
+    });
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("supports TOTP enrollment, second-factor login, and one-time recovery codes", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-core-"));
   const app = await createApp({ dataDir });
