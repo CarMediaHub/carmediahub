@@ -31,3 +31,24 @@ test("rejects an output inside the source tree", () => {
   const source = fixture();
   assert.throws(() => createNativeBundle(source, path.join(source, "bundle")), /output must be outside/);
 });
+
+test("accepts an explicit prepared runtime dependency tree", () => {
+  const source = fixture();
+  const runtime = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-runtime-"));
+  for (const relative of [
+    "fastify/package.json",
+    "@fastify/cookie/package.json",
+    "pg/package.json",
+    "@carmediahub/sdk/package.json",
+    "@carmediahub/sdk/dist/index.js"
+  ]) {
+    const location = path.join(runtime, relative);
+    fs.mkdirSync(path.dirname(location), { recursive: true });
+    fs.writeFileSync(location, "{}\n");
+  }
+  const output = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-output-"));
+  const result = createNativeBundle(source, path.join(output, "bundle"), { runtimeNodeModules: runtime });
+  assert.equal(result.files, 21);
+  assert.equal(fs.existsSync(path.join(output, "bundle/node_modules/fastify/package.json")), true);
+  fs.rmSync(runtime, { recursive: true, force: true });
+});
