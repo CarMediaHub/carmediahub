@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { spawn } from "node:child_process";
+import net from "node:net";
 
 const execFileAsync = promisify(execFile);
 
@@ -35,11 +36,27 @@ async function waitForLive(baseUrl, child, getStderr) {
   fail("liveness did not become ready");
 }
 
+export async function reserveLoopbackPort() {
+  const server = net.createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen({ host: "127.0.0.1", port: 0 }, resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    server.close();
+    fail("loopback port allocation returned an invalid address");
+  }
+  const port = address.port;
+  await new Promise((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error)));
+  return port;
+}
+
 export async function runNativeRecoverySmoke(bundleRoot) {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "cmh-native-recovery-data-"));
   const restoredDir = `${dataDir}-restored`;
   const snapshot = `${dataDir}-snapshot`;
-  const port = 18987;
+  const port = await reserveLoopbackPort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, [path.join(bundleRoot, "dist", "cli.js"), "--data-dir", dataDir, "--host", "127.0.0.1", "--port", String(port)], { cwd: bundleRoot, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   let stderr = "";
