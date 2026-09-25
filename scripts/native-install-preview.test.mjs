@@ -5,7 +5,7 @@ import { previewNativeInstallPlan } from "./native-install-preview.mjs";
 
 const plan = {
   schemaVersion: 1,
-  bundle: { files: 20, packageVersion: "0.1.0", databaseSchemaVersion: 1 },
+  bundle: { files: 22, packageVersion: "0.1.0", databaseSchemaVersion: 1 },
   resources: { bundleRoot: "/opt/carmediahub", configPath: "/etc/carmediahub/core.json", dataDir: "/var/lib/carmediahub", freeBytes: 4096, requiredFreeBytes: 1 },
   serviceAccount: "carmediahub",
   acl: [{ path: "/var/lib/carmediahub", access: "read-write" }],
