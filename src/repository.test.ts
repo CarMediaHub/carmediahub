@@ -29,6 +29,23 @@ test("managed component versions require health before activation and preserve r
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("rejects a syntactically valid plugin that targets an incompatible SDK range", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-sdk-range-"));
+  const database = openDatabase(dataDir);
+  try {
+    const repository = new Repository(database.db, ensureServerKey(dataDir));
+    repository.bootstrap("admin", "correct horse battery staple", "en");
+    const manifest = {
+      id: "sdk-range-plugin", version: "0.1.0", sdk: "^0.2.0",
+      name: { en: "SDK range", "zh-CN": "SDK 范围", ko: "SDK 범위" },
+      description: { en: "SDK range", "zh-CN": "SDK 范围", ko: "SDK 범위" },
+      category: "official", runtime: "isolated-worker", capabilities: ["history"],
+      routes: [{ path: "/", methods: ["GET"] }], worker: { entry: "./worker.js", protocol: "0.1" }
+    } as const;
+    assert.throws(() => repository.installPlugin(manifest), /incompatible/);
+  } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test("audit events are scoped to the administrator organization while retaining system events", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-audit-scope-"));
   const database = openDatabase(dataDir);

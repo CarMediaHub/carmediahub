@@ -6,6 +6,8 @@ Language: English · [简体中文](readme_zh.md) · [한국어](readme_ko.md)
 
 See the SDK and documentation repositories for plugin contracts, deployment and integration guidance.
 
+Core checks each plugin Manifest `sdk` range during installation and upgrade; an incompatible package never enters the runtime.
+
 ## Development
 
 This repository currently contains the v0 Core foundation: an explicit data directory, SQLite state, local bootstrap user, cookie session, application registry, revocable entry keys, managed-component records and service bindings.

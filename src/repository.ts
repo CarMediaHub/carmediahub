@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { decryptSecret, encryptSecret, generateTotpSecret, hashPassword, keyedHash, randomToken, verifyPassword, verifyTotp } from "./security.js";
-import type { BrowserSession, BrowserSessionRequest, BrowserTask, BrowserTaskKind, BrowserTaskRequest, BrowserTaskResult, CapabilityName, PluginManifest, ScopeContext } from "@carmediahub/sdk";
+import { isSdkRangeCompatible, type BrowserSession, type BrowserSessionRequest, type BrowserTask, type BrowserTaskKind, type BrowserTaskRequest, type BrowserTaskResult, type CapabilityName, type PluginManifest, type ScopeContext } from "@carmediahub/sdk";
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
@@ -403,6 +403,7 @@ export class Repository {
   }
 
   installPlugin(manifest: PluginManifest): PluginInstallationRecord {
+    if (!isSdkRangeCompatible(manifest.sdk)) throw new Error("Plugin SDK range is incompatible with Core");
     const installationId = id("plugin");
     const createdAt = now();
     const route = `/apps/${manifest.id}/${installationId}`;
@@ -444,6 +445,7 @@ export class Repository {
   }
 
   upgradePlugin(installationId: string, manifest: PluginManifest): PluginInstallationRecord | undefined {
+    if (!isSdkRangeCompatible(manifest.sdk)) return undefined;
     const current = this.pluginInstallation(installationId);
     if (current === undefined || current.status !== "installed" || current.packageId !== manifest.id || current.runtime !== manifest.runtime || current.packageVersion === manifest.version) return undefined;
     const verified = this.verifiedPluginPackage(manifest.id, manifest.version);

@@ -6,6 +6,8 @@ CarMediaHub Core 提供平台所需的自托管运行时、Agent、管理端、�
 
 插件契约、部署和集成说明请参阅 SDK 与文档仓库。
 
+插件 Manifest 的 `sdk` 范围会在安装和升级时与当前 SDK 契约版本校验；不兼容的包不会进入运行时。
+
 ## 本地开发
 
 ```powershell
