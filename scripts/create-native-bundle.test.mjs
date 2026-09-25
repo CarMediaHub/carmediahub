@@ -10,6 +10,7 @@ function fixture() {
   for (const relative of ["dist/cli.js", "public/admin/index.html", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/component-release.schema.json", "config/core.schema.json", "config/core.example.json", "node_modules/@carmediahub/sdk/dist/index.js"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
+  fs.writeFileSync(path.join(root, "config/native-install-plan.schema.json"), "{}\n");
   for (const relative of ["node_modules/@carmediahub/sdk/package.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
@@ -22,7 +23,7 @@ test("creates a validated bundle without instance configuration", () => {
   const source = fixture();
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-output-"));
   const result = createNativeBundle(source, path.join(output, "bundle"));
-  assert.deepEqual(result, { files: 19, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
+  assert.deepEqual(result, { files: 20, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
   assert.equal(fs.existsSync(path.join(output, "bundle/config/core.json")), false);
 });
 

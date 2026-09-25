@@ -38,7 +38,7 @@ export function createNativeBundle(sourceRoot, outputRoot) {
   if (relativeOutput === "" || (!relativeOutput.startsWith(".." + path.sep) && !path.isAbsolute(relativeOutput))) throw new Error("Native bundle output must be outside source");
   fs.mkdirSync(outputRoot, { recursive: true });
   const files = [
-    "dist", "public", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/component-release.schema.json",
+    "dist", "public", "scripts/upgrade-preflight.mjs", "scripts/native-install-plan.mjs", "scripts/native-install-actions.mjs", "scripts/native-windows-service.mjs", "scripts/native-linux-service.mjs", "scripts/validate-native-bundle.mjs", "config/components.json", "config/components.schema.json", "config/component-release.schema.json", "config/native-install-plan.schema.json",
     "config/core.schema.json", "config/core.example.json", "package.json", "node_modules"
   ];
   for (const relative of files) copy(required(sourceRoot, relative), path.join(outputRoot, relative));

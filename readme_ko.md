@@ -86,3 +86,5 @@ pnpm native-install-plan -- --platform <windows|linux> --bundle-root <bundle-roo
 계획에는 `sc.exe` 또는 systemd 사양과 번들/구성/데이터 디렉터리의 명시적 ACL 의도가 포함됩니다. 기본값은 관리자 권한이 아닌 서비스 계정(Windows `LocalService`, Linux `carmediahub`)이지만 계정을 만들거나 시스템 서비스를 등록하거나 배포 파일을 쓰지는 않습니다.
 
 향후 권한 있는 설치 프로그램이 계획을 소비하기 전에 Core가 직렬화된 작업 목록을 다시 검증합니다. 플랫폼별 Core 명령만 허용하고 위험한 인자 바이트를 거부하며 선언된 멱등성 모드를 확인하고 Linux systemd 유닛에만 stdin을 허용합니다. 이는 실행 경계이며 실제 Native 설치가 완료되었다는 증거가 아닙니다.
+
+Bundle에는 `config/native-install-plan.schema.json`도 포함되므로 외부 설치 프로그램이 권한 있는 작업을 실행하기 전에 계획 구조를 독립적으로 검증할 수 있습니다.
