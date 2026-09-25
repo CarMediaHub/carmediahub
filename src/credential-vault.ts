@@ -94,7 +94,8 @@ export class CredentialVault {
     try {
       const value = JSON.parse(fs.readFileSync(this.location, "utf8")) as unknown;
       if (!Array.isArray(value)) return [];
-      return value.filter((record): record is StoredCredential => typeof record === "object" && record !== null && typeof (record as StoredCredential).id === "string" && typeof (record as StoredCredential).value === "string" && ((record as StoredCredential).kind === "cookie" || (record as StoredCredential).kind === "authorization")).map((record) => ({ ...record, expiresAt: typeof record.expiresAt === "string" ? record.expiresAt : null, revokedAt: typeof record.revokedAt === "string" ? record.revokedAt : null }));
+      if (!value.every((record) => this.validStoredCredential(record))) throw new Error("Credential vault is invalid");
+      return value.map((record) => ({ ...(record as StoredCredential), expiresAt: typeof (record as StoredCredential).expiresAt === "string" ? (record as StoredCredential).expiresAt : null, revokedAt: typeof (record as StoredCredential).revokedAt === "string" ? (record as StoredCredential).revokedAt : null }));
     } catch {
       throw new Error("Credential vault is invalid");
     }
@@ -102,6 +103,18 @@ export class CredentialVault {
 
   private expired(record: CredentialRecord): boolean { return record.expiresAt !== null && Date.parse(record.expiresAt) <= Date.now(); }
   private validFutureExpiry(value: string): boolean { return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now(); }
+  private validStoredCredential(value: unknown): value is StoredCredential {
+    if (typeof value !== "object" || value === null) return false;
+    const record = value as Partial<StoredCredential>;
+    const safeText = (candidate: unknown, max: number) => typeof candidate === "string" && candidate.length > 0 && candidate.length <= max && !/[\u0000-\u001f\u007f]/u.test(candidate);
+    if (!safeText(record.id, 128) || !safeText(record.name, 80) || !safeText(record.organizationId, 128) || !safeText(record.userId, 128) || !safeText(record.installationId, 128) || !safeText(record.createdAt, 64) || !safeText(record.value, 100_000)) return false;
+    if (record.kind !== "cookie" && record.kind !== "authorization") return false;
+    if (typeof record.createdAt !== "string" || !Number.isFinite(Date.parse(record.createdAt))) return false;
+    if (record.revokedAt !== null && record.revokedAt !== undefined && (typeof record.revokedAt !== "string" || !safeText(record.revokedAt, 64) || !Number.isFinite(Date.parse(record.revokedAt)))) return false;
+    if (record.expiresAt !== undefined && record.expiresAt !== null && (typeof record.expiresAt !== "string" || !this.canonicalTimestamp(record.expiresAt))) return false;
+    return true;
+  }
+  private canonicalTimestamp(value: unknown): value is string { return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) && Number.isFinite(Date.parse(value)); }
 
   private persist(records = this.records): void {
     const temporary = `${this.location}.${crypto.randomUUID()}.tmp`;
