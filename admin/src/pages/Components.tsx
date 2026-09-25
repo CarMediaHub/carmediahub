@@ -6,7 +6,7 @@ import { AdminShell } from "../navigation";
 
 type Component = { id: string; version: string; installed_at: string; health: string; verified: number };
 type ComponentVersion = { component_id: string; version: string; installed_at: string; health: string; active: number; verified: number };
-type CatalogComponent = { id: string; displayName: string; kind: string; version: string; executable: string; platforms: string[]; status: string };
+type CatalogComponent = { id: string; displayName: string; kind: string; version: string; platforms: string[]; status: string };
 type Installation = { id: string; packageId: string; packageVersion: string; runtime: string; status: "installed" | "disabled" | "uninstalled"; createdAt: string };
 type Binding = { id: string; component_id: string; name: string; installation_id: string | null; created_at: string };
 type BindingGrant = { bindingId: string; name: string; scope: "global" | "installation"; installationId: string | null; authorizedInstallations: string[] };
