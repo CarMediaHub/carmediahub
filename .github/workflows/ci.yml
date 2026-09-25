@@ -25,6 +25,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: carmediahub_ci
+          MYSQL_USER: carmediahub_ci
+          MYSQL_PASSWORD: carmediahub_ci_password
+          MYSQL_ROOT_PASSWORD: carmediahub_ci_root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u carmediahub_ci -pcarmediahub_ci_password"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -56,6 +70,8 @@ jobs:
       - run: pnpm test:component-release
       - name: Exercise the explicit PostgreSQL adapter fixture
         run: pnpm test:postgres -- --connection-string "postgresql://carmediahub_ci:carmediahub_ci_password@127.0.0.1:5432/carmediahub_ci"
+      - name: Exercise the explicit MySQL adapter fixture
+        run: pnpm test:mysql:service -- --host 127.0.0.1 --port 3306 --user carmediahub_ci --password carmediahub_ci_password --database carmediahub_ci
       - run: pnpm build:admin
       - name: Generate CycloneDX SBOM
         run: pnpm run sbom -- "$RUNNER_TEMP/carmediahub-core.cdx.json"

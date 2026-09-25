@@ -31,6 +31,7 @@
     "test:component-release": "node --test scripts/prepare-component-release.test.mjs",
     "test:postgres": "node scripts/postgres-smoke.mjs",
     "test:mysql": "node --import tsx --test src/mysql-data-service.test.ts",
+    "test:mysql:service": "node scripts/mysql-smoke.mjs",
     "test:native-install-plan": "node --test scripts/native-install-plan.test.mjs",
     "test:native-bundle": "node --test scripts/validate-native-bundle.test.mjs",
     "test:native-service": "node --test scripts/native-windows-service.test.mjs",
