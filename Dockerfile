@@ -6,13 +6,13 @@ COPY carmediahub-sdk/src ./carmediahub-sdk/src
 COPY carmediahub-sdk/spec ./carmediahub-sdk/spec
 COPY carmediahub/package.json carmediahub/pnpm-lock.yaml carmediahub/tsconfig.json ./carmediahub/
 COPY carmediahub/pnpm-workspace.yaml ./carmediahub/
+COPY carmediahub/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY carmediahub/src ./carmediahub/src
 COPY carmediahub/config/components.json carmediahub/config/components.schema.json carmediahub/config/component-release.schema.json carmediahub/config/core.schema.json carmediahub/config/core.example.json ./carmediahub/config/
 COPY carmediahub/public ./carmediahub/public
 COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub/admin/tsconfig.json carmediahub/admin/.umirc.ts ./carmediahub/admin/
 COPY carmediahub/admin/src ./carmediahub/admin/src
 RUN npm install --global pnpm@11.19.0 \
-  && printf '%s\n' 'only-built-dependencies[]=esbuild' > /root/.npmrc \
   && pnpm --dir carmediahub-sdk install --frozen-lockfile \
   && pnpm --dir carmediahub-sdk build \
   && pnpm --dir carmediahub install --frozen-lockfile \
