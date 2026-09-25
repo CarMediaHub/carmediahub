@@ -1299,6 +1299,22 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.code(204).send();
   });
 
+  app.post("/api/keys/:id/rotate", async (request, reply) => {
+    const user = await requireAdmin(request, reply);
+    if (user === undefined) return undefined;
+    try {
+      const input = body<{ expiresAt?: unknown }>(request);
+      if (input.expiresAt !== undefined && input.expiresAt !== null && typeof input.expiresAt !== "string") throw new Error("Invalid entry key expiry");
+      const keyId = (request.params as { id: string }).id;
+      const rotated = repository.rotateEntryKey(keyId, user.id, input.expiresAt as string | null | undefined);
+      if (rotated === undefined) return reply.code(404).send({ code: "CMH.ENTRY_KEY.NOT_FOUND", messageKey: "errors.entryKey.notFound" });
+      repository.audit(user.id, "entryKey.rotated", rotated.id);
+      return reply.code(201).send(rotated);
+    } catch {
+      return reply.code(400).send({ code: "CMH.ENTRY_KEY.INVALID", messageKey: "errors.entryKey.invalid" });
+    }
+  });
+
   app.get("/k/:key", async (request, reply) => {
     const subject = entrySubject(request);
     if (repository.rateLimited(subject)) return reply.code(429).send({ code: "CMH.ENTRY_KEY.RATE_LIMITED", messageKey: "errors.entryKey.rateLimited" });

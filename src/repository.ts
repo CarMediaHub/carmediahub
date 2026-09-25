@@ -634,6 +634,30 @@ export class Repository {
     return result.changes === 1;
   }
 
+  rotateEntryKey(keyId: string, userId: string, expiresAt?: string | null): { id: string; key: string } | undefined {
+    if (expiresAt !== undefined && expiresAt !== null) {
+      const parsed = Date.parse(expiresAt);
+      if (!Number.isFinite(parsed) || parsed <= Date.now() || new Date(parsed).toISOString() !== expiresAt) throw new Error("Invalid entry key expiry");
+    }
+    const current = this.db.prepare("SELECT application_id FROM entry_keys WHERE id = ? AND user_id = ? AND revoked_at IS NULL").get(keyId, userId) as { application_id: string } | undefined;
+    if (current === undefined) return undefined;
+    const key = randomToken();
+    const replacementId = id("key");
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const timestamp = now();
+      const revoked = this.db.prepare("UPDATE entry_keys SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL").run(timestamp, keyId, userId);
+      if (revoked.changes !== 1) { this.db.exec("ROLLBACK"); return undefined; }
+      this.db.prepare("INSERT INTO entry_keys (id, key_hash, application_id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(replacementId, keyedHash(key, this.serverKey), current.application_id, userId, expiresAt ?? null, timestamp);
+      this.db.exec("COMMIT");
+      return { id: replacementId, key };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   entryKeys(userId: string): EntryKeyRecord[] {
     return (this.db.prepare(`SELECT k.id, k.application_id, a.name AS application_name, a.route,
       k.expires_at, k.revoked_at, k.created_at

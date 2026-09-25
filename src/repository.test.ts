@@ -96,6 +96,29 @@ test("entry key expiry requires a future canonical UTC timestamp", () => {
   } finally { database.close(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+test("entry key rotation revokes the old secret atomically and remains user scoped", () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-entry-key-rotation-"));
+  const database = openDatabase(dataDir);
+  const repository = new Repository(database.db, ensureServerKey(dataDir));
+  const admin = repository.bootstrap("admin", "correct horse battery staple", "en");
+  const member = repository.createUser({ organizationId: admin.organizationId, username: "member", password: "correct horse battery staple", role: "member", locale: "en" });
+  const application = repository.applications().find((item) => item.route === "/system");
+  assert.ok(application);
+  try {
+    const issued = repository.createEntryKey(application.id, admin.id);
+    const rotated = repository.rotateEntryKey(issued.id, admin.id, new Date(Date.now() + 60_000).toISOString());
+    assert.ok(rotated);
+    assert.notEqual(rotated.key, issued.key);
+    assert.equal(repository.resolveEntryKey(issued.key), undefined);
+    assert.equal(repository.resolveEntryKey(rotated.key)?.application.id, application.id);
+    assert.equal(repository.rotateEntryKey(rotated.id, member.id), undefined);
+    assert.equal(repository.rotateEntryKey(issued.id, admin.id), undefined);
+  } finally {
+    database.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("application registration rejects missing or inactive plugin installations", () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-application-scope-"));
   const database = openDatabase(dataDir);

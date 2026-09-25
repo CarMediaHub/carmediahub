@@ -239,9 +239,17 @@ test("bootstraps, authenticates, creates a key, and revokes it", async () => {
     assert.equal(resolved.statusCode, 302);
     assert.equal(resolved.headers.location, "/system");
     assert.match(String(resolved.headers["set-cookie"]), /cmh_entry=/);
+    const rotated = await app.inject({ method: "POST", url: `/api/keys/${issued.id}/rotate`, headers: { cookie }, payload: {} });
+    assert.equal(rotated.statusCode, 201);
+    const replacement = rotated.json() as { id: string; key: string };
+    assert.notEqual(replacement.key, issued.key);
+    assert.equal((await app.inject({ method: "GET", url: `/k/${issued.key}` })).statusCode, 404);
+    assert.equal((await app.inject({ method: "GET", url: `/k/${replacement.key}` })).statusCode, 302);
     const revoke = await app.inject({ method: "POST", url: `/api/keys/${issued.id}/revoke`, headers: { cookie } });
-    assert.equal(revoke.statusCode, 204);
-    const revoked = await app.inject({ method: "GET", url: `/k/${issued.key}`, headers: { cookie } });
+    assert.equal(revoke.statusCode, 404);
+    const revokeReplacement = await app.inject({ method: "POST", url: `/api/keys/${replacement.id}/revoke`, headers: { cookie } });
+    assert.equal(revokeReplacement.statusCode, 204);
+    const revoked = await app.inject({ method: "GET", url: `/k/${replacement.key}`, headers: { cookie } });
     assert.equal(revoked.statusCode, 404);
   } finally {
     await app.close();
