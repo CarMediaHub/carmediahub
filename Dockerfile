@@ -9,7 +9,13 @@ COPY carmediahub/config/components.json carmediahub/config/components.schema.jso
 COPY carmediahub/public ./carmediahub/public
 COPY carmediahub/admin/package.json carmediahub/admin/pnpm-lock.yaml carmediahub/admin/tsconfig.json carmediahub/admin/.umirc.ts ./carmediahub/admin/
 COPY carmediahub/admin/src ./carmediahub/admin/src
-RUN corepack enable && pnpm --dir carmediahub-sdk install --frozen-lockfile && pnpm --dir carmediahub-sdk build && pnpm --dir carmediahub install --frozen-lockfile && pnpm --dir carmediahub/admin install --frozen-lockfile && pnpm --dir carmediahub build && pnpm --dir carmediahub build:admin
+RUN npm install --global pnpm@11.19.0 \
+  && pnpm --dir carmediahub-sdk install --frozen-lockfile \
+  && pnpm --dir carmediahub-sdk build \
+  && pnpm --dir carmediahub install --frozen-lockfile \
+  && pnpm --dir carmediahub/admin install --frozen-lockfile \
+  && pnpm --dir carmediahub build \
+  && pnpm --dir carmediahub build:admin
 
 FROM node:22-bookworm-slim
 WORKDIR /app
