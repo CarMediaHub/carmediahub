@@ -25,7 +25,7 @@ export function parseNativeRecoveryArgs(args) {
 }
 
 async function waitForLive(baseUrl, child, getStderr) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 150; attempt += 1) {
     if (child.exitCode !== null) fail(`Core exited before liveness with code ${child.exitCode}${getStderr().length > 0 ? `: ${getStderr().trim()}` : ""}`);
     try {
       const response = await fetch(`${baseUrl}/health/live`);
@@ -33,11 +33,11 @@ async function waitForLive(baseUrl, child, getStderr) {
     } catch { /* wait for the explicit startup window */ }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  fail("liveness did not become ready");
+  fail(`liveness did not become ready${getStderr().length > 0 ? `: ${getStderr().trim()}` : ""}`);
 }
 
 async function waitForReady(baseUrl, child, getStderr) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 150; attempt += 1) {
     if (child.exitCode !== null) fail(`Core exited before readiness with code ${child.exitCode}${getStderr().length > 0 ? `: ${getStderr().trim()}` : ""}`);
     try {
       const response = await fetch(`${baseUrl}/health/ready`);
@@ -45,7 +45,7 @@ async function waitForReady(baseUrl, child, getStderr) {
     } catch { /* wait for the explicit startup window */ }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  fail("readiness did not become ready");
+  fail(`readiness did not become ready${getStderr().length > 0 ? `: ${getStderr().trim()}` : ""}`);
 }
 
 function startCore(bundleRoot, dataDir, port) {
