@@ -1,0 +1,46 @@
+.cmh-admin-shell,
+.cmh-admin-shell .ant-pro-layout,
+.cmh-admin-shell .ant-pro-layout-container,
+.cmh-admin-shell .ant-pro-layout-content {
+  min-width: 0;
+}
+
+.cmh-admin-shell .ant-pro-layout-header {
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .cmh-admin-shell .ant-pro-layout-sider,
+  .cmh-admin-shell .ant-layout-sider {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    overflow: visible;
+  }
+
+  .cmh-admin-shell .ant-pro-layout-sider .ant-layout-sider-children,
+  .cmh-admin-shell .ant-layout-sider .ant-layout-sider-children {
+    width: 0;
+    overflow: hidden;
+  }
+
+  .cmh-admin-shell .ant-pro-layout-container {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+
+  .cmh-admin-shell .ant-pro-layout-content {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .cmh-admin-shell .ant-pro-layout-header {
+    padding-inline: 12px;
+  }
+
+  .cmh-admin-shell .ant-pro-layout-header-actions {
+    max-width: calc(100vw - 72px);
+    overflow-x: auto;
+  }
+}

@@ -3,6 +3,7 @@ import { ProLayout } from "@ant-design/pro-components";
 import { Button } from "antd";
 import type { ReactNode } from "react";
 import { useAdminI18n, type Translator } from "./i18n";
+import "./admin-shell.css";
 
 type RouteLike = { path: string; name?: string; icon?: ReactNode };
 
@@ -58,5 +59,5 @@ export function adminRoutes(t: Translator): RouteLike[] {
 export function AdminShell({ pathname, children }: { pathname: string; children: ReactNode }) {
   const { t } = useAdminI18n();
   const logout = async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/admin/login"; };
-  return <ProLayout title="CarMediaHub" logo={false} route={{ routes: adminRoutes(t) }} location={{ pathname }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={() => void logout()}>{t("nav.signOut")}</Button>]}>{children}</ProLayout>;
+  return <ProLayout className="cmh-admin-shell" title="CarMediaHub" logo={false} route={{ routes: adminRoutes(t) }} location={{ pathname }} menuItemRender={(item, dom) => <a href={item.path}>{dom}</a>} actionsRender={() => [<Button key="logout" icon={<LogoutOutlined />} onClick={() => void logout()}>{t("nav.signOut")}</Button>]}>{children}</ProLayout>;
 }
