@@ -5,12 +5,13 @@
   "description": "Machine-readable dry-run plan. It describes intended actions and never authorizes their execution.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["platform", "bundle", "resources", "service", "serviceAccount", "acl", "actions"],
+  "required": ["schemaVersion", "platform", "bundle", "resources", "service", "serviceAccount", "acl", "actions"],
   "allOf": [
     { "if": { "properties": { "platform": { "const": "windows" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/windowsService" } } } },
     { "if": { "properties": { "platform": { "const": "linux" } } }, "then": { "properties": { "service": { "$ref": "#/$defs/linuxService" } } } }
   ],
   "properties": {
+    "schemaVersion": { "const": 1 },
     "platform": { "enum": ["windows", "linux"] },
     "bundle": { "$ref": "#/$defs/bundle" },
     "resources": { "$ref": "#/$defs/resources" },
