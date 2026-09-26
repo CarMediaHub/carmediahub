@@ -14,6 +14,13 @@ test("assembles a complete matrix from signed records", () => {
   assert.equal(matrix.releases.length, 2);
 });
 
+test("assembly can enforce the Core catalog platform set", () => {
+  const catalog = { components: [{ id: "ffmpeg", platforms: ["linux-x64", "windows-x64"] }] };
+  const matrix = assembleComponentReleaseMatrix({ componentId: "ffmpeg", version: "7.0.0", platforms: ["linux-x64", "windows-x64"], releases: [release("linux-x64"), release("windows-x64")], catalog });
+  assert.equal(matrix.componentId, "ffmpeg");
+  assert.throws(() => assembleComponentReleaseMatrix({ componentId: "ffmpeg", version: "7.0.0", platforms: ["linux-x64"], releases: [release("linux-x64")], catalog }), /do not match catalog/u);
+});
+
 test("CLI rejects missing platforms and existing output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-assemble-"));
   try {
