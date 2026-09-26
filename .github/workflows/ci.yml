@@ -224,6 +224,7 @@ jobs:
         run: Set-Content -LiteralPath ..\carmediahub-sdk\pnpm-workspace.yaml -Value "onlyBuiltDependencies:`n  - esbuild`n" -Encoding utf8
       - run: pnpm --dir ..\carmediahub-sdk install --frozen-lockfile --ignore-scripts
       - run: pnpm --dir ..\carmediahub-sdk check
+      - run: pnpm --dir ..\carmediahub-sdk build
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm check
       - run: pnpm test:native-service
