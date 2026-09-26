@@ -11,6 +11,18 @@ test("normalizes public component checksum notation for internal runners", () =>
   assert.equal(normalizeComponentChecksum("b".repeat(64)), "b".repeat(64));
 });
 
+test("component schema preserves catalog and installation metadata constraints", () => {
+  const schema = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../config/components.schema.json"), "utf8")) as { properties?: { components?: { items?: { allOf?: Array<{ if?: { properties?: { status?: { const?: string; enum?: string[] } } }; then?: { properties?: { version?: { const?: string; pattern?: string }; sha256?: { const?: null; type?: string; pattern?: string } } } }> } } } };
+  const branches = schema.properties?.components?.items?.allOf ?? [];
+  assert.equal(branches.length, 2);
+  assert.equal(branches[0]?.if?.properties?.status?.const, "catalog-only");
+  assert.equal(branches[0]?.then?.properties?.version?.const, "not-installed");
+  assert.equal(branches[0]?.then?.properties?.sha256?.const, null);
+  assert.deepEqual(branches[1]?.if?.properties?.status?.enum, ["installed", "unhealthy", "disabled"]);
+  assert.equal(branches[1]?.then?.properties?.version?.pattern, "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$");
+  assert.equal(branches[1]?.then?.properties?.sha256?.pattern, "^[a-f0-9]{64}$");
+});
+
 test("loads the built-in component catalog without environment discovery", () => {
   const catalog = loadComponentCatalog(path.resolve(import.meta.dirname, ".."));
   assert.deepEqual(catalog.map((item) => item.id), ["alist", "rclone", "ffmpeg", "sevenzip", "mihomo", "chromium"]);
