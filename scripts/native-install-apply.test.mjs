@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { applyNativeInstallPlan, assertWindowsAdministrator } from "./native-install-apply.mjs";
+import { createNativeInstallActions } from "./native-install-actions.mjs";
 
 const plan = {
   schemaVersion: 1,
@@ -26,6 +27,40 @@ const plan = {
   ],
 };
 
+const windowsPlan = (() => {
+  const resources = {
+    bundleRoot: "C:/Program Files/CarMediaHub",
+    configPath: "C:/ProgramData/CarMediaHub/core.json",
+    dataDir: "C:/ProgramData/CarMediaHub/data",
+  };
+  const service = {
+    serviceName: "CarMediaHubCore",
+    createArguments: [
+      "create",
+      "CarMediaHubCore",
+      "binPath= C:\\Program Files\\CarMediaHub\\node.exe",
+      "start= auto",
+      "DisplayName= CarMediaHub Core",
+      "obj= \"NT AUTHORITY\\LocalService\"",
+    ],
+    descriptionArguments: ["description", "CarMediaHubCore", "CarMediaHub Core"],
+  };
+  return {
+    schemaVersion: 1,
+    platform: "windows",
+    bundle: { files: 1 },
+    resources,
+    service,
+    serviceAccount: "NT AUTHORITY\\LocalService",
+    acl: [
+      { path: resources.bundleRoot, access: "read-execute" },
+      { path: resources.configPath, access: "read-only" },
+      { path: resources.dataDir, access: "read-write" },
+    ],
+    actions: createNativeInstallActions({ platform: "windows", resources, service, serviceAccount: "NT AUTHORITY\\LocalService" }),
+  };
+})();
+
 test("previews a plan by default and never invokes an action", () => {
   let called = false;
   const result = applyNativeInstallPlan(plan, { execute: () => { called = true; } });
@@ -41,6 +76,20 @@ test("requires a separate confirmation for actual application", () => {
 test("requires elevated Windows privileges before applying", () => {
   assert.equal(assertWindowsAdministrator({ probe: () => ({ status: 0 }) }), true);
   assert.throws(() => assertWindowsAdministrator({ probe: () => ({ status: 1 }) }), /elevated administrator/u);
+});
+
+test("rejects a non-elevated Windows apply before executing ACL or service actions", () => {
+  let executed = 0;
+  assert.throws(
+    () => applyNativeInstallPlan(windowsPlan, {
+      apply: true,
+      confirm: "CARMEDIAHUB_APPLY",
+      windowsPrivilegeProbe: () => ({ status: 1 }),
+      execute: () => { executed += 1; throw new Error("must not execute"); },
+    }),
+    /elevated administrator/u,
+  );
+  assert.equal(executed, 0);
 });
 
 test("rejects an action list without a complete Core plan envelope", () => {
