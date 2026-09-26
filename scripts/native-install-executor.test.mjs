@@ -33,6 +33,23 @@ test("skips matching ensure targets and executes missing actions without a shell
   assert.equal(calls[0]?.executable, "/usr/bin/install");
 });
 
+test("stages Linux unit stdin for Node process execution", () => {
+  let staged;
+  executeNativeInstallActions(linuxActions, "linux", {
+    apply: true,
+    inspectEnsure: () => "matching",
+    execute: (executable, args, stdin) => {
+      if (executable === "/usr/bin/install" && args.includes("/etc/systemd/system/carmediahub-core.service")) {
+        staged = { args, stdin };
+      }
+      return { status: 0 };
+    },
+  });
+  assert.equal(staged?.stdin, undefined);
+  const source = staged?.args.find((value) => value.includes("carmediahub-native-"));
+  assert.equal(typeof source, "string");
+});
+
 test("rejects an ensure target whose existing properties differ", () => {
   assert.throws(() => executeNativeInstallActions(linuxActions, "linux", { apply: true, inspectEnsure: () => "mismatch", execute: () => ({ status: 0 }) }), /does not match/);
 });

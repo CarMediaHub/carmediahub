@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { validateNativeInstallActions } from "./native-install-actions.mjs";
@@ -67,8 +69,19 @@ export function executeNativeInstallActions(actions, platform, options = {}) {
         continue;
       }
     }
+    let staging;
     try {
-      const result = execute(executable, item.args, item.stdin);
+      // Linux install(1) cannot reliably reopen /dev/stdin from Node's
+      // spawnSync pipe on WSL. Keep the public action contract unchanged,
+      // but stage the already-validated unit text in a private temp file.
+      let executionArgs = item.args;
+      if (item.stdin !== undefined) {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "carmediahub-native-"));
+        staging = path.join(directory, "stdin");
+        fs.writeFileSync(staging, item.stdin, { encoding: "utf8", mode: 0o600, flag: "wx" });
+        executionArgs = item.args.map((value) => value === "/dev/stdin" ? staging : value);
+      }
+      const result = execute(executable, executionArgs, undefined);
       executed.push({ command: item.command, executable, args: [...item.args], applied: true, idempotency: item.idempotency, result });
     } catch (error) {
       const appliedActions = executed.filter((entry) => entry.applied);
@@ -108,6 +121,10 @@ export function executeNativeInstallActions(actions, platform, options = {}) {
         compensation,
         cause: error,
       });
+    } finally {
+      if (staging !== undefined) {
+        fs.rmSync(path.dirname(staging), { recursive: true, force: true });
+      }
     }
   }
   return { platform, applied: apply, actions: executed };
