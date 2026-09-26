@@ -11,7 +11,7 @@ function fixture() {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
   fs.writeFileSync(path.join(root, "config/native-install-plan.schema.json"), "{}\n");
-  for (const relative of ["node_modules/@carmediahub/sdk/package.json", "node_modules/fastify/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json"]) {
+  for (const relative of ["node_modules/@carmediahub/sdk/package.json", "node_modules/fastify/package.json", "node_modules/avvio/package.json", "node_modules/@fastify/cookie/package.json", "node_modules/pg/package.json"]) {
     const location = path.join(root, relative); fs.mkdirSync(path.dirname(location), { recursive: true }); fs.writeFileSync(location, "{}\n");
   }
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", private: true, version: "0.1.0", carmediahub: { databaseSchemaVersion: 1 } }));
@@ -23,7 +23,7 @@ test("creates a validated bundle without instance configuration", () => {
   const source = fixture();
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-output-"));
   const result = createNativeBundle(source, path.join(output, "bundle"));
-  assert.deepEqual(result, { files: 25, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
+  assert.deepEqual(result, { files: 26, packageVersion: "0.1.0", databaseSchemaVersion: 1 });
   assert.equal(fs.existsSync(path.join(output, "bundle/config/core.json")), false);
 });
 
@@ -37,6 +37,7 @@ test("accepts an explicit prepared runtime dependency tree", () => {
   const runtime = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-runtime-"));
   for (const relative of [
     "fastify/package.json",
+    "avvio/package.json",
     "@fastify/cookie/package.json",
     "pg/package.json",
     "@carmediahub/sdk/package.json",
@@ -48,7 +49,7 @@ test("accepts an explicit prepared runtime dependency tree", () => {
   }
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "cmh-native-output-"));
   const result = createNativeBundle(source, path.join(output, "bundle"), { runtimeNodeModules: runtime });
-  assert.equal(result.files, 25);
+  assert.equal(result.files, 26);
   assert.equal(fs.existsSync(path.join(output, "bundle/node_modules/fastify/package.json")), true);
   fs.rmSync(runtime, { recursive: true, force: true });
 });
