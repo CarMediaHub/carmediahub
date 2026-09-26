@@ -136,6 +136,64 @@ jobs:
       - name: Build the Docker image from the sibling SDK checkout
         working-directory: ..
         run: docker build --tag carmediahub/core:ci --file carmediahub/Dockerfile .
+      - name: Exercise the explicit Docker backup migration helper
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_name="cmh-migrate-source-ci"
+          target_name="cmh-migrate-target-ci"
+          source_volume="cmh-migrate-source-data-ci"
+          target_volume="cmh-migrate-target-data-ci"
+          snapshot_dir="$RUNNER_TEMP/cmh-migrate-snapshot"
+          cleanup() {
+            status=$?
+            docker rm --force "$source_name" "$target_name" >/dev/null 2>&1 || true
+            docker volume rm "$source_volume" "$target_volume" >/dev/null 2>&1 || true
+            rm -rf "$snapshot_dir"
+            exit "$status"
+          }
+          trap cleanup EXIT
+          rm -rf "$snapshot_dir"
+          docker run --detach --name "$source_name" \
+            --publish 127.0.0.1:8789:8787 \
+            --volume "$source_volume:/var/lib/carmediahub" \
+            --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges:true \
+            carmediahub/core:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8789/health/live >/dev/null; then break; fi
+            sleep 2
+          done
+          bootstrap_status=$(curl --silent --show-error --request POST \
+            --header 'content-type: application/json' \
+            --data '{"username":"ci-migrate-admin","password":"correct horse battery staple","locale":"en"}' \
+            --output /dev/null --write-out '%{http_code}' \
+            http://127.0.0.1:8789/api/bootstrap)
+          test "$bootstrap_status" = 201
+          node scripts/docker-backup-migrate.mjs export \
+            --docker /usr/bin/docker --container "$source_name" --output "$snapshot_dir"
+          docker rm --force "$source_name" >/dev/null
+          docker volume rm "$source_volume" >/dev/null
+          node scripts/docker-backup-migrate.mjs restore \
+            --docker /usr/bin/docker --container "$target_name" --image carmediahub/core:ci \
+            --volume "$target_volume" --snapshot "$snapshot_dir"
+          docker run --detach --name "$target_name" \
+            --publish 127.0.0.1:8789:8787 \
+            --volume "$target_volume:/var/lib/carmediahub" \
+            --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges:true \
+            carmediahub/core:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8789/health/ready >/dev/null; then break; fi
+            sleep 2
+          done
+          login_status=$(curl --silent --show-error --request POST \
+            --header 'content-type: application/json' \
+            --data '{"username":"ci-migrate-admin","password":"correct horse battery staple"}' \
+            --output /dev/null --write-out '%{http_code}' \
+            http://127.0.0.1:8789/api/auth/login)
+          test "$login_status" = 200
       - name: Start a hardened Core container
         working-directory: ..
         shell: bash
