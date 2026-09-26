@@ -17,6 +17,7 @@ test("Supervisor starts only registered factories and reclaims idle workers", as
     issueCredential: () => "short-lived-credential",
     installation: (id) => id === "plugin_one" ? { packageId: "trusted-package", status: "installed" } : undefined,
     idleTimeoutMs: 1,
+    stableRunMs: 0,
     schedule: (callback) => { const token = ++nextTimer; pending.set(token, callback); return token; },
     cancel: (token) => pending.delete(token as number)
   });
@@ -44,6 +45,7 @@ test("Supervisor retries crashes with bounded backoff and disables stopped insta
     issueCredential: () => "credential",
     installation: () => ({ packageId: "trusted-package", status: "installed" }),
     maxRestartAttempts: 1,
+    stableRunMs: 0,
     schedule: (callback, delay) => { pending.push({ callback, delay }); return pending.length; },
     cancel: () => undefined
   });
@@ -150,4 +152,32 @@ test("Supervisor runs one isolated Worker per user scope", async () => {
   assert.deepEqual(started.sort(), ["user", "user-two"]);
   await supervisor.stop("plugin_one");
   assert.equal(supervisor.status("plugin_one").state, "stopped");
+});
+
+test("Supervisor resets consecutive crash attempts after a stable run", async () => {
+  const pending: Array<{ callback: () => void; delay: number }> = [];
+  let crash: ((error: Error) => void) | undefined;
+  let starts = 0;
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "trusted-package", status: "installed" }),
+    maxRestartAttempts: 1,
+    stableRunMs: 5_000,
+    schedule: (callback, delay) => { pending.push({ callback, delay }); return pending.length; },
+    cancel: () => undefined,
+  });
+  supervisor.register({ packageId: "trusted-package", async start() { starts += 1; return { stop() {}, onCrash(listener) { crash = listener; } }; } });
+  await supervisor.start("plugin_one", scope);
+  crash!(new Error("first exit"));
+  const restart = pending.find((item) => item.delay === 1_000)?.callback;
+  assert.ok(restart);
+  restart!();
+  await new Promise((resolve) => setImmediate(resolve));
+  const stable = pending.find((item) => item.delay === 5_000)?.callback;
+  assert.ok(stable);
+  stable!();
+  crash!(new Error("later exit"));
+  assert.equal(supervisor.status("plugin_one").state, "backoff");
+  assert.equal(starts, 2);
 });

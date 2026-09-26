@@ -26,6 +26,8 @@ export interface WorkerSupervisorOptions {
   installation(installationId: string): { packageId: string; packageVersion?: string; status: "installed" | "disabled" | "uninstalled" } | undefined;
   idleTimeoutMs?: number;
   maxRestartAttempts?: number;
+  /** Reset the consecutive crash count after a worker stays healthy. Set to 0 to disable. */
+  stableRunMs?: number;
   schedule?(callback: () => void, delayMs: number): unknown;
   cancel?(handle: unknown): void;
 }
@@ -35,6 +37,7 @@ interface ManagedWorker {
   handle?: WorkerHandle | undefined;
   idleTimer?: unknown | undefined;
   restartTimer?: unknown | undefined;
+  stableTimer?: unknown | undefined;
   attempts: number;
   lastError?: string | undefined;
 }
@@ -108,6 +111,7 @@ export class WorkerSupervisor {
         if (this.workers.get(key)?.handle !== handle) return;
         this.crashed(key, installationId, scope, error);
       });
+      this.scheduleStableReset(key, worker);
       this.touchIdle(key);
       return this.status(installationId);
     } catch (error) {
@@ -122,6 +126,7 @@ export class WorkerSupervisor {
       if (worker === undefined) continue;
       this.clearIdle(worker);
       this.clearRestart(worker);
+      this.clearStable(worker);
       const handle = worker.handle;
       worker.handle = undefined;
       worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "stopped";
@@ -137,6 +142,7 @@ export class WorkerSupervisor {
       if (worker === undefined) continue;
       this.clearIdle(worker);
       this.clearRestart(worker);
+      this.clearStable(worker);
       const handle = worker.handle;
       worker.handle = undefined;
       worker.state = "disabled";
@@ -189,10 +195,35 @@ export class WorkerSupervisor {
     worker.restartTimer = undefined;
   }
 
+  private scheduleStableReset(key: string, worker: ManagedWorker): void {
+    this.clearStable(worker);
+    const stableRunMs = this.options.stableRunMs ?? 60_000;
+    if (stableRunMs <= 0 || worker.attempts === 0) return;
+    const schedule = this.options.schedule ?? setTimeout;
+    const stableTimer = schedule(() => {
+      const current = this.workers.get(key);
+      if (current !== worker || worker.state !== "running") return;
+      worker.stableTimer = undefined;
+      worker.attempts = 0;
+    }, stableRunMs);
+    if (this.options.schedule === undefined && typeof stableTimer === "object" && stableTimer !== null && "unref" in stableTimer && typeof stableTimer.unref === "function") {
+      stableTimer.unref();
+    }
+    worker.stableTimer = stableTimer;
+  }
+
+  private clearStable(worker: ManagedWorker): void {
+    if (worker.stableTimer === undefined) return;
+    if (this.options.cancel !== undefined) this.options.cancel(worker.stableTimer);
+    else clearTimeout(worker.stableTimer as NodeJS.Timeout);
+    worker.stableTimer = undefined;
+  }
+
   private crashed(key: string, installationId: string, scope: RuntimeCredentialScope, error: Error): WorkerStatus {
     const worker = this.workers.get(key) ?? { state: "failed", attempts: 0 };
     this.clearIdle(worker);
     this.clearRestart(worker);
+    this.clearStable(worker);
     worker.handle = undefined;
     worker.attempts += 1;
     worker.lastError = error.message;
