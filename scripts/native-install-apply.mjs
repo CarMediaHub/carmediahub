@@ -19,6 +19,15 @@ function run(executable, args) {
   return { status: result.status, stdout: String(result.stdout ?? ""), stderr: String(result.stderr ?? "") };
 }
 
+const windowsPrivilegeProbe = "C:\\Windows\\System32\\fltmc.exe";
+
+export function assertWindowsAdministrator(options = {}) {
+  const probe = options.probe ?? (() => run(windowsPrivilegeProbe, []));
+  const result = probe();
+  if (result?.status !== 0) fail("Windows Native apply requires an elevated administrator session");
+  return true;
+}
+
 function createEnsureInspector(platform) {
   if (platform === "windows") {
     return (item, executable) => {
@@ -69,6 +78,7 @@ if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLTo
   try {
     const input = parse(process.argv.slice(2));
     const plan = JSON.parse(fs.readFileSync(input.planPath, "utf8"));
+    if (input.apply && plan.platform === "windows") assertWindowsAdministrator();
     const result = applyNativeInstallPlan(plan, input.apply ? { apply: true, confirm: input.confirm } : {});
     console.log(JSON.stringify({ plan: input.planPath, ...result }));
   } catch (error) {

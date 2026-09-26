@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { applyNativeInstallPlan } from "./native-install-apply.mjs";
+import { applyNativeInstallPlan, assertWindowsAdministrator } from "./native-install-apply.mjs";
 
 const plan = {
   schemaVersion: 1,
@@ -36,6 +36,11 @@ test("previews a plan by default and never invokes an action", () => {
 
 test("requires a separate confirmation for actual application", () => {
   assert.throws(() => applyNativeInstallPlan(plan, { apply: true }), /CARMEDIAHUB_APPLY/u);
+});
+
+test("requires elevated Windows privileges before applying", () => {
+  assert.equal(assertWindowsAdministrator({ probe: () => ({ status: 0 }) }), true);
+  assert.throws(() => assertWindowsAdministrator({ probe: () => ({ status: 1 }) }), /elevated administrator/u);
 });
 
 test("rejects an action list without a complete Core plan envelope", () => {
