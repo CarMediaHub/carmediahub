@@ -118,6 +118,10 @@ test("rejects malformed managed component catalog metadata", () => {
     assert.throws(() => loadComponentCatalog(root), /incompatible with kind/);
     fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, kind: "service", provides: ["browser-engine"] }] }));
     assert.equal(loadComponentCatalog(root)[0]?.provides[0], "browser-engine");
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, status: "installed", version: "not-installed", sha256: null }] }));
+    assert.throws(() => loadComponentCatalog(root), /metadata does not match status/);
+    fs.writeFileSync(path.join(root, "config", "components.json"), JSON.stringify({ schemaVersion: 1, components: [{ ...valid, status: "catalog-only", version: "1.0.0", sha256: "a".repeat(64) }] }));
+    assert.throws(() => loadComponentCatalog(root), /metadata does not match status/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

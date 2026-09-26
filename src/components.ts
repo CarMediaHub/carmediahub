@@ -55,6 +55,8 @@ export function loadComponentCatalog(projectRoot: string): readonly ComponentCat
     if (component.version !== "not-installed" && !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(component.version)) throw new Error(`Invalid component version: ${component.id}`);
     if (component.sha256 !== null && !/^[a-f0-9]{64}$/u.test(component.sha256)) throw new Error(`Invalid component checksum: ${component.id}`);
     if (!["catalog-only", "installed", "unhealthy", "disabled"].includes(component.status)) throw new Error(`Invalid component status: ${component.id}`);
+    const installedState = component.status !== "catalog-only";
+    if (installedState !== (component.version !== "not-installed" && component.sha256 !== null)) throw new Error(`Component installation metadata does not match status: ${component.id}`);
     if (!Array.isArray(component.provides) || component.provides.length === 0 || new Set(component.provides).size !== component.provides.length || component.provides.some((role) => !["storage-service", "webdav", "media-processing", "archive", "network-egress", "browser-engine"].includes(role))) throw new Error(`Invalid component roles: ${component.id}`);
     if (component.provides.some((role) => !rolesByKind[component.kind].includes(role))) throw new Error(`Component role is incompatible with kind: ${component.id}`);
   }
