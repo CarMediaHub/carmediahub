@@ -1,9 +1,8 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { chromium } from "playwright-core";
-import { loadComponentCatalog } from "../src/components.js";
+import { computeInstalledComponentDigest, loadComponentCatalog } from "../src/components.js";
 import { startBrowserWorker } from "../src/browser-worker-driver.js";
 import { BrowserTargetRegistry } from "../src/browser-target-registry.js";
 
@@ -35,7 +34,7 @@ async function main(): Promise<void> {
   fs.cpSync(path.dirname(options.runtimeExecutable), componentDir, { recursive: true, force: false });
   const executableName = path.basename(options.runtimeExecutable);
   const managedExecutable = path.join(componentDir, executableName);
-  const checksum = crypto.createHash("sha256").update(fs.readFileSync(managedExecutable)).digest("hex");
+  const checksum = computeInstalledComponentDigest(options.dataDir, { id: "chromium", version: "1.0.0", executable: `chromium/1.0.0/${executableName}` });
   const registry = new BrowserTargetRegistry();
   registry.register({ id: "example", origins: ["https://example.com"] });
   let worker: Awaited<ReturnType<typeof startBrowserWorker>> | undefined;
