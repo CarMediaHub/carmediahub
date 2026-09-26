@@ -82,7 +82,7 @@ pnpm start -- --data-dir .\data --public-url https://hub.example.com
 docker compose -f carmediahub/compose.yaml up --build
 ```
 
-当前 Compose 配置只运行 Core，并使用受管的 SQLite 数据卷。PostgreSQL 目前是正在接入的显式 Core 适配器，尚未由此 Compose 文件启动或要求。
+当前 Compose 配置只运行 Core，并使用受管的 SQLite 数据卷。Core 已提供 PostgreSQL 和 MySQL 的插件逻辑数据适配器，但本 Compose 文件尚未提供完整的替代后端部署 profile；这些适配器仍必须在目标环境中显式配置并执行 smoke 测试。
 
 Compose 端口刻意只绑定到 `127.0.0.1`，其 Core 命令要求使用 Secure Cookie。请通过运营者管理的反向代理终止 TLS 并公开服务。其他生产启动方式可传入 `--public-url https://hub.example.com` 或 `--cookie-secure`。
 

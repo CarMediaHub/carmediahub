@@ -40,7 +40,7 @@ Docker development deployment (from the parent `CarMediaHub` directory):
 docker compose -f carmediahub/compose.yaml up --build
 ```
 
-The current Compose profile runs Core with its managed SQLite state volume. PostgreSQL support is an explicit Core adapter under development and is not started or required by this Compose file yet.
+The current Compose profile runs Core with its managed SQLite state volume. Core also ships explicit PostgreSQL and MySQL adapters for plugin logical data, but a full alternative-backend deployment profile is not part of this Compose file yet; those adapters must be configured and smoke-tested in the target environment.
 
 Native deployments may use a JSON configuration file at `config/core.json` (or pass `--config <path>`). Copy `config/core.example.json` as a starting point and use `config/core.schema.json` for editor/install-tool validation. The file accepts only `dataDir`, `host`, `port`, `publicUrl` and `cookieSecure`; command-line options override file values, and unknown or invalid fields stop startup. Do not put passwords, cookies, tokens or database credentials in this file. The default file is optional; an explicitly supplied `--config` path must exist.
 
