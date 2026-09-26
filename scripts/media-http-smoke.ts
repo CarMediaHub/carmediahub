@@ -9,6 +9,7 @@ import { canonicalPluginManifest } from "../src/plugin-release.js";
 import { openDatabase } from "../src/database.js";
 import { Repository } from "../src/repository.js";
 import { runManagedComponent } from "../src/managed-component-runner.js";
+import { computeInstalledComponentDigest } from "../src/components.js";
 
 type Options = { ffmpeg: string; keep: boolean };
 
@@ -24,12 +25,6 @@ function parseArgs(argv: readonly string[]): Options {
   }
   if (ffmpeg === "") throw new Error("Usage: pnpm smoke:media-http -- --ffmpeg <ffmpeg> [--keep]");
   return { ffmpeg: path.resolve(ffmpeg), keep };
-}
-
-async function sha256(location: string): Promise<string> {
-  const hash = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(location)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
 }
 
 function run(command: string, args: readonly string[]): void {
@@ -51,7 +46,7 @@ async function main(): Promise<void> {
       if (entry.isFile() && entry.name.toLowerCase().endsWith(".dll")) await fsp.copyFile(path.join(path.dirname(options.ffmpeg), entry.name), path.join(componentDirectory, entry.name));
     }
   }
-  const componentChecksum = await sha256(componentExecutable);
+  const componentChecksum = computeInstalledComponentDigest(dataDir, { id: "ffmpeg", version: "1.0.0", executable: `ffmpeg/1.0.0/${process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"}` });
   const sourcePath = path.join(mediaRoot, "smoke.mp4");
   run(options.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=320x180:r=8", "-t", "1", "-pix_fmt", "yuv420p", sourcePath]);
 
