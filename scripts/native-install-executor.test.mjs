@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { executeNativeInstallActions, NativeInstallExecutionError } from "./native-install-executor.mjs";
 import { createNativeInstallActions } from "./native-install-actions.mjs";
@@ -40,14 +41,16 @@ test("stages Linux unit stdin for Node process execution", () => {
     inspectEnsure: () => "matching",
     execute: (executable, args, stdin) => {
       if (executable === "/usr/bin/install" && args.includes("/etc/systemd/system/carmediahub-core.service")) {
-        staged = { args, stdin };
+        const source = args.find((value) => value.includes("carmediahub-native-"));
+        staged = { args, stdin, source, content: source === undefined ? undefined : fs.readFileSync(source, "utf8") };
       }
       return { status: 0 };
     },
   });
   assert.equal(staged?.stdin, undefined);
-  const source = staged?.args.find((value) => value.includes("carmediahub-native-"));
-  assert.equal(typeof source, "string");
+  assert.equal(typeof staged?.source, "string");
+  assert.equal(staged?.content, linuxActions[3]?.stdin);
+  assert.equal(fs.existsSync(staged?.source ?? ""), false);
 });
 
 test("rejects an ensure target whose existing properties differ", () => {
