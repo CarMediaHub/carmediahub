@@ -28,16 +28,18 @@ export interface WorkerSupervisorOptions {
   maxRestartAttempts?: number;
   /** Reset the consecutive crash count after a worker stays healthy. Set to 0 to disable. */
   stableRunMs?: number;
+  /** Maximum concurrently starting/running Workers for one installation. */
+  maxActiveWorkersPerInstallation?: number;
   onEvent?(event: WorkerSupervisorEvent): void;
   schedule?(callback: () => void, delayMs: number): unknown;
   cancel?(handle: unknown): void;
 }
 
 export interface WorkerSupervisorEvent {
-  type: "worker.crashed" | "worker.failed";
+  type: "worker.crashed" | "worker.failed" | "worker.quota_exceeded";
   installationId: string;
   attempts: number;
-  diagnostic: "worker_crashed" | "worker_failed";
+  diagnostic: "worker_crashed" | "worker_failed" | "worker_quota_exceeded";
 }
 
 interface ManagedWorker {
@@ -100,6 +102,14 @@ export class WorkerSupervisor {
     if (current?.state === "running" || current?.state === "starting") {
       this.touchIdle(key);
       return this.status(installationId);
+    }
+    const active = [...this.workers.entries()].filter(([candidateKey, candidate]) => candidateKey === installationId || candidateKey.startsWith(`${installationId}:`)).filter(([, candidate]) => candidate.state === "starting" || candidate.state === "running").length;
+    const maximumActive = this.options.maxActiveWorkersPerInstallation ?? 16;
+    if (active >= maximumActive) {
+      const rejected: ManagedWorker = { state: "failed", attempts: current?.attempts ?? 0, lastError: "Worker capacity exceeded" };
+      this.workers.set(key, rejected);
+      this.emit({ type: "worker.quota_exceeded", installationId, attempts: rejected.attempts, diagnostic: "worker_quota_exceeded" });
+      return { installationId, state: "failed", attempts: rejected.attempts, ...(rejected.lastError === undefined ? {} : { lastError: rejected.lastError }) };
     }
     const worker: ManagedWorker = { state: "starting", attempts: current?.attempts ?? 0 };
     this.workers.set(key, worker);

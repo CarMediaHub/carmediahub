@@ -208,3 +208,24 @@ test("Supervisor emits redacted crash and circuit-breaker events", async () => {
   assert.deepEqual(events[1], { type: "worker.failed", installationId: "plugin_one", attempts: 2, diagnostic: "worker_failed" });
   assert.equal(JSON.stringify(events).includes("sensitive"), false);
 });
+
+test("Supervisor bounds active Workers per installation and reopens a slot after stop", async () => {
+  const started: string[] = [];
+  const events: string[] = [];
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "trusted-package", status: "installed" }),
+    maxActiveWorkersPerInstallation: 1,
+    onEvent: (event) => events.push(event.type),
+  });
+  supervisor.register({ packageId: "trusted-package", async start(input) { started.push(input.scope.userId); return { stop() {} }; } });
+  await supervisor.start("plugin_one", scope);
+  const rejected = await supervisor.start("plugin_one", { ...scope, userId: "user-two", sessionId: "session-two" });
+  assert.equal(rejected.state, "failed");
+  assert.deepEqual(events, ["worker.quota_exceeded"]);
+  assert.deepEqual(started, ["user"]);
+  await supervisor.stop("plugin_one");
+  assert.equal((await supervisor.start("plugin_one", { ...scope, userId: "user-two", sessionId: "session-two" })).state, "running");
+  assert.deepEqual(started, ["user", "user-two"]);
+});
