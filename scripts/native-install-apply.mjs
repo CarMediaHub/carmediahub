@@ -66,6 +66,7 @@ export function applyNativeInstallPlan(plan, options = {}) {
   validateNativeInstallActions(plan.actions, plan.platform);
   const apply = options.apply === true;
   if (apply && options.confirm !== "CARMEDIAHUB_APPLY") fail("--apply requires explicit confirmation CARMEDIAHUB_APPLY");
+  if (apply && plan.platform === "windows") assertWindowsAdministrator({ probe: options.windowsPrivilegeProbe });
   return executeNativeInstallActions(plan.actions, plan.platform, {
     apply,
     ...(apply ? { inspectEnsure: options.inspectEnsure ?? createEnsureInspector(plan.platform) } : {}),
@@ -78,7 +79,6 @@ if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLTo
   try {
     const input = parse(process.argv.slice(2));
     const plan = JSON.parse(fs.readFileSync(input.planPath, "utf8"));
-    if (input.apply && plan.platform === "windows") assertWindowsAdministrator();
     const result = applyNativeInstallPlan(plan, input.apply ? { apply: true, confirm: input.confirm } : {});
     console.log(JSON.stringify({ plan: input.planPath, ...result }));
   } catch (error) {
