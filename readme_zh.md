@@ -127,4 +127,7 @@ Bundle 还包含 `config/native-install-plan.schema.json`，外部安装器可�
 ```powershell
 pnpm native-install-apply -- --plan <plan.json>
 pnpm native-install-apply -- --plan <plan.json> --apply --confirm CARMEDIAHUB_APPLY
+pnpm native-install-verify -- --plan <plan.json>
 ```
+
+`native-install-verify` 只读检查显式 apply 后的计划服务身份、精确 Linux systemd 单元或 Windows 服务配置，以及启用/运行状态。检查失败代表部署漂移，不会据此自动覆盖已有服务。

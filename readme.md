@@ -123,7 +123,10 @@ The bundle also includes `config/native-install-plan.schema.json`, so an externa
 ```powershell
 pnpm native-install-apply -- --plan <plan.json>
 pnpm native-install-apply -- --plan <plan.json> --apply --confirm CARMEDIAHUB_APPLY
+pnpm native-install-verify -- --plan <plan.json>
 ```
+
+`native-install-verify` is read-only. It checks the planned service identity, exact Linux systemd unit or Windows service configuration, and enabled/running state after an explicit apply. A failed check is deployment drift, not a reason to overwrite an existing service automatically.
 
 For an HTTPS reverse-proxy deployment, pass the public address explicitly so session and entry cookies receive the `Secure` attribute:
 
