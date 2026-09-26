@@ -15,7 +15,7 @@ function requireString(value, label, pattern) {
   return value;
 }
 
-export function validateComponentReleaseMatrix(matrix) {
+export function validateComponentReleaseMatrix(matrix, options = {}) {
   if (matrix === null || typeof matrix !== "object" || Array.isArray(matrix)) fail("matrix must be an object");
   if (matrix.schemaVersion !== 1) fail("unsupported schemaVersion");
   const componentId = requireString(matrix.componentId, "componentId", identifier);
@@ -41,18 +41,32 @@ export function validateComponentReleaseMatrix(matrix) {
     seen.add(releasePlatform);
     if (release.provenance === undefined || typeof release.provenance !== "object" || !/^https:\/\//u.test(release.provenance.sourceUrl ?? "") || typeof release.provenance.licenseSpdx !== "string") fail(`release ${index} provenance is incomplete`);
   }
+  if (options.catalog !== undefined) {
+    if (options.catalog === null || typeof options.catalog !== "object" || !Array.isArray(options.catalog.components)) fail("catalog is invalid");
+    const component = options.catalog.components.find((item) => item?.id === componentId);
+    if (component === undefined) fail(`component is not declared in catalog: ${componentId}`);
+    if (!Array.isArray(component.platforms) || component.platforms.length !== expected.size || component.platforms.some((item) => !expected.has(item))) fail(`platforms do not match catalog for ${componentId}`);
+  }
   return { componentId, version, platforms: [...seen].sort() };
 }
 
 function parse(args) {
-  if (args.length !== 2 || args[0] !== "--matrix") fail("usage: validate-component-release-matrix --matrix <path>");
-  return args[1];
+  const values = new Map();
+  for (let index = 0; index < args.length; index += 2) {
+    const key = args[index]; const value = args[index + 1];
+    if (!["--matrix", "--catalog"].includes(key) || value === undefined || value.startsWith("--")) fail("usage: validate-component-release-matrix --matrix <path> [--catalog <path>]");
+    values.set(key, value);
+  }
+  if (!values.has("--matrix")) fail("usage: validate-component-release-matrix --matrix <path> [--catalog <path>]");
+  return values;
 }
 
 if (process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const matrix = JSON.parse(fs.readFileSync(path.resolve(parse(process.argv.slice(2).filter((value) => value !== "--"))), "utf8"));
-    process.stdout.write(`${JSON.stringify(validateComponentReleaseMatrix(matrix))}\n`);
+    const values = parse(process.argv.slice(2).filter((value) => value !== "--"));
+    const matrix = JSON.parse(fs.readFileSync(path.resolve(values.get("--matrix")), "utf8"));
+    const catalog = values.has("--catalog") ? JSON.parse(fs.readFileSync(path.resolve(values.get("--catalog")), "utf8")) : undefined;
+    process.stdout.write(`${JSON.stringify(validateComponentReleaseMatrix(matrix, { catalog }))}\n`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Component release matrix validation failed");
     process.exitCode = 1;

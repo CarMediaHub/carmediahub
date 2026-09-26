@@ -35,3 +35,11 @@ test("CLI validates a matrix without reading PATH or environment configuration",
     assert.match(result.stdout, /linux-x64/u);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("optional catalog validation binds component identity and platforms", () => {
+  const matrix = { schemaVersion: 1, componentId: "ffmpeg", version: "7.0.0", platforms: ["windows-x64", "linux-x64", "linux-arm64"], releases: [release("windows-x64"), release("linux-x64"), release("linux-arm64")] };
+  const catalog = { components: [{ id: "ffmpeg", platforms: ["windows-x64", "linux-x64", "linux-arm64"] }] };
+  assert.deepEqual(validateComponentReleaseMatrix(matrix, { catalog }).componentId, "ffmpeg");
+  assert.throws(() => validateComponentReleaseMatrix(matrix, { catalog: { components: [{ id: "other", platforms: matrix.platforms }] } }), /not declared in catalog/u);
+  assert.throws(() => validateComponentReleaseMatrix(matrix, { catalog: { components: [{ id: "ffmpeg", platforms: ["linux-x64"] }] } }), /do not match catalog/u);
+});
