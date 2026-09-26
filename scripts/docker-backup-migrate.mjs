@@ -66,12 +66,17 @@ function ensureNewDirectory(target, label) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
 }
 
+export function createMigrationHelperName(container, operation) {
+  if (!namePattern.test(container) || !["backup", "restore"].includes(operation)) fail("migration helper identity is invalid");
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+  return `${container}-${operation}-${suffix}`;
+}
+
 export function exportDockerBackup({ dockerPath, container, output }) {
   ensureNewDirectory(output, "output directory");
   const image = dockerOutput(dockerPath, ["inspect", "--format", "{{.Config.Image}}", container]);
   if (image.length === 0) fail("source container does not expose an image");
-  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
-  const helper = `${container}-backup-${suffix}`;
+  const helper = createMigrationHelperName(container, "backup");
   const backupVolume = `${container}-backup-data-${suffix}`;
   let volumeCreated = false;
   try {
@@ -94,7 +99,7 @@ export function exportDockerBackup({ dockerPath, container, output }) {
 export function restoreDockerBackup({ dockerPath, container, image, volume, snapshot }) {
   const snapshotStat = fs.existsSync(snapshot) ? fs.lstatSync(snapshot) : undefined;
   if (snapshotStat === undefined || !snapshotStat.isDirectory() || snapshotStat.isSymbolicLink()) fail("snapshot must be a real directory");
-  const helper = `${container}-restore`;
+  const helper = createMigrationHelperName(container, "restore");
   if (dockerExists(dockerPath, ["volume", "inspect", volume])) fail(`restore volume already exists: ${volume}`);
   docker(dockerPath, ["volume", "create", volume]);
   let restored = false;
