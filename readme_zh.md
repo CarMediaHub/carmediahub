@@ -93,6 +93,8 @@ pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
 
+使用 Docker 时，不要让非 root Core 容器直接把快照写入宿主 bind mount，也不要恢复到已经被容器初始化过的数据目录。应由运维者先在容器可写的暂存位置生成快照并导出，再恢复到新的空目录或数据卷，验证后才启动 Core，并保留原卷用于回滚。仓库目前还没有跨平台 Docker 备份迁移助手。
+
 更换 Native 部署包前，请使用显式且已校验的快照执行只读升级预检：
 
 ```powershell

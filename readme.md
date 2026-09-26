@@ -89,6 +89,8 @@ pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
 
+For Docker, do not write the snapshot directly to a host bind mount from the non-root Core container, and do not restore into a data directory that the container has already initialized. Export a snapshot from a writable operator-controlled staging path, restore it into a new empty data directory or volume, verify it before starting Core, and keep the original volume for rollback. The repository does not yet provide a cross-platform Docker backup migration helper.
+
 Before changing a Native bundle, run the read-only upgrade preflight with an explicit, verified snapshot:
 
 ```powershell

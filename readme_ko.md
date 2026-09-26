@@ -87,6 +87,8 @@ pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
 
+Docker에서는 non-root Core 컨테이너가 호스트 bind mount에 직접 스냅샷을 쓰게 하지 말고, 컨테이너가 이미 초기화한 데이터 디렉터리에 복구하지 마세요. 운영자가 관리하는 쓰기 가능한 staging 위치에서 스냅샷을 만든 뒤 내보내고, 새 빈 디렉터리 또는 데이터 볼륨에 복구한 다음 검증 후 Core를 시작하며 원래 볼륨은 롤백용으로 보존해야 합니다. 저장소에는 아직 플랫폼 간 Docker 백업 마이그레이션 도구가 없습니다.
+
 Native 번들을 변경하기 전에 명시적이고 검증된 스냅샷으로 읽기 전용 업그레이드 사전 검사를 실행하세요.
 
 ```powershell
