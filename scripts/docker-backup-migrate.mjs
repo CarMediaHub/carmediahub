@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -56,6 +57,10 @@ function dockerExists(dockerPath, args) {
   return result.status === 0;
 }
 
+function dockerOutput(dockerPath, args) {
+  return docker(dockerPath, args).stdout.trim();
+}
+
 function ensureNewDirectory(target, label) {
   if (fs.existsSync(target)) fail(`${label} must not already exist: ${target}`);
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -63,12 +68,25 @@ function ensureNewDirectory(target, label) {
 
 export function exportDockerBackup({ dockerPath, container, output }) {
   ensureNewDirectory(output, "output directory");
+  const image = dockerOutput(dockerPath, ["inspect", "--format", "{{.Config.Image}}", container]);
+  if (image.length === 0) fail("source container does not expose an image");
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+  const helper = `${container}-backup-${suffix}`;
+  const backupVolume = `${container}-backup-data-${suffix}`;
+  let volumeCreated = false;
   try {
-    docker(dockerPath, ["exec", container, "node", "dist/backup-cli.js", "backup", "--data-dir", "/var/lib/carmediahub", "--output", "/tmp/cmh-backup"]);
-    docker(dockerPath, ["cp", `${container}:/tmp/cmh-backup`, output]);
+    docker(dockerPath, ["volume", "create", backupVolume]);
+    volumeCreated = true;
+    docker(dockerPath, ["create", "--name", helper, "--user", "0:0", "--volumes-from", `${container}:ro`, "--volume", `${backupVolume}:/var/lib/cmh-backup`, "--entrypoint", "/bin/sh", image, "-c", "while :; do sleep 3600; done"]);
+    docker(dockerPath, ["start", helper]);
+    docker(dockerPath, ["exec", helper, "node", "dist/backup-cli.js", "backup", "--data-dir", "/var/lib/carmediahub", "--output", "/var/lib/cmh-backup/cmh-backup"]);
+    docker(dockerPath, ["cp", `${helper}:/var/lib/cmh-backup/cmh-backup`, output]);
   } catch (error) {
     fs.rmSync(output, { recursive: true, force: true });
     throw error;
+  } finally {
+    if (dockerExists(dockerPath, ["container", "inspect", helper])) docker(dockerPath, ["rm", "-f", helper]);
+    if (volumeCreated && dockerExists(dockerPath, ["volume", "inspect", backupVolume])) docker(dockerPath, ["volume", "rm", backupVolume]);
   }
   return { action: "export", container, output };
 }
@@ -81,11 +99,12 @@ export function restoreDockerBackup({ dockerPath, container, image, volume, snap
   docker(dockerPath, ["volume", "create", volume]);
   let restored = false;
   try {
-    docker(dockerPath, ["create", "--name", helper, "--entrypoint", "/bin/sh", "-v", `${volume}:/var/lib/carmediahub`, image, "-c", "while :; do sleep 3600; done"]);
+    docker(dockerPath, ["create", "--name", helper, "--user", "0:0", "--entrypoint", "/bin/sh", "-v", `${volume}:/var/lib/carmediahub`, image, "-c", "while :; do sleep 3600; done"]);
     docker(dockerPath, ["start", helper]);
     docker(dockerPath, ["cp", snapshot, `${helper}:/tmp/cmh-snapshot`]);
     docker(dockerPath, ["exec", helper, "node", "dist/backup-cli.js", "restore", "--snapshot", "/tmp/cmh-snapshot", "--data-dir", "/tmp/cmh-restored-data"]);
     docker(dockerPath, ["exec", helper, "cp", "-a", "/tmp/cmh-restored-data/.", "/var/lib/carmediahub/"]);
+    docker(dockerPath, ["exec", helper, "chown", "-R", "10001:10001", "/var/lib/carmediahub"]);
     restored = true;
   } finally {
     if (dockerExists(dockerPath, ["container", "inspect", helper])) docker(dockerPath, ["rm", "-f", helper]);
