@@ -91,6 +91,10 @@ async function main(): Promise<void> {
     await desktopPage.getByPlaceholder("搜索媒体").waitFor({ state: "visible", timeout: 10_000 });
     await desktopPage.getByRole("button", { name: "播放" }).waitFor({ state: "visible", timeout: 10_000 });
     if (await desktopPage.locator(".media-item").count() !== 1) throw new Error("Desktop WDR library did not render exactly one media item");
+    await desktopPage.getByRole("button", { name: "播放" }).click();
+    await desktopPage.getByRole("button", { name: "全屏" }).waitFor({ state: "visible", timeout: 10_000 });
+    const fullscreenControl = await desktopPage.getByRole("button", { name: "全屏" }).isVisible();
+    await desktopPage.getByRole("button", { name: "关闭" }).click();
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
     await mobile.addCookies([{ name: cookieName!, value: cookieValue!, url: baseUrl }]);
     const mobilePage = await mobile.newPage();
@@ -99,7 +103,7 @@ async function main(): Promise<void> {
     const columns = await mobilePage.locator(".library").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
     if (columns !== 2) throw new Error(`Mobile WDR library expected two columns, received ${columns}`);
     if (failures.length > 0) throw new Error(`WDR UI page errors: ${failures.join("; ")}`);
-    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, mobileColumns: columns, silent: true }, null, 2));
+    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, fullscreenControl, mobileColumns: columns, silent: true }, null, 2));
     await desktop.close();
     await mobile.close();
   } finally {
