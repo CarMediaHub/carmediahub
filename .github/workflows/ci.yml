@@ -132,6 +132,7 @@ jobs:
       - run: pnpm test:native-install-executor
       - run: pnpm test:native-install-preview
       - run: pnpm test:native-install-apply
+      - run: pnpm test:native-install-verify
       - run: pnpm test:native-install-plan
       - name: Build the Docker image from the sibling SDK checkout
         working-directory: ..
@@ -291,4 +292,5 @@ jobs:
       - run: pnpm test:native-install-executor
       - run: pnpm test:native-install-preview
       - run: pnpm test:native-install-apply
+      - run: pnpm test:native-install-verify
       - run: pnpm test:native-install-plan
