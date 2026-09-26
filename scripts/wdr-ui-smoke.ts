@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     const appUrl = `${baseUrl}/apps/wdr-media/${installationId}`;
     const [cookieName, cookieValue] = cookie.split("=", 2);
     browser = await chromium.launch({ executablePath: options.executable, headless: true, args: ["--mute-audio"], env: {} });
-    const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 }, extraHTTPHeaders: { "x-cmh-device-class": "vehicle", "x-cmh-input": "touch", "x-cmh-fullscreen": "true", "x-cmh-viewport-width": "1280", "x-cmh-viewport-height": "800" } });
     await desktop.addCookies([{ name: cookieName!, value: cookieValue!, url: baseUrl }]);
     const desktopPage = await desktop.newPage();
     const failures: string[] = [];
@@ -94,6 +94,8 @@ async function main(): Promise<void> {
     await desktopPage.getByRole("button", { name: "播放" }).click();
     await desktopPage.getByRole("button", { name: "全屏" }).waitFor({ state: "visible", timeout: 10_000 });
     const fullscreenControl = await desktopPage.getByRole("button", { name: "全屏" }).isVisible();
+    const fullscreenEnabled = await desktopPage.getByRole("button", { name: "全屏" }).isEnabled();
+    if (!fullscreenEnabled) throw new Error("Vehicle WDR fullscreen control remained disabled");
     await desktopPage.getByRole("button", { name: "关闭" }).click();
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
     await mobile.addCookies([{ name: cookieName!, value: cookieValue!, url: baseUrl }]);
@@ -103,7 +105,7 @@ async function main(): Promise<void> {
     const columns = await mobilePage.locator(".library").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
     if (columns !== 2) throw new Error(`Mobile WDR library expected two columns, received ${columns}`);
     if (failures.length > 0) throw new Error(`WDR UI page errors: ${failures.join("; ")}`);
-    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, fullscreenControl, mobileColumns: columns, silent: true }, null, 2));
+    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, fullscreenControl, fullscreenEnabled, mobileColumns: columns, silent: true }, null, 2));
     await desktop.close();
     await mobile.close();
   } finally {
