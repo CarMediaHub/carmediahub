@@ -405,6 +405,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   const supervisor = new WorkerSupervisor({
     endpoint: runtimeBroker.endpoint,
     issueCredential: (scope) => runtimeBroker.issueCredential(scope),
+    onEvent: (event) => repository.audit(undefined, `plugin.${event.type}`, `${event.installationId}:${event.attempts}:${event.diagnostic}`),
     installation: (installationId) => {
       const installation = repository.pluginInstallation(installationId);
       return installation === undefined ? undefined : { packageId: installation.packageId, packageVersion: installation.packageVersion, status: installation.status };

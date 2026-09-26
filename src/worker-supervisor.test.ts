@@ -181,3 +181,30 @@ test("Supervisor resets consecutive crash attempts after a stable run", async ()
   assert.equal(supervisor.status("plugin_one").state, "backoff");
   assert.equal(starts, 2);
 });
+
+test("Supervisor emits redacted crash and circuit-breaker events", async () => {
+  const events: Array<{ type: string; installationId: string; attempts: number; diagnostic: string }> = [];
+  const pending: Array<{ callback: () => void; delay: number }> = [];
+  let crash: ((error: Error) => void) | undefined;
+  const supervisor = new WorkerSupervisor({
+    endpoint: "local-endpoint",
+    issueCredential: () => "credential",
+    installation: () => ({ packageId: "trusted-package", status: "installed" }),
+    maxRestartAttempts: 1,
+    stableRunMs: 0,
+    onEvent: (event) => events.push(event),
+    schedule: (callback, delay) => { pending.push({ callback, delay }); return pending.length; },
+    cancel: () => undefined,
+  });
+  supervisor.register({ packageId: "trusted-package", async start() { return { stop() {}, onCrash(listener) { crash = listener; } }; } });
+  await supervisor.start("plugin_one", scope);
+  crash!(new Error("sensitive upstream URL and token"));
+  assert.deepEqual(events, [{ type: "worker.crashed", installationId: "plugin_one", attempts: 1, diagnostic: "worker_crashed" }]);
+  const restart = pending.find((item) => item.delay === 1_000)?.callback;
+  assert.ok(restart);
+  restart!();
+  await new Promise((resolve) => setImmediate(resolve));
+  crash!(new Error("another sensitive value"));
+  assert.deepEqual(events[1], { type: "worker.failed", installationId: "plugin_one", attempts: 2, diagnostic: "worker_failed" });
+  assert.equal(JSON.stringify(events).includes("sensitive"), false);
+});

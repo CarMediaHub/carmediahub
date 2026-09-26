@@ -28,8 +28,16 @@ export interface WorkerSupervisorOptions {
   maxRestartAttempts?: number;
   /** Reset the consecutive crash count after a worker stays healthy. Set to 0 to disable. */
   stableRunMs?: number;
+  onEvent?(event: WorkerSupervisorEvent): void;
   schedule?(callback: () => void, delayMs: number): unknown;
   cancel?(handle: unknown): void;
+}
+
+export interface WorkerSupervisorEvent {
+  type: "worker.crashed" | "worker.failed";
+  installationId: string;
+  attempts: number;
+  diagnostic: "worker_crashed" | "worker_failed";
 }
 
 interface ManagedWorker {
@@ -231,10 +239,12 @@ export class WorkerSupervisor {
     if (worker.attempts > maximum || this.options.installation(installationId)?.status !== "installed") {
       worker.state = this.options.installation(installationId)?.status === "disabled" || this.options.installation(installationId)?.status === "uninstalled" ? "disabled" : "failed";
       this.workers.set(key, worker);
+      if (worker.state === "failed") this.emit({ type: "worker.failed", installationId, attempts: worker.attempts, diagnostic: "worker_failed" });
       return this.status(installationId);
     }
     worker.state = "backoff";
     this.workers.set(key, worker);
+    this.emit({ type: "worker.crashed", installationId, attempts: worker.attempts, diagnostic: "worker_crashed" });
     const delay = Math.min(1_000 * 2 ** (worker.attempts - 1), 30_000);
     const schedule = this.options.schedule ?? setTimeout;
     worker.restartTimer = schedule(() => {
@@ -243,5 +253,13 @@ export class WorkerSupervisor {
       void this.start(installationId, scope);
     }, delay);
     return this.status(installationId);
+  }
+
+  private emit(event: WorkerSupervisorEvent): void {
+    try {
+      this.options.onEvent?.(event);
+    } catch {
+      // Observability failures must not change Worker lifecycle or restart behavior.
+    }
   }
 }
