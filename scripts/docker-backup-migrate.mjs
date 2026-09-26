@@ -59,8 +59,13 @@ function ensureNewDirectory(target, label) {
 
 export function exportDockerBackup({ dockerPath, container, output }) {
   ensureNewDirectory(output, "output directory");
-  docker(dockerPath, ["exec", container, "node", "dist/backup-cli.js", "backup", "--data-dir", "/var/lib/carmediahub", "--output", "/tmp/cmh-backup"]);
-  docker(dockerPath, ["cp", `${container}:/tmp/cmh-backup`, output]);
+  try {
+    docker(dockerPath, ["exec", container, "node", "dist/backup-cli.js", "backup", "--data-dir", "/var/lib/carmediahub", "--output", "/tmp/cmh-backup"]);
+    docker(dockerPath, ["cp", `${container}:/tmp/cmh-backup`, output]);
+  } catch (error) {
+    fs.rmSync(output, { recursive: true, force: true });
+    throw error;
+  }
   return { action: "export", container, output };
 }
 
@@ -69,14 +74,17 @@ export function restoreDockerBackup({ dockerPath, container, image, volume, snap
   const helper = `${container}-restore`;
   if (dockerExists(dockerPath, ["volume", "inspect", volume])) fail(`restore volume already exists: ${volume}`);
   docker(dockerPath, ["volume", "create", volume]);
-  docker(dockerPath, ["create", "--name", helper, "--entrypoint", "/bin/sh", "-v", `${volume}:/var/lib/carmediahub`, image, "-c", "while :; do sleep 3600; done"]);
+  let restored = false;
   try {
+    docker(dockerPath, ["create", "--name", helper, "--entrypoint", "/bin/sh", "-v", `${volume}:/var/lib/carmediahub`, image, "-c", "while :; do sleep 3600; done"]);
     docker(dockerPath, ["start", helper]);
     docker(dockerPath, ["cp", snapshot, `${helper}:/tmp/cmh-snapshot`]);
     docker(dockerPath, ["exec", helper, "node", "dist/backup-cli.js", "restore", "--snapshot", "/tmp/cmh-snapshot", "--data-dir", "/tmp/cmh-restored-data"]);
     docker(dockerPath, ["exec", helper, "cp", "-a", "/tmp/cmh-restored-data/.", "/var/lib/carmediahub/"]);
+    restored = true;
   } finally {
-    docker(dockerPath, ["rm", "-f", helper]);
+    if (dockerExists(dockerPath, ["container", "inspect", helper])) docker(dockerPath, ["rm", "-f", helper]);
+    if (!restored) docker(dockerPath, ["volume", "rm", volume]);
   }
   return { action: "restore", container, image, volume, snapshot };
 }
