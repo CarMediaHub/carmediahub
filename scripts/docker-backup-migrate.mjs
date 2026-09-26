@@ -20,6 +20,10 @@ function executablePath(args) {
   return value;
 }
 
+function validImageName(value) {
+  return imagePattern.test(value) && !value.includes("//") && !value.startsWith("/") && !/(^|\/)\.\.?($|\/)/u.test(value);
+}
+
 export function parseDockerBackupArgs(args) {
   const normalized = args.filter((value) => value !== "--");
   const action = normalized[0];
@@ -35,7 +39,7 @@ export function parseDockerBackupArgs(args) {
   const image = option(normalized, "--image");
   const volume = option(normalized, "--volume");
   const snapshot = path.resolve(option(normalized, "--snapshot"));
-  if (!imagePattern.test(image) || !namePattern.test(volume)) fail("image and volume names are invalid");
+  if (!validImageName(image) || !namePattern.test(volume)) fail("image and volume names are invalid");
   return { action, dockerPath, container, image, volume, snapshot };
 }
 
@@ -70,7 +74,8 @@ export function exportDockerBackup({ dockerPath, container, output }) {
 }
 
 export function restoreDockerBackup({ dockerPath, container, image, volume, snapshot }) {
-  if (!fs.existsSync(snapshot) || !fs.statSync(snapshot).isDirectory()) fail("snapshot must be an existing directory");
+  const snapshotStat = fs.existsSync(snapshot) ? fs.lstatSync(snapshot) : undefined;
+  if (snapshotStat === undefined || !snapshotStat.isDirectory() || snapshotStat.isSymbolicLink()) fail("snapshot must be a real directory");
   const helper = `${container}-restore`;
   if (dockerExists(dockerPath, ["volume", "inspect", volume])) fail(`restore volume already exists: ${volume}`);
   docker(dockerPath, ["volume", "create", volume]);

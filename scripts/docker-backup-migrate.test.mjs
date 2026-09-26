@@ -21,4 +21,5 @@ test("rejects implicit or unsafe Docker targets", () => {
   assert.throws(() => parseDockerBackupArgs(["restore", "--docker", dockerPath, "--container", "cmh-core", "--image", "core image", "--volume", "cmh-data", "--snapshot", "./snapshot"]), /image and volume names are invalid/u);
   assert.throws(() => parseDockerBackupArgs(["export", "--docker", dockerPath, "--container", "cmh-core", "--output", "./snapshot", "--volume", "cmh-data"]), /does not accept/u);
   assert.throws(() => parseDockerBackupArgs(["export", "--container", "cmh-core", "--output", "./snapshot"]), /--docker requires/u);
+  assert.throws(() => parseDockerBackupArgs(["restore", "--docker", dockerPath, "--container", "cmh-core", "--image", "registry/../core:latest", "--volume", "cmh-data", "--snapshot", "./snapshot"]), /image and volume names are invalid/u);
 });
