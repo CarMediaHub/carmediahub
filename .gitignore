@@ -4,6 +4,8 @@ coverage/
 data/
 components/
 public/admin/
+.umi-production/
+admin/src/.umi-production/
 *.tsbuildinfo
 sbom/
 .env
