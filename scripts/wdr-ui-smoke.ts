@@ -104,8 +104,13 @@ async function main(): Promise<void> {
     await mobilePage.getByRole("button", { name: "播放" }).waitFor({ state: "visible", timeout: 10_000 });
     const columns = await mobilePage.locator(".library").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
     if (columns !== 2) throw new Error(`Mobile WDR library expected two columns, received ${columns}`);
+    await mobilePage.getByRole("button", { name: "播放" }).click();
+    await mobilePage.getByRole("button", { name: "全屏" }).waitFor({ state: "visible", timeout: 10_000 });
+    const mobileFullscreenDisabled = await mobilePage.getByRole("button", { name: "全屏" }).isDisabled();
+    if (!mobileFullscreenDisabled) throw new Error("Mobile WDR fullscreen control should be disabled without host capability");
+    await mobilePage.getByRole("button", { name: "关闭" }).click();
     if (failures.length > 0) throw new Error(`WDR UI page errors: ${failures.join("; ")}`);
-    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, fullscreenControl, fullscreenEnabled, mobileColumns: columns, silent: true }, null, 2));
+    console.log(JSON.stringify({ desktop: desktopPage.url(), mobile: mobilePage.url(), locale: "zh-CN", mediaItems: 1, fullscreenControl, fullscreenEnabled, mobileColumns: columns, mobileFullscreenDisabled, silent: true }, null, 2));
     await desktop.close();
     await mobile.close();
   } finally {
