@@ -89,7 +89,14 @@ pnpm backup backup --data-dir .\data --output .\snapshots\cmh-01
 pnpm backup restore --snapshot .\snapshots\cmh-01 --data-dir .\restored-data
 ```
 
-For Docker, do not write the snapshot directly to a host bind mount from the non-root Core container, and do not restore into a data directory that the container has already initialized. Export a snapshot from a writable operator-controlled staging path, restore it into a new empty data directory or volume, verify it before starting Core, and keep the original volume for rollback. The repository does not yet provide a cross-platform Docker backup migration helper.
+For Docker, do not write the snapshot directly to a host bind mount from the non-root Core container, and do not restore into a data directory that the container has already initialized. Export a snapshot from a writable operator-controlled staging path, restore it into a new empty data directory or volume, verify it before starting Core, and keep the original volume for rollback.
+
+The explicit `docker:backup-migrate` helper requires Node and Docker CLI in the same operator environment. Pass the absolute Docker executable path; it refuses an existing restore volume and uses an isolated container staging path:
+
+```text
+pnpm docker:backup-migrate -- export --docker /absolute/path/to/docker --container cmh-core --output ./snapshots/cmh-01
+pnpm docker:backup-migrate -- restore --docker /absolute/path/to/docker --container cmh-core-restored --image carmediahub-core:latest --volume cmh-restored-data --snapshot ./snapshots/cmh-01
+```
 
 Before changing a Native bundle, run the read-only upgrade preflight with an explicit, verified snapshot:
 
