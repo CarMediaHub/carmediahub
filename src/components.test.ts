@@ -17,6 +17,15 @@ test("loads the built-in component catalog without environment discovery", () =>
   assert.deepEqual(Object.fromEntries(catalog.map((item) => [item.id, item.provides])), {
     alist: ["storage-service"], rclone: ["storage-service", "webdav"], ffmpeg: ["media-processing"], sevenzip: ["archive"], mihomo: ["network-egress"], chromium: ["browser-engine"]
   });
+  assert.deepEqual(Object.fromEntries(catalog.map((item) => [item.id, item.kind])), {
+    alist: "service", rclone: "service", ffmpeg: "media-tool", sevenzip: "utility", mihomo: "network-service", chromium: "service"
+  });
+  for (const component of catalog) {
+    assert.ok(component.platforms.includes("windows-x64"));
+    assert.ok(component.platforms.includes("linux-x64"));
+    assert.equal(component.status, "catalog-only");
+    assert.equal(component.version, "not-installed");
+  }
   assert.ok(catalog[2]!.platforms.includes(currentPlatformKey()));
   assert.ok(resolveManagedExecutable("C:/cmh-data", catalog[2]!).endsWith(`components\\ffmpeg\\ffmpeg${process.platform === "win32" ? ".exe" : ""}`) || resolveManagedExecutable("C:/cmh-data", catalog[2]!).endsWith(`components/ffmpeg/ffmpeg${process.platform === "win32" ? ".exe" : ""}`));
   assert.equal(componentExecutableName(catalog[2]!), `ffmpeg${process.platform === "win32" ? ".exe" : ""}`);
